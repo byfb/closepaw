@@ -30,7 +30,7 @@ class GptLiveTransportTest {
         }
     }
 
-    @Test fun previewNegotiatesReceiveOnlyAndDoesNotStartMicrophone() = runBlocking {
+    @Test fun previewNegotiatesAudioAndDoesNotStartMicrophone() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         ActivityScenario.launch(MainActivity::class.java).use {
             withTimeout(25_000) { callOnce(context, captureMicrophone = false) }
@@ -39,7 +39,13 @@ class GptLiveTransportTest {
 
     private suspend fun callOnce(context: android.content.Context, captureMicrophone: Boolean = true) {
         PeerConnectionFactory.initialize(PeerConnectionFactory.InitializationOptions.builder(context).createInitializationOptions())
-        val audio = JavaAudioDeviceModule.builder(context).createAudioDeviceModule()
+        val audio = JavaAudioDeviceModule.builder(context)
+            .setAudioBufferCallback { _, _, _, _, _, _ ->
+                android.os.SystemClock.sleep(10)
+                System.nanoTime()
+            }.createAudioDeviceModule().apply {
+            setAudioRecordEnabled(false)
+        }
         val remoteFactory = try { PeerConnectionFactory.builder().setAudioDeviceModule(audio).createPeerConnectionFactory() }
             finally { audio.release() }
         val gathered = CompletableDeferred<Unit>()
@@ -87,8 +93,8 @@ class GptLiveTransportTest {
         val transport = WebRtcLiveTransport(context, createCall = { offer, _ ->
             assertTrue("The one-shot offer must include ICE candidates", offer.contains("a=candidate:"))
             if (!captureMicrophone) {
-                assertTrue(offer.contains("a=recvonly"))
-                assertFalse(offer.contains("a=sendrecv"))
+                assertTrue(offer.contains("a=sendrecv"))
+                assertFalse(offer.contains("closepaw-microphone"))
             }
             setSdp(remote, SessionDescription(SessionDescription.Type.OFFER, offer), false)
             val answer = suspendCancellableCoroutine<SessionDescription> { continuation ->

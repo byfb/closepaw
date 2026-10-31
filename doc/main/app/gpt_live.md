@@ -40,20 +40,23 @@ Voice preferences are shared by the app and widget:
 
 | Setting | Choices |
 | --- | --- |
-| Voice | Marin (default), Cedar |
+| Voice | Cove (default), Juniper, Maple, Spruce, Ember, Vale, Breeze, Arbor, Sol |
 | Reply language | Follow conversation, Hong Kong Cantonese, Mandarin, English |
 | Tone | Natural, Calm, Lively |
 
 Preferences are snapshotted for each new voice session. Language and tone become
 instructions; they do not configure a separate transcription engine or a numeric
 speed control. Changing them does not reconnect an active call or rebuild the
-worker. The two voice IDs are protocol candidates, not an account capability
-discovery result; account acceptance and pronunciation still need real-account
-verification. A rejected configuration is shown as an error without silently
-substituting another voice.
+worker. Voice IDs come from the official Codex v3 catalog. Saved Marin/Cedar
+selections from older ClosePaw versions resolve to Cove, preserving language and
+tone. Those public Realtime v2 voices can return HTTP 201 on the Codex route
+without ever completing the media handshake. A rejected configuration is shown
+as an error without retrying another voice.
 
-**Preview voice** starts a separate receive-only WebRTC session with the selected
-preferences and a short sample. It creates no microphone track, never dispatches
+**Preview voice** starts a separate WebRTC session with the selected
+preferences and a short sample. It negotiates duplex audio, which Codex v3 needs
+to play speakable context, while disabling Android recording and using the SDK's
+synthetic silence path. It creates no microphone track, never dispatches
 delegations, and cannot start during a live conversation. Stop it explicitly,
 leave the settings page, or let its 15-second playback window expire. A completed
 transcript does not end playback. Speaking status comes from native playback PCM
@@ -93,6 +96,7 @@ The request and v3 event shapes follow the official Codex source at
 - [`realtime_call.rs`](https://github.com/openai/codex/blob/a795f961be68383738e56ac396742b3e8451696a/codex-rs/codex-api/src/endpoint/realtime_call.rs)
 - [`methods_frameless_bidi.rs`](https://github.com/openai/codex/blob/a795f961be68383738e56ac396742b3e8451696a/codex-rs/codex-api/src/endpoint/realtime_websocket/methods_frameless_bidi.rs)
 - [`protocol_frameless_bidi.rs`](https://github.com/openai/codex/blob/a795f961be68383738e56ac396742b3e8451696a/codex-rs/codex-api/src/endpoint/realtime_websocket/protocol_frameless_bidi.rs)
+- [`RealtimeVoicesList::builtin`](https://github.com/openai/codex/blob/a795f961be68383738e56ac396742b3e8451696a/codex-rs/protocol/src/protocol.rs#L356)
 
 The public [GPT-Live delegation guide](https://developers.openai.com/api/docs/guides/live-delegation)
 explains the division between live conversation and client-owned task execution;
@@ -156,7 +160,7 @@ failure, cancellation, malformed events, duplicate handoffs, transcript assembly
 Unicode feedback, preference persistence, request configuration, playback activity,
 and task outcome presentation. `GptLiveTransportTest` establishes two successive native
 WebRTC loopback calls, exchanges events in both directions, toggles mute, and
-closes the transport. It also negotiates a receive-only preview and checks that
+closes the transport. It also negotiates a preview with recording disabled and checks that
 no microphone recording is active. It uses no account and sends no audio off the device.
 
 Local acceptance on Android 16 covered adding/resizing the launcher widget,
@@ -173,12 +177,23 @@ collapse/expand, approval controls, returning to chat, and agent gestures beneat
 the summary were checked, along with dark mode and 1.5× text in portrait and
 landscape. Chrome was not installed on this emulator.
 
-The authenticated remote voice test on 2026-10-31 accepted the HTTPS call request
-and returned SDP, then failed ICE connectivity. Diagnostic candidate-pair counters
-showed outgoing connectivity checks and no responses on the tested VPN connection.
-Matching the installed official desktop client's newer model/session fields did
-not change that result. Remote audio, spoken completion, and voice delegation
-remain unverified; local loopback success does not resolve this failure.
+Authenticated testing on 2026-10-31 isolated the connection failure to the voice
+catalog: with the same APK and ProtonVPN configuration, Marin returned HTTP 201
+but failed ICE, while Cove repeatedly opened the data channel and emitted
+`session.started`. A synthetic spoken request to open Android Settings was
+recognized, delegated to the phone agent, and completed with the floating summary
+visible over Settings.
+
+Release builds identify ClosePaw screens by their manifest activity names. Events
+from obfuscated overlay views must not switch the tracked location back to the
+main app and hide the floating summary.
+
+`GptLiveRemoteTest` is an opt-in check using an existing device login. It verifies
+Cove and Juniper sessions, response transcripts, playback PCM activity, and the
+absence of Android recording streams during preview. Run it with the direct
+instrumentation command above, replacing the class with
+`ai.closepaw.qa.GptLiveRemoteTest` and adding `-e live_remote true`. The test also
+works with microphone permission denied; it is skipped by the normal device suite.
 
 For a real account test, sign in inside ClosePaw, start GPT-Live, ask it to open
 Android Settings, and confirm both task execution and spoken completion. Also

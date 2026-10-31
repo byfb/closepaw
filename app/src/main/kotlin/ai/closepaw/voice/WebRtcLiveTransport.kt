@@ -60,7 +60,19 @@ internal class WebRtcLiveTransport(
                         playback.accept(samples.data, android.os.SystemClock.elapsedRealtime())?.let(onPlaybackChanged)
                     }
                 }
-                .createAudioDeviceModule()
+                .apply {
+                    if (!captureMicrophone) setAudioBufferCallback { _, _, _, _, _, _ ->
+                        // Without AudioRecord.read(), the SDK requires us to pace its
+                        // zero-filled 10 ms buffers on the dedicated audio thread.
+                        android.os.SystemClock.sleep(10)
+                        System.nanoTime()
+                    }
+                }
+                .createAudioDeviceModule().apply {
+                    // An audio transceiver can start the ADM even without a microphone track.
+                    // Preview uses the SDK's synthetic silence path and never opens AudioRecord.
+                    setAudioRecordEnabled(captureMicrophone)
+                }
             factory = try {
                 PeerConnectionFactory.builder().setAudioDeviceModule(audio).createPeerConnectionFactory()
             } finally { audio.release() }
@@ -109,8 +121,10 @@ internal class WebRtcLiveTransport(
                     connection.addTrack(it, listOf("closepaw-audio"))
                 }
             } else {
+                // Codex v3 does not play speakable context for a recvonly offer. Negotiate
+                // duplex media without a capture track; AudioRecord remains disabled above.
                 connection.addTransceiver(MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO,
-                    RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.RECV_ONLY))
+                    RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.SEND_RECV))
             }
             channel = connection.createDataChannel("oai-events", DataChannel.Init()).also { events ->
                 events.registerObserver(object : DataChannel.Observer {

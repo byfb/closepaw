@@ -49,10 +49,12 @@ internal fun resolveUserLocation(
     if (packageName != appPackage) return OverlayUserLocation.OTHER_APP
 
     val normalizedClassName = className?.substringBefore('$') ?: return null
-    return if (normalizedClassName.contains("VirtualDisplayViewerActivity")) {
-        OverlayUserLocation.VD_VIEWER
-    } else {
-        OverlayUserLocation.MAIN_APP
+    // Our overlay views also emit window events. Their release names can be
+    // obfuscated, so only the two manifest activities identify our app screens.
+    return when (normalizedClassName) {
+        "$appPackage.ui.viewer.VirtualDisplayViewerActivity" -> OverlayUserLocation.VD_VIEWER
+        "$appPackage.app.MainActivity" -> OverlayUserLocation.MAIN_APP
+        else -> null
     }
 }
 

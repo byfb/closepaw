@@ -34,6 +34,7 @@ class LiveCallClientTest {
         val body = Json.parseToJsonElement(request.body.readUtf8()).jsonObject
         assertThat(body.string("sdp")).isEqualTo("v=0\r\noffer")
         assertThat(body.obj("session")?.string("model")).isEqualTo("gpt-live-1-codex")
+        assertThat(body.obj("session")?.obj("audio")?.obj("output")?.string("voice")).isEqualTo("cove")
         assertThat(body.obj("session")?.obj("delegation")?.string("type")).isEqualTo("client")
         assertThat(body.toString()).doesNotContain("phone-token")
     }
@@ -50,9 +51,9 @@ class LiveCallClientTest {
     @Test fun `voice preferences configure the call without changing delegation or worker instructions`() = runBlocking {
         server.enqueue(MockResponse().setBody("v=0"))
         LiveCallClient(http, { CodexHeaders("token", "account", null) }, server.url("/calls").toString(),
-            LiveVoicePreferences(LiveVoice.CEDAR, LiveLanguage.CANTONESE, LiveTone.CALM)).create("v=0", "voice")
+            LiveVoicePreferences(LiveVoice.JUNIPER, LiveLanguage.CANTONESE, LiveTone.CALM)).create("v=0", "voice")
         val session = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject.obj("session")!!
-        assertThat(session.obj("audio")?.obj("output")?.string("voice")).isEqualTo("cedar")
+        assertThat(session.obj("audio")?.obj("output")?.string("voice")).isEqualTo("juniper")
         assertThat(session.string("instructions")).contains("Hong Kong Cantonese")
         assertThat(session.string("instructions")).contains("calm, steady")
         assertThat(session.string("instructions")).contains("Do not claim an action succeeded")

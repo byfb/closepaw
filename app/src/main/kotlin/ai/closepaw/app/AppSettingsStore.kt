@@ -169,7 +169,7 @@ class AppSettingsStore(private val context: Context) {
         val saved = prefs()
         return ai.closepaw.voice.LiveVoicePreferences(
             voice = ai.closepaw.voice.LiveVoice.entries.firstOrNull { it.id == saved.getString("live_voice", null) }
-                ?: ai.closepaw.voice.LiveVoice.MARIN,
+                ?: ai.closepaw.voice.LiveVoice.COVE,
             language = ai.closepaw.voice.LiveLanguage.entries.firstOrNull { it.name == saved.getString("live_language", null) }
                 ?: ai.closepaw.voice.LiveLanguage.AUTO,
             tone = ai.closepaw.voice.LiveTone.entries.firstOrNull { it.name == saved.getString("live_tone", null) }

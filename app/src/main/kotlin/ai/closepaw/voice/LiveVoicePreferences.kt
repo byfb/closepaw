@@ -2,7 +2,7 @@ package ai.closepaw.voice
 
 /** Voice preferences are snapshotted when a call starts, independently of the worker. */
 data class LiveVoicePreferences(
-    val voice: LiveVoice = LiveVoice.MARIN,
+    val voice: LiveVoice = LiveVoice.COVE,
     val language: LiveLanguage = LiveLanguage.AUTO,
     val tone: LiveTone = LiveTone.NATURAL,
 ) {
@@ -10,7 +10,16 @@ data class LiveVoicePreferences(
 }
 
 enum class LiveVoice(val id: String, val label: String) {
-    MARIN("marin", "Marin"), CEDAR("cedar", "Cedar");
+    // Codex v3 uses the ChatGPT voice catalog, not the public Realtime v2 catalog.
+    COVE("cove", "Cove"),
+    JUNIPER("juniper", "Juniper"),
+    MAPLE("maple", "Maple"),
+    SPRUCE("spruce", "Spruce"),
+    EMBER("ember", "Ember"),
+    VALE("vale", "Vale"),
+    BREEZE("breeze", "Breeze"),
+    ARBOR("arbor", "Arbor"),
+    SOL("sol", "Sol");
 }
 
 enum class LiveLanguage(val label: String, val instruction: String, val sample: String) {

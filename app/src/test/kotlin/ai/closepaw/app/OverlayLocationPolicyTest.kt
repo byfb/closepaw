@@ -125,6 +125,17 @@ class OverlayLocationPolicyTest {
     }
 
     @Test
+    fun `own overlay windows never change location including obfuscated release views`() {
+        for (windowClass in listOf("w1.i0", "ai.closepaw.ui.overlay.CustomOverlayView")) {
+            assertThat(resolveUserLocation(
+                appPackage = "ai.closepaw",
+                packageName = "ai.closepaw",
+                className = windowClass,
+            )).isNull()
+        }
+    }
+
+    @Test
     fun `resolve user location ignores non-default display windows`() {
         val location = resolveUserLocation(
             appPackage = "ai.closepaw",

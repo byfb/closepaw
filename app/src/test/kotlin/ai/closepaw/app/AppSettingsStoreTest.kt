@@ -40,7 +40,7 @@ class AppSettingsStoreTest {
         state.updateModel("worker-model")
         state.updateReasoningEffort("high")
         val voice = ai.closepaw.voice.LiveVoicePreferences(
-            ai.closepaw.voice.LiveVoice.CEDAR, ai.closepaw.voice.LiveLanguage.CANTONESE, ai.closepaw.voice.LiveTone.CALM)
+            ai.closepaw.voice.LiveVoice.JUNIPER, ai.closepaw.voice.LiveLanguage.CANTONESE, ai.closepaw.voice.LiveTone.CALM)
         state.updateLiveVoice(voice)
         val loaded = AppSettingsStore(context).load()
         assertThat(loaded.liveVoice).isEqualTo(voice)
@@ -55,9 +55,22 @@ class AppSettingsStoreTest {
         backing["live_language"] = "CANTONESE"
         backing["live_tone"] = "removed-tone"
         val loaded = AppSettingsStore(context).loadLiveVoice()
-        assertThat(loaded.voice).isEqualTo(ai.closepaw.voice.LiveVoice.MARIN)
+        assertThat(loaded.voice).isEqualTo(ai.closepaw.voice.LiveVoice.COVE)
         assertThat(loaded.language).isEqualTo(ai.closepaw.voice.LiveLanguage.CANTONESE)
         assertThat(loaded.tone).isEqualTo(ai.closepaw.voice.LiveTone.NATURAL)
+    }
+
+    @Test
+    fun `saved Realtime v2 voices upgrade to Cove while retaining language and tone`() {
+        for (retiredVoice in listOf("marin", "cedar")) {
+            backing["live_voice"] = retiredVoice
+            backing["live_language"] = "CANTONESE"
+            backing["live_tone"] = "CALM"
+            val loaded = AppSettingsStore(context).loadLiveVoice()
+            assertThat(loaded.voice).isEqualTo(ai.closepaw.voice.LiveVoice.COVE)
+            assertThat(loaded.language).isEqualTo(ai.closepaw.voice.LiveLanguage.CANTONESE)
+            assertThat(loaded.tone).isEqualTo(ai.closepaw.voice.LiveTone.CALM)
+        }
     }
 
     @Test

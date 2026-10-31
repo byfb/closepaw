@@ -90,7 +90,7 @@ internal class LiveCallClient(
                             if (answer != null && answer.startsWith("v=")) continuation.resume(answer)
                             else continuation.resumeWithException(LiveVoiceException(when (it.code) {
                                 in 200..299 -> "GPT-Live returned an invalid audio connection. Reconnect to try again."
-                                400 -> "GPT-Live rejected these voice settings. Try Marin and reconnect."
+                                400 -> "GPT-Live rejected the voice setup. Check the voice settings and reconnect."
                                 401 -> "ChatGPT sign-in expired. Sign in again."
                                 403, 404 -> "GPT-Live is not available for this ChatGPT account or sign-in route."
                                 429 -> "GPT-Live usage limit reached. Try again later."
