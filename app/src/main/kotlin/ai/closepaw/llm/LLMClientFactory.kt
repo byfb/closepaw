@@ -105,8 +105,6 @@ class LLMClientFactory(
                     CodexResponseClient(
                             headerSupplier = { store.codexHeaders(LLMProvider.OPENAI_CODEX) }
                     )
-            LLMProvider.OPENROUTER ->
-                    ChatCompletionClient(store.requireApiKey(LLMProvider.OPENROUTER), baseUrl)
             LLMProvider.OTHER -> {
                 // Hard-require a non-blank baseUrl at this boundary. If anything upstream
                 // produced a malformed OTHER entry (synth missing settings, stale catalog),

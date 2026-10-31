@@ -5,7 +5,7 @@ import ai.closepaw.llm.ModelEntry
 /**
  * One displayable row in the searchable grouped model picker. Carries the
  * canonical catalog key (`modelId` here is the catalog name, e.g.
- * `"openrouter:anthropic/claude-opus-4.7"`) plus the user-facing
+ * `"openai_api:gpt-5.5"`) plus the user-facing
  * `displayName` and the upstream `created` timestamp used for in-group sort.
  */
 data class ModelPickerRow(

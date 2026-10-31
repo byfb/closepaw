@@ -26,7 +26,7 @@ class ModelPickerTest {
     @Test
     fun `OTHER entries without slash land in other group, which tails`() {
         val entries = listOf(
-            entry("openrouter:openai/gpt-5", "openai/gpt-5"),
+            entry("other:openai/gpt-5", "openai/gpt-5"),
             entry("other:bare-id", "bare-id"),
             entry("other:vendor/x", "vendor/x"),
         )
@@ -128,7 +128,7 @@ class ModelPickerTest {
     ): ModelEntry = ModelEntry(
         name = name,
         displayName = displayName,
-        provider = LLMProvider.OPENROUTER,
+        provider = LLMProvider.OTHER,
         api = ApiType.CHAT,
         modelId = modelId,
         contextWindow = 128_000,

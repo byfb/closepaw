@@ -13,7 +13,7 @@ import org.junit.Test
  * Unit tests for ChatCompletionInterop.
  *
  * These tests validate conversion of OpenAI Responses-API types to Chat-Completions-API
- * message params, which is the real external contract for provider routing (OpenRouter /
+ * message params, which is the real external contract for provider routing (compatible endpoint /
  * chat-style models).
  */
 class ChatCompletionInteropTest {

@@ -49,8 +49,7 @@ class PermissionStepStateTest {
         val catalogJson = """
             {
               "oai-resp":{"display_name":"OAI","provider":"OPENAI_API","api":"response","model_id":"gpt-test","base_url":"$baseUrl"},
-              "oai-codex":{"display_name":"Codex","provider":"OPENAI_CODEX","api":"response","model_id":"gpt-test"},
-              "or-chat":{"display_name":"OR","provider":"OPENROUTER","api":"chat","model_id":"or-test","base_url":"$baseUrl"}
+              "oai-codex":{"display_name":"Codex","provider":"OPENAI_CODEX","api":"response","model_id":"gpt-test"}
             }
         """.trimIndent()
         catalog = ModelCatalog.fromJson(catalogJson)

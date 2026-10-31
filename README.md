@@ -25,7 +25,7 @@ ClosePaw is an open-source **agent harness for Android**. Give it a natural-lang
 - 👀 **Watch every step, pause anytime.** Tap circles and swipe lines show exactly what the agent is doing. Pause, take over, or stop in one tap.
 - 📱 **On your phone, with your real accounts.** No laptop tethered over ADB, no cloud emulator with empty logins — ClosePaw runs locally against the apps you're already signed into.
 - 🪟 **Doesn't take your phone hostage.** Optional background mode lets the agent work on a virtual screen while you keep scrolling, texting, or watching video. *(Needs [Shizuku](https://shizuku.rikka.app/).)*
-- 🔓 **Use any AI.** Bring your own — OpenAI key, sign in with ChatGPT/Codex, OpenRouter, or any OpenAI-compatible endpoint. No vendor lock-in.
+- 🔓 **Use any AI.** Bring your own — OpenAI key, sign in with ChatGPT/Codex, or any OpenAI-compatible endpoint. No vendor lock-in.
 - 🛡️ **Safe by default.** Banking, authenticator, and crypto-wallet apps are hard-blocked — no setting can override. Unfamiliar apps prompt for per-app approval (always-allow / session-only / deny). Screens marked `FLAG_SECURE` are invisible to the agent's perception by design.
 - 🔐 **Private by design.** No telemetry, no third-party analytics. Traces stay on device. Apache 2.0.
 
@@ -61,7 +61,7 @@ ClosePaw is an open-source **agent harness for Android**. Give it a natural-lang
   - 🐧 **`termux_shell`** — full Linux toolchain on the device: `python` / `git` / `curl` / `jq`, plus anything you `pkg install`. Needs [Termux](https://github.com/termux/termux-app).
   - 🌐 **`browser_script`** — JS automation against real Chrome via Chrome DevTools Protocol; loops, branches, and retries happen inside one tool call. Needs Chrome + [Shizuku](https://shizuku.rikka.app/).
 - 🪟 **Virtual display platform.** Hybrid background sessions via Shizuku — the agent operates a parallel Android display so the foreground stays yours.
-- 🔌 **Pluggable LLM layer.** OpenAI-compatible API is the contract. ChatGPT/Codex OAuth flow built in. First-class: OpenAI, OpenRouter; or any OpenAI-compatible endpoint via the *Other* slot (Anthropic, Groq, Together, your own proxy).
+- 🔌 **Pluggable LLM layer.** OpenAI-compatible API is the contract. ChatGPT/Codex OAuth flow built in. First-class: OpenAI; or any OpenAI-compatible endpoint via the *Other* slot (Anthropic, Groq, Together, your own proxy).
 - 👁️ **Pluggable perception.** Accessibility tree by default; optional point-in-time screenshots in screenshot/hybrid modes.
 - 🔍 **Inspectable traces.** Every session writes LLM calls, tool calls, and perception snapshots to on-device storage; pull with `adb` for inspection.
 - 🔁 **Eval-driven agent-harness autotune loop.** Run an AndroidWorld task suite (`eval/`) against the agent; an autotune harness analyzes failures, proposes prompt / tool / skill fixes, and re-runs.
@@ -71,7 +71,7 @@ ClosePaw is an open-source **agent harness for Android**. Give it a natural-lang
 ### Prerequisites
 
 - An Android device or emulator running **API 31+** (Android 12 or later)
-- An **OpenAI** or **OpenRouter** API key — or sign in with your ChatGPT account via OAuth — or any OpenAI-compatible endpoint (base URL + key) configured under *Other*
+- An **OpenAI** API key — or sign in with your ChatGPT account via OAuth — or any OpenAI-compatible endpoint (base URL + key) configured under *Other*
 - *(Optional, for Power Tools)* [Shizuku](https://shizuku.rikka.app/) and/or [Termux from F-Droid](https://f-droid.org/packages/com.termux/)
 
 ### Install the app
@@ -123,7 +123,7 @@ High-level layers:
 - **Agent loop** — ReAct turn engine, optional `delegate_task` subagent delegation, todo + scratchpad state, cross-session memory
 - **Tools** — UI primitives (`mobile_action`, `open_app`, `system_button`); working memory & control (`todo`, `scratchpad`, `remember_experience`, `delegate_task`, `activate_skill`); advanced (`shell`, `termux_shell` needs Termux, `browser_script` needs Shizuku)
 - **Platforms** — `AccessibilityPlatform` for normal use, `VirtualDisplayPlatform` (Shizuku) for hybrid background sessions
-- **LLM** — pluggable clients (OpenAI / OpenRouter / OpenAI-compatible "Other"), OAuth flow for ChatGPT sign-in, model catalog, retry infrastructure
+- **LLM** — pluggable clients (OpenAI / OpenAI-compatible "Other"), OAuth flow for ChatGPT sign-in, model catalog, retry infrastructure
 
 Full design docs live under [`doc/main/`](doc/main/README.md). Start there for the agent loop, tool protocol contracts, and platform abstraction.
 

@@ -32,7 +32,7 @@ def _bridge_config() -> BridgeConfig:
         agent_mode="basic",
         perception_mode="accessibility_only",
         platform_mode="accessibility",
-        main_model="minimax-m2.5",
+        main_model="gpt-5.5",
         executor_model="",
         max_turns=30,
         auto_start=True,
@@ -190,31 +190,31 @@ class RunnerApiKeyValidationTest(unittest.TestCase):
     def test_openai_protocol_uses_model_provider_key(self) -> None:
         config = _runner_config()
         config.bridge.llm_backend = "openai"
-        config.bridge.main_model = "glm-5"
+        config.bridge.main_model = "other-test"
         workspace = self._workspace_with_catalog(
             {
-                "glm-5": {"provider": "OPENROUTER"},
+                "other-test": {"provider": "OTHER"},
             }
         )
 
         with mock.patch("eval.aw_bridge.runner.socket.create_connection"):
             _validate_required_api_key(
                 config,
-                {"OPENROUTER_API_KEY": "ok"},
+                {"OTHER_API_KEY": "ok"},
                 workspace_root=workspace,
             )
 
     def test_missing_provider_key_raises(self) -> None:
         config = _runner_config()
         config.bridge.llm_backend = "openai"
-        config.bridge.main_model = "glm-5"
+        config.bridge.main_model = "other-test"
         workspace = self._workspace_with_catalog(
             {
-                "glm-5": {"provider": "OPENROUTER"},
+                "other-test": {"provider": "OTHER"},
             }
         )
 
-        with self.assertRaisesRegex(RuntimeError, "OPENROUTER_API_KEY"):
+        with self.assertRaisesRegex(RuntimeError, "OTHER_API_KEY"):
             _validate_required_api_key(config, {}, workspace_root=workspace)
 
     def test_local_backend_skips_cloud_key_validation(self) -> None:
@@ -227,19 +227,19 @@ class RunnerApiKeyValidationTest(unittest.TestCase):
     def test_mixed_main_and_executor_require_both_keys(self) -> None:
         config = _runner_config()
         config.bridge.llm_backend = "openai"
-        config.bridge.main_model = "glm-5"
+        config.bridge.main_model = "other-test"
         config.bridge.executor_model = "gpt-5.2"
         workspace = self._workspace_with_catalog(
             {
-                "glm-5": {"provider": "OPENROUTER"},
-                "gpt-5.2": {"provider": "OPENAI"},
+                "other-test": {"provider": "OTHER"},
+                "gpt-5.2": {"provider": "OPENAI_API"},
             }
         )
 
         with self.assertRaisesRegex(RuntimeError, "OPENAI_API_KEY"):
             _validate_required_api_key(
                 config,
-                {"OPENROUTER_API_KEY": "ok"},
+                {"OTHER_API_KEY": "ok"},
                 workspace_root=workspace,
             )
 
@@ -247,7 +247,7 @@ class RunnerApiKeyValidationTest(unittest.TestCase):
         config = _runner_config()
         config.bridge.llm_backend = "openai"
         config.bridge.main_model = "gpt-5.4"
-        workspace = self._workspace_with_catalog({"gpt-5.4": {"provider": "OPENAI"}})
+        workspace = self._workspace_with_catalog({"gpt-5.4": {"provider": "OPENAI_API"}})
 
         with mock.patch(
             "eval.aw_bridge.runner.socket.create_connection",
@@ -270,7 +270,7 @@ class RunnerApiKeyValidationTest(unittest.TestCase):
         config = _runner_config()
         config.bridge.llm_backend = "openai"
         config.bridge.main_model = "gpt-5.4"
-        workspace = self._workspace_with_catalog({"gpt-5.4": {"provider": "OPENAI"}})
+        workspace = self._workspace_with_catalog({"gpt-5.4": {"provider": "OPENAI_API"}})
 
         mocked_socket = mock.MagicMock()
         mocked_socket.__enter__.return_value = mocked_socket
@@ -372,7 +372,7 @@ class RunnerConfigLoadingTest(unittest.TestCase):
                 "  agent_mode: basic\n"
                 "  perception_mode: accessibility_only\n"
                 "  platform_mode: accessibility\n"
-                "  main_model: minimax-m2.5\n"
+                "  main_model: gpt-5.5\n"
                 "  executor_model: \"\"\n"
                 "  max_turns: 30\n"
                 "  auto_start: true\n"

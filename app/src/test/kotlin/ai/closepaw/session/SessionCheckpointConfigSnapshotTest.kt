@@ -13,6 +13,13 @@ import org.junit.Test
 class SessionCheckpointConfigSnapshotTest {
 
     @Test
+    fun `retired provider checkpoint migrates model`() {
+        val restored = SessionConfig(mainModel = "openrouter:vendor/model")
+            .toConfigSnapshot().toSessionConfig()
+        assertThat(restored.mainModel).isEqualTo(ai.closepaw.llm.ModelCatalog.DEFAULT_MODEL)
+    }
+
+    @Test
     fun `config snapshot round trip preserves llm routing`() {
         val config =
             SessionConfig(

@@ -39,12 +39,12 @@ class SessionServicesProviderRoutingTest {
   }
 
   @Test
-  fun `openrouter model works without openai key`() {
+  fun `other model works without openai key`() {
     val context = contextWithCatalog()
     installFixtureCatalogRepo(context)
     val authStore = AuthStore(context, prefsProvider = { FakeSharedPreferences() })
     runBlocking {
-      authStore.set(LLMProvider.OPENROUTER, AuthCredential.ApiKey("sk-or-test"))
+      authStore.set(LLMProvider.OTHER, AuthCredential.ApiKey("sk-or-test"))
     }
     val config =
             SessionConfig(
@@ -161,9 +161,10 @@ class SessionServicesProviderRoutingTest {
           },
           "glm-4.7": {
             "display_name": "GLM-4.7",
-            "provider": "OPENROUTER",
+            "provider": "OTHER",
             "api": "chat",
-            "model_id": "z-ai/glm-4.7"
+            "model_id": "z-ai/glm-4.7",
+            "base_url": "https://example.test/v1"
           },
           "other-model": {
             "display_name": "Custom Other Model",

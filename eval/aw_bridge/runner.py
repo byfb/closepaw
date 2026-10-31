@@ -65,11 +65,11 @@ class RunnerConfig:
 
 _PROVIDER_REQUIRED_API_KEY = {
     "OPENAI": "OPENAI_API_KEY",
-    "OPENROUTER": "OPENROUTER_API_KEY",
+    "OPENAI_API": "OPENAI_API_KEY",
     "OTHER": "OTHER_API_KEY",
 }
 
-_API_KEY_NAMES = ("OPENAI_API_KEY", "OPENROUTER_API_KEY", "OTHER_API_KEY")
+_API_KEY_NAMES = ("OPENAI_API_KEY", "OTHER_API_KEY")
 _ENV_EXTRAS = ("OPENAI_BASE_URL", "OTHER_BASE_URL", "OTHER_MODEL_ID")
 # When `main_model == "other-custom"` (the synth catalog entry that the app builds
 # at runtime from AppSettingsState), llm_models.json doesn't list the model, so
@@ -270,7 +270,7 @@ def load_config(workspace_root: Path, args: argparse.Namespace) -> RunnerConfig:
         agent_mode=str(bridge_cfg.get("agent_mode", "pro")),
         perception_mode=str(bridge_cfg.get("perception_mode", "accessibility_only")),
         platform_mode=str(args.platform_mode or bridge_cfg.get("platform_mode", "accessibility")),
-        main_model=str(bridge_cfg.get("main_model", "minimax-m2.5")),
+        main_model=str(bridge_cfg.get("main_model", "gpt-5.5")),
         executor_model=str(bridge_cfg.get("executor_model", "")),
         max_turns=int(bridge_cfg.get("max_turns", 30)),
         auto_start=bool(bridge_cfg.get("auto_start", True)),

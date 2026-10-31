@@ -7,25 +7,6 @@ import org.junit.Test
 class RefreshButtonGateTest {
 
     @Test
-    fun `OPENROUTER enabled when key present, disabled when blank`() {
-        val disabled = RefreshButtonGate.evaluate(
-            provider = LLMProvider.OPENROUTER,
-            apiKey = "",
-            otherBaseUrl = "",
-            allowDebugHttp = false,
-        )
-        assertThat(disabled).isInstanceOf(RefreshButtonGate.State.Disabled::class.java)
-
-        val enabled = RefreshButtonGate.evaluate(
-            provider = LLMProvider.OPENROUTER,
-            apiKey = "sk-or-abc",
-            otherBaseUrl = "",
-            allowDebugHttp = false,
-        )
-        assertThat(enabled).isEqualTo(RefreshButtonGate.State.Enabled)
-    }
-
-    @Test
     fun `OTHER disabled when key OR url blank`() {
         val keyBlank = RefreshButtonGate.evaluate(
             provider = LLMProvider.OTHER,

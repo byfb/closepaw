@@ -56,8 +56,7 @@ class ApiKeyStepStateTest {
         val catalogJson = """
             {
               "oai-resp":{"display_name":"OAI","provider":"OPENAI_API","api":"response","model_id":"gpt-test","base_url":"$baseUrl"},
-              "oai-codex":{"display_name":"Codex","provider":"OPENAI_CODEX","api":"response","model_id":"gpt-test"},
-              "or-chat":{"display_name":"OR","provider":"OPENROUTER","api":"chat","model_id":"or-test","base_url":"$baseUrl"}
+              "oai-codex":{"display_name":"Codex","provider":"OPENAI_CODEX","api":"response","model_id":"gpt-test"}
             }
         """.trimIndent()
         catalog = ModelCatalog.fromJson(catalogJson)
@@ -131,29 +130,6 @@ class ApiKeyStepStateTest {
     }
 
     @Test
-    fun `selectProvider non-OPENAI switches to MANUAL Empty`() = runTest {
-        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
-        val vm = makeVm(scope); drain(scope, this)
-
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
-        assertThat(vm.authMethod).isEqualTo(ApiKeyAuthMethod.MANUAL)
-        assertThat(vm.stepState).isEqualTo(ApiKeyStepState.Empty)
-        scope.coroutineContext.job.cancel()
-    }
-
-    @Test
-    fun `selectProvider OPENAI from OPENROUTER returns to OAuthReady`() = runTest {
-        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
-        val vm = makeVm(scope); drain(scope, this)
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
-
-        vm.selectProvider(OnboardingProvider.OPENAI_API)
-        assertThat(vm.authMethod).isEqualTo(ApiKeyAuthMethod.OAUTH)
-        assertThat(vm.stepState).isEqualTo(ApiKeyStepState.OAuthReady)
-        scope.coroutineContext.job.cancel()
-    }
-
-    @Test
     fun `selectAuthMethod MANUAL resets to Empty`() = runTest {
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
@@ -183,7 +159,7 @@ class ApiKeyStepStateTest {
     fun `Empty to Editing on non-blank key`() = runTest {
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL)
 
         vm.onApiKeyChanged("sk-x")
         assertThat(vm.stepState).isEqualTo(ApiKeyStepState.Editing("sk-x"))
@@ -194,7 +170,7 @@ class ApiKeyStepStateTest {
     fun `Editing to Empty on blank key`() = runTest {
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL)
         vm.onApiKeyChanged("sk-x")
 
         vm.onApiKeyChanged("")
@@ -206,7 +182,7 @@ class ApiKeyStepStateTest {
     fun `Editing to Empty on whitespace-only key (blank guard)`() = runTest {
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL)
         vm.onApiKeyChanged("sk-x")
 
         vm.onApiKeyChanged("   ")
@@ -216,10 +192,10 @@ class ApiKeyStepStateTest {
 
     @Test
     fun `Editing to Validating to Valid on 200, writes credential and advances`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"choices":[]}"""))
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"output":[]}"""))
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL)
         vm.onApiKeyChanged("sk-good")
 
         vm.validateApiKey()
@@ -227,8 +203,8 @@ class ApiKeyStepStateTest {
 
         assertThat(vm.outcomes.apiKey).isEqualTo(StepOutcome.Done)
         assertThat(vm.currentStep).isEqualTo(WizardStep.Demo)
-        coVerify { authStore.set(LLMProvider.OPENROUTER, AuthCredential.ApiKey("sk-good")) }
-        verify { settingsState.updateModel("or-chat") }
+        coVerify { authStore.set(LLMProvider.OPENAI_API, AuthCredential.ApiKey("sk-good")) }
+        verify { settingsState.updateModel("oai-resp") }
         verify { store.saveOutcome(WizardStep.ApiKey, StepOutcome.Done) }
         scope.coroutineContext.job.cancel()
     }
@@ -238,7 +214,7 @@ class ApiKeyStepStateTest {
         server.enqueue(MockResponse().setResponseCode(401))
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL)
         vm.onApiKeyChanged("sk-bad")
 
         vm.validateApiKey()
@@ -256,7 +232,7 @@ class ApiKeyStepStateTest {
         server.enqueue(MockResponse().setResponseCode(500))
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL)
         vm.onApiKeyChanged("sk-x")
 
         vm.validateApiKey()
@@ -273,7 +249,7 @@ class ApiKeyStepStateTest {
         server.enqueue(MockResponse().setResponseCode(401))
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL)
         vm.onApiKeyChanged("sk-bad")
         vm.validateApiKey(); drain(scope, this)
         assertThat(vm.stepState).isInstanceOf(ApiKeyStepState.Invalid::class.java)
@@ -288,7 +264,7 @@ class ApiKeyStepStateTest {
         server.enqueue(MockResponse().setResponseCode(401))
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL)
         vm.onApiKeyChanged("sk-bad")
         vm.validateApiKey(); drain(scope, this)
 
@@ -300,27 +276,27 @@ class ApiKeyStepStateTest {
     @Test
     fun `Invalid to Validating on validateApiKey reusing stored key`() = runTest {
         server.enqueue(MockResponse().setResponseCode(401))
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"choices":[]}"""))
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"output":[]}"""))
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL)
         vm.onApiKeyChanged("sk-bad")
         vm.validateApiKey(); drain(scope, this)
         assertThat(vm.stepState).isInstanceOf(ApiKeyStepState.Invalid::class.java)
 
         vm.validateApiKey(); drain(scope, this)
         assertThat(vm.outcomes.apiKey).isEqualTo(StepOutcome.Done)
-        coVerify { authStore.set(LLMProvider.OPENROUTER, AuthCredential.ApiKey("sk-bad")) }
+        coVerify { authStore.set(LLMProvider.OPENAI_API, AuthCredential.ApiKey("sk-bad")) }
         scope.coroutineContext.job.cancel()
     }
 
     @Test
     fun `TransientError to Validating via retryValidation`() = runTest {
         server.enqueue(MockResponse().setResponseCode(500))
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"choices":[]}"""))
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"output":[]}"""))
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL)
         vm.onApiKeyChanged("sk-x")
         vm.validateApiKey(); drain(scope, this)
         assertThat(vm.stepState).isInstanceOf(ApiKeyStepState.TransientError::class.java)
@@ -334,7 +310,7 @@ class ApiKeyStepStateTest {
     fun `validateApiKey returns TransientError when no model in catalog for provider`() = runTest {
         // Build a catalog WITHOUT OPENAI_API, then drive the VM into selecting OPENAI_API.
         // The provider→entry lookup must surface a TransientError rather than crashing.
-        catalog = ModelCatalog.fromJson("""{"or":{"display_name":"OR","provider":"OPENROUTER","api":"chat","model_id":"m","base_url":"${server.url("/v1")}"}}""")
+        catalog = ModelCatalog.fromJson("""{"other":{"display_name":"Other","provider":"OTHER","api":"chat","model_id":"m","base_url":"${server.url("/v1")}"}}""")
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
         vm.selectProvider(OnboardingProvider.OPENAI_API)
@@ -355,7 +331,7 @@ class ApiKeyStepStateTest {
     fun `validateApiKey from Empty is no-op`() = runTest {
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL)
 
         vm.validateApiKey(); drain(scope, this)
         assertThat(vm.stepState).isEqualTo(ApiKeyStepState.Empty)
@@ -369,10 +345,10 @@ class ApiKeyStepStateTest {
         // so the `else -> return` branch in validateApiKey() short-circuits any further
         // validation attempt. We can't easily pause mid-Valid (delay(400) runs under
         // UnconfinedTestDispatcher), so this characterizes the post-advance no-op path.
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"choices":[]}"""))
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"output":[]}"""))
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL)
         vm.onApiKeyChanged("sk-good")
         vm.validateApiKey(); drain(scope, this)
         assertThat(vm.currentStep).isEqualTo(WizardStep.Demo)
@@ -387,7 +363,7 @@ class ApiKeyStepStateTest {
     fun `retryValidation from non-TransientError is no-op`() = runTest {
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL)
         vm.onApiKeyChanged("sk-x")
 
         val before = vm.stepState
@@ -418,7 +394,7 @@ class ApiKeyStepStateTest {
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
 
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectProvider(OnboardingProvider.OPENAI_API)
         assertThat(vm.selectedProvider).isEqualTo(OnboardingProvider.OPENAI_API)
         scope.coroutineContext.job.cancel()
     }
@@ -439,10 +415,10 @@ class ApiKeyStepStateTest {
     fun `selectProvider with same provider is no-op (does not reset state)`() = runTest {
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL)
         vm.onApiKeyChanged("sk-x")
 
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectProvider(OnboardingProvider.OPENAI_API)
         assertThat(vm.stepState).isEqualTo(ApiKeyStepState.Editing("sk-x"))
         scope.coroutineContext.job.cancel()
     }
@@ -581,14 +557,14 @@ class ApiKeyStepStateTest {
     fun `re-entry with apiKey Done and manual credential yields Valid empty key`() = runTest {
         every { store.loadOutcomes() } returns onApiKeyStepOutcomes(apiKey = StepOutcome.Done)
         every { authStore.has(LLMProvider.OPENAI_CODEX) } returns false
-        every { authStore.has(LLMProvider.OPENROUTER) } returns true
+        every { authStore.has(LLMProvider.OPENAI_API) } returns true
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
         vm.goBack(); drain(scope, this)
 
         assertThat(vm.currentStep).isEqualTo(WizardStep.ApiKey)
         assertThat(vm.authMethod).isEqualTo(ApiKeyAuthMethod.MANUAL)
-        assertThat(vm.selectedProvider).isEqualTo(OnboardingProvider.OPENROUTER)
+        assertThat(vm.selectedProvider).isEqualTo(OnboardingProvider.OPENAI_API)
         val state = vm.stepState
         assertThat(state).isInstanceOf(ApiKeyStepState.Valid::class.java)
         assertThat((state as ApiKeyStepState.Valid).key).isEqualTo("")
@@ -633,20 +609,6 @@ class ApiKeyStepStateTest {
     }
 
     @Test
-    fun `fresh entry with Pending outcome auto-marks Done and advances when OPENROUTER api key exists`() = runTest {
-        every { store.loadOutcomes() } returns onApiKeyStepOutcomes(apiKey = StepOutcome.Pending)
-        every { authStore.has(LLMProvider.OPENAI_CODEX) } returns false
-        every { authStore.has(LLMProvider.OPENROUTER) } returns true
-        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
-
-        val vm = makeVm(scope); drain(scope, this)
-
-        assertThat(vm.outcomes.apiKey).isEqualTo(StepOutcome.Done)
-        assertThat(vm.currentStep).isEqualTo(WizardStep.Demo)
-        scope.coroutineContext.job.cancel()
-    }
-
-    @Test
     fun `fresh entry with Pending outcome auto-marks Done and advances when OPENAI_API api key exists`() = runTest {
         every { store.loadOutcomes() } returns onApiKeyStepOutcomes(apiKey = StepOutcome.Pending)
         every { authStore.has(LLMProvider.OPENAI_CODEX) } returns false
@@ -673,7 +635,7 @@ class ApiKeyStepStateTest {
             demo = StepOutcome.Pending,
         )
         every { authStore.has(LLMProvider.OPENAI_CODEX) } returns false
-        every { authStore.has(LLMProvider.OPENROUTER) } returns true
+        every { authStore.has(LLMProvider.OPENAI_API) } returns true
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
 
         val vm = makeVm(scope); drain(scope, this)
@@ -682,7 +644,7 @@ class ApiKeyStepStateTest {
         vm.goBack(); drain(scope, this)
 
         assertThat(vm.currentStep).isEqualTo(WizardStep.ApiKey)
-        assertThat(vm.selectedProvider).isEqualTo(OnboardingProvider.OPENROUTER)
+        assertThat(vm.selectedProvider).isEqualTo(OnboardingProvider.OPENAI_API)
         assertThat(vm.stepState).isInstanceOf(ApiKeyStepState.Valid::class.java)
         scope.coroutineContext.job.cancel()
     }

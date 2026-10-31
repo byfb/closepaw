@@ -99,7 +99,7 @@ object ModelDiscovery {
     }
 
     private fun extractItems(root: JsonElement): List<JsonObject>? {
-        // OpenAI / OpenRouter / Novita all wrap as `{data: [...]}`. Bare arrays
+        // OpenAI-compatible APIs all wrap as `{data: [...]}`. Bare arrays
         // are accepted for upstreams that don't.
         val arr = when (root) {
             is JsonArray -> root
@@ -185,7 +185,7 @@ object ModelDiscovery {
     }
 
     private fun readSupportsVision(obj: JsonObject): Boolean {
-        // OpenRouter: architecture.input_modalities = ["text","image"].
+        // Compatible endpoints: architecture.input_modalities = ["text","image"].
         val architectureModalities = (obj["architecture"] as? JsonObject)
             ?.get("input_modalities") as? JsonArray
         if (architectureModalities?.containsString("image") == true) return true
@@ -223,7 +223,7 @@ object ModelDiscovery {
             return if (endpoints.isEmpty()) false else !hasChat
         }
 
-        // 3. `architecture.modality` (OpenRouter) — `text->text` etc.
+        // 3. `architecture.modality` — `text->text` etc.
         val modality = (obj["architecture"] as? JsonObject)?.stringOrNull("modality")?.lowercase()
         if (modality != null) {
             if ("audio" in modality || "image->" in modality) return true

@@ -18,12 +18,11 @@ enum class StepOutcome { Pending, Done, Skipped }
  * base URL + model id, not viable from a wizard.
  */
 enum class OnboardingProvider(val label: String, val llmProvider: LLMProvider) {
-    OPENAI_API("OpenAI", LLMProvider.OPENAI_API),
-    OPENROUTER("OpenRouter", LLMProvider.OPENROUTER);
+    OPENAI_API("OpenAI", LLMProvider.OPENAI_API);
 
     companion object {
         /** Providers rendered in the onboarding provider picker. */
-        val visibleInUi: List<OnboardingProvider> = listOf(OPENAI_API, OPENROUTER)
+        val visibleInUi: List<OnboardingProvider> = listOf(OPENAI_API)
     }
 }
 

@@ -44,9 +44,10 @@ class LLMClientFactoryTest {
           },
           "glm-4.7": {
             "display_name": "GLM-4.7",
-            "provider": "OPENROUTER",
+            "provider": "OTHER",
             "api": "chat",
-            "model_id": "zhipu-ai/glm-4.7"
+            "model_id": "zhipu-ai/glm-4.7",
+            "base_url": "https://example.test/v1"
           }
         }
     """.trimIndent()
@@ -103,12 +104,12 @@ class LLMClientFactoryTest {
     fun `different providers get different clients`() = runBlocking {
         val store = realStore()
         store.set(LLMProvider.OPENAI_API, AuthCredential.ApiKey("sk-test"))
-        store.set(LLMProvider.OPENROUTER, AuthCredential.ApiKey("sk-or-test"))
+        store.set(LLMProvider.OTHER, AuthCredential.ApiKey("sk-or-test"))
         val factory = LLMClientFactory(catalog, store)
 
         val openai = factory.create("gpt-5.2-chat")
-        val openrouter = factory.create("glm-4.7")
-        assertNotSame(openai, openrouter)
+        val other = factory.create("glm-4.7")
+        assertNotSame(openai, other)
     }
 
     @Test
@@ -236,10 +237,10 @@ class LLMClientFactoryTest {
     @Test
     fun `catalog resolution returns correct model entry`() {
         val entry = catalog.resolve("glm-4.7")
-        assertEquals(LLMProvider.OPENROUTER, entry.provider)
+        assertEquals(LLMProvider.OTHER, entry.provider)
         assertEquals(ApiType.CHAT, entry.api)
         assertEquals("zhipu-ai/glm-4.7", entry.modelId)
-        assertEquals("https://openrouter.ai/api/v1", entry.effectiveBaseUrl)
+        assertEquals("https://example.test/v1", entry.effectiveBaseUrl)
     }
 
     // ── OTHER provider ──────────────────────────────────────────────────

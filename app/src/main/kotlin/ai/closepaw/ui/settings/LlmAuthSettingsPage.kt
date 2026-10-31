@@ -106,7 +106,7 @@ private val LlmAuthTab.defaultProvider: LLMProvider
     }
 
 /** Providers available in the API Key tab sub-selector. */
-private val API_KEY_PROVIDERS = listOf(LLMProvider.OPENAI_API, LLMProvider.OPENROUTER, LLMProvider.OTHER)
+private val API_KEY_PROVIDERS = listOf(LLMProvider.OPENAI_API, LLMProvider.OTHER)
 
 @Composable
 internal fun LlmAuthSettingsPage(
@@ -404,7 +404,7 @@ private fun ApiKeyTabContent(
                         index = index,
                         count = API_KEY_PROVIDERS.size
                     ),
-                    // Drop the default leading-checkmark slot: "OpenRouter" truncates
+                    // Drop the default leading-checkmark slot: long provider labels truncate
                     // when the icon eats into the (already weight-distributed) cell.
                     // The pill background + label weight already signal selection.
                     icon = {},
@@ -442,7 +442,7 @@ private fun ApiKeyTabContent(
     }
 
     SettingsSection(title = "Cloud Model") {
-        if (selectedProvider == LLMProvider.OPENROUTER || selectedProvider == LLMProvider.OTHER) {
+        if (selectedProvider == LLMProvider.OTHER) {
             SearchableGroupedModelPicker(
                 entries = modelCatalog.modelsFor(selectedProvider),
                 selectedName = selectedModel,
@@ -463,10 +463,8 @@ private fun ApiKeyTabContent(
                     // Pass the LIVE typed URL to the repo, not the persisted
                     // value: the 300ms persist debounce can lag the typed
                     // text and would otherwise route the current key to the
-                    // STALE persisted URL (Codex review CRITICAL #1). For
-                    // OPENROUTER, the URL is seed-fixed.
+                    // STALE persisted URL (Codex review CRITICAL #1).
                     val baseUrl = when (selectedProvider) {
-                        LLMProvider.OPENROUTER -> LLMProvider.OPENROUTER.defaultBaseUrl.orEmpty()
                         LLMProvider.OTHER ->
                             OtherBaseUrlValidator.validate(otherBaseUrlText).getOrNull().orEmpty()
                         else -> ""
@@ -489,7 +487,6 @@ private fun ApiKeyTabContent(
     SettingsSection(title = "API Key") {
         val label = when (selectedProvider) {
             LLMProvider.OPENAI_API -> "OpenAI Key"
-            LLMProvider.OPENROUTER -> "OpenRouter Key"
             LLMProvider.OTHER -> "API Key"
             LLMProvider.OPENAI_CODEX, LLMProvider.LOCAL_LFM -> null
         }

@@ -40,7 +40,7 @@ Cloud client using OpenAI Responses API with native function calling. Non-stream
 
 > See: `llm/ChatCompletionClient.kt`
 
-Cloud client using Chat Completions API. Works with any OpenAI-compatible endpoint (OpenRouter, OTHER user-configured base URL, vLLM, LM Studio, self-hosted). Converts types via `ChatCompletionInterop`. Tool call deltas accumulated incrementally by index. Like `OpenAIResponseClient`, holds the active stream in an `AtomicReference<AutoCloseable>` and cancels it on flow close.
+Cloud client using Chat Completions API. Works with any OpenAI-compatible endpoint (OTHER user-configured base URL, vLLM, LM Studio, self-hosted). Converts types via `ChatCompletionInterop`. Tool call deltas accumulated incrementally by index. Like `OpenAIResponseClient`, holds the active stream in an `AtomicReference<AutoCloseable>` and cancels it on flow close.
 
 ### CodexResponseClient
 
@@ -81,7 +81,6 @@ Seed catalog note: OpenAI models are mirrored per auth mode (API key vs ChatGPT 
 **LLMProvider** (flat enum, mode encoded per entry):
 - `OPENAI_API` (mode=ApiKey, default key: `OPENAI_API_KEY`)
 - `OPENAI_CODEX` (mode=OAuth, target: `chatgpt.com/backend-api/codex/responses`)
-- `OPENROUTER` (mode=ApiKey, base: `openrouter.ai`)
 - `OTHER` (mode=ApiKey, user-supplied base URL via `AppSettingsState.otherBaseUrl`; no hardcoded default)
 - `LOCAL_LFM` (mode=Local, on-device LFMLLMClient)
 
@@ -101,9 +100,9 @@ App-singleton (`ModelCatalogRepositoryHolder`) exposing `StateFlow<ModelCatalog>
 2. Synthesized `other-custom` row (when `otherBaseUrl` + `otherModelId` both valid).
 3. Discovered entries from `ModelDiscoveryCache`, scoped by current effective baseUrl per provider — stale cache entries for the OLD `otherBaseUrl` are hidden so the user can't accidentally send a fresh key to the wrong endpoint.
 
-`suspend fun refresh(provider, key)` (OPENROUTER + OTHER only) calls `ModelDiscovery.discover(provider, baseUrl, key)` — a single-file GET `{baseUrl}/models` reader with tolerant field priority (`display_name` | `name` | `id`; `context_length` | `context_size` | `top_provider.context_length`), mandatory tool-calling filter (drops entries that declare `supported_parameters` without `"tools"`), structured non-chat filter with id-substring fallback, and `supportsVision` defaulting to false unless upstream modality declares `"image"`. Discovered names are namespaced `"{provider.name.lowercase()}:{modelId}"` so they cannot collide with seed entries; modelIds are rejected if they contain whitespace or start with `:` or `/`. Cache file `filesDir/model_discovery_cache.json` is slim — compact field names, defaults omitted, baseUrl folded onto the bucket — so a ~440KB OpenRouter response collapses to ~30KB on disk. `discoveryState: StateFlow<DiscoveryState>` surfaces refresh status, last-fetched timestamp, and last error per provider for the settings UI.
+`suspend fun refresh(provider, key)` (OTHER only) calls `ModelDiscovery.discover(provider, baseUrl, key)` — a single-file GET `{baseUrl}/models` reader with tolerant field priority (`display_name` | `name` | `id`; `context_length` | `context_size` | `top_provider.context_length`), mandatory tool-calling filter (drops entries that declare `supported_parameters` without `"tools"`), structured non-chat filter with id-substring fallback, and `supportsVision` defaulting to false unless upstream modality declares `"image"`. Discovered names are namespaced `"{provider.name.lowercase()}:{modelId}"` so they cannot collide with seed entries; modelIds are rejected if they contain whitespace or start with `:` or `/`. Cache file `filesDir/model_discovery_cache.json` is slim — compact field names, defaults omitted, baseUrl folded onto the bucket — so a ~440KB upstream response collapses to ~30KB on disk. `discoveryState: StateFlow<DiscoveryState>` surfaces refresh status, last-fetched timestamp, and last error per provider for the settings UI.
 
-The Other / OpenRouter cloud-model picker (`SearchableGroupedModelPicker`) uses pure `ModelPicker.buildState` logic: search box flattens groups while filtering; default view groups by id prefix (`anthropic` / `openai` / `google` pinned, others alphabetical, vendorless ids go in `(other)`); within group sort by `created` desc; the selected row's group auto-expands and the list scrolls to it on open. `RefreshButtonGate` decides Enabled/Disabled per provider so the disabled tooltip names the missing piece (OPENROUTER needs key; OTHER needs key + valid URL).
+The Other cloud-model picker (`SearchableGroupedModelPicker`) uses pure `ModelPicker.buildState` logic: search box flattens groups while filtering; default view groups by id prefix (`anthropic` / `openai` / `google` pinned, others alphabetical, vendorless ids go in `(other)`); within group sort by `created` desc; the selected row's group auto-expands and the list scrolls to it on open. `RefreshButtonGate` decides Enabled/Disabled per provider so the disabled tooltip names the missing piece (OTHER needs key + valid URL).
 
 ---
 
@@ -111,7 +110,7 @@ The Other / OpenRouter cloud-model picker (`SearchableGroupedModelPicker`) uses 
 
 > See: `llm/LLMClientFactory.kt`
 
-Creates `LLMClient` instances from model names. Constructor takes the catalog, an `AuthStore` (single credential source), and a base-URL override map. Cached as `ConcurrentHashMap<modelName, Entry(generation, client)>` — atomic `compute()` for lookup+rebuild guarantees that a credential rotation never returns a stale client (factory consults `authStore.generation(provider)` and rebuilds when it changes). Routes purely on `entry.provider`: `OPENAI_API` (`ApiType.RESPONSE` → `OpenAIResponseClient`, `ApiType.CHAT` → `ChatCompletionClient`); `OPENROUTER`/`OTHER` → `ChatCompletionClient` with `authStore.requireApiKey(provider)` (OTHER additionally hard-requires non-blank `entry.baseUrl` and throws `MissingCredential(OTHER)` otherwise, so a malformed synth entry can't leak the user's key to api.openai.com); `OPENAI_CODEX` → `CodexResponseClient` with `headerSupplier = { authStore.codexHeaders(LLMProvider.OPENAI_CODEX) }`; `LOCAL_LFM` is rejected by the factory and constructed directly via `LFMLLMClient(context)` in `SessionLlmBootstrapper`. `requireApiKey` throws typed `MissingCredential` / `WrongCredentialType` errors that runtime surfaces as a startup-failure banner deep-link.
+Creates `LLMClient` instances from model names. Constructor takes the catalog, an `AuthStore` (single credential source), and a base-URL override map. Cached as `ConcurrentHashMap<modelName, Entry(generation, client)>` — atomic `compute()` for lookup+rebuild guarantees that a credential rotation never returns a stale client (factory consults `authStore.generation(provider)` and rebuilds when it changes). Routes purely on `entry.provider`: `OPENAI_API` (`ApiType.RESPONSE` → `OpenAIResponseClient`, `ApiType.CHAT` → `ChatCompletionClient`); `OTHER` → `ChatCompletionClient` with `authStore.requireApiKey(provider)` (OTHER additionally hard-requires non-blank `entry.baseUrl` and throws `MissingCredential(OTHER)` otherwise, so a malformed synth entry can't leak the user's key to api.openai.com); `OPENAI_CODEX` → `CodexResponseClient` with `headerSupplier = { authStore.codexHeaders(LLMProvider.OPENAI_CODEX) }`; `LOCAL_LFM` is rejected by the factory and constructed directly via `LFMLLMClient(context)` in `SessionLlmBootstrapper`. `requireApiKey` throws typed `MissingCredential` / `WrongCredentialType` errors that runtime surfaces as a startup-failure banner deep-link.
 
 ## Session Bootstrap
 
@@ -119,7 +118,7 @@ Creates `LLMClient` instances from model names. Constructor takes the catalog, a
 
 Startup: load catalog → apply base-URL overrides → build factory with the app-scoped `AuthStore` (from `AuthStoreHolder.get(context)`) → `ensureRequiredCredentials` checks `authStore.has(provider)` for the selected main model → create client.
 
-Fallback: if `llm_models.json` missing/malformed, uses built-in catalog (`glm-5`). For local backend, returns `LFMLLMClient`.
+Fallback: if `llm_models.json` missing/malformed, uses built-in catalog (`gpt-5.5`). For local backend, returns `LFMLLMClient`.
 
 ---
 

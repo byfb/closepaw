@@ -30,20 +30,20 @@ class ModelDiscoveryCacheTest {
     @Test
     fun `cache key composes provider name and base url`() {
         assertThat(
-            ModelDiscoveryCache.cacheKey(LLMProvider.OPENROUTER, "https://openrouter.ai/api/v1")
-        ).isEqualTo("OPENROUTER:https://openrouter.ai/api/v1")
+            ModelDiscoveryCache.cacheKey(LLMProvider.OTHER, "https://example.test/v1")
+        ).isEqualTo("OTHER:https://example.test/v1")
     }
 
     @Test
     fun `write then readAll round-trips entries with created timestamp`() {
         val cache = ModelDiscoveryCache(context)
-        val key = ModelDiscoveryCache.cacheKey(LLMProvider.OPENROUTER, "https://x.test/v1")
+        val key = ModelDiscoveryCache.cacheKey(LLMProvider.OTHER, "https://x.test/v1")
         val discovered = listOf(
             DiscoveredModel(
                 entry = ModelEntry(
-                    name = "openrouter:vendor/x",
+                    name = "other:vendor/x",
                     displayName = "Vendor X",
-                    provider = LLMProvider.OPENROUTER,
+                    provider = LLMProvider.OTHER,
                     api = ApiType.CHAT,
                     modelId = "vendor/x",
                     contextWindow = 100_000,
@@ -60,8 +60,8 @@ class ModelDiscoveryCacheTest {
         val bucket = all.getValue(key)
         assertThat(bucket.fetchedAt).isEqualTo(12345L)
         assertThat(bucket.entries).hasSize(1)
-        val restored = bucket.toDiscovered(LLMProvider.OPENROUTER).single()
-        assertThat(restored.entry.name).isEqualTo("openrouter:vendor/x")
+        val restored = bucket.toDiscovered(LLMProvider.OTHER).single()
+        assertThat(restored.entry.name).isEqualTo("other:vendor/x")
         assertThat(restored.entry.modelId).isEqualTo("vendor/x")
         assertThat(restored.entry.baseUrl).isEqualTo("https://x.test/v1")
         assertThat(restored.created).isEqualTo(1_700_000_000L)
@@ -71,7 +71,7 @@ class ModelDiscoveryCacheTest {
     fun `cache file written to filesDir slash model_discovery_cache json`() {
         val cache = ModelDiscoveryCache(context)
         cache.write(
-            key = ModelDiscoveryCache.cacheKey(LLMProvider.OPENROUTER, "https://x.test/v1"),
+            key = ModelDiscoveryCache.cacheKey(LLMProvider.OTHER, "https://x.test/v1"),
             fetchedAt = 1L,
             discovered = emptyList(),
         )
@@ -92,27 +92,27 @@ class ModelDiscoveryCacheTest {
     }
 
     @Test
-    fun `cache slim - 263 OpenRouter-style entries compress to under 50KB on disk`() {
-        // Synthesize a "raw" OpenRouter response that would be ~440KB if persisted
+    fun `cache slim - 263 compatible endpoint-style entries compress to under 50KB on disk`() {
+        // Synthesize a "raw" compatible endpoint response that would be ~440KB if persisted
         // verbatim (pricing, description, modality, etc.). Cache must drop those.
         val cache = ModelDiscoveryCache(context)
         val discovered = (1..263).map { i ->
             DiscoveredModel(
                 entry = ModelEntry(
-                    name = "openrouter:vendor-$i/model-$i",
+                    name = "other:vendor-$i/model-$i",
                     displayName = "Vendor $i Model $i",
-                    provider = LLMProvider.OPENROUTER,
+                    provider = LLMProvider.OTHER,
                     api = ApiType.CHAT,
                     modelId = "vendor-$i/model-$i",
                     contextWindow = 128_000,
-                    baseUrl = "https://openrouter.ai/api/v1",
+                    baseUrl = "https://example.test/v1",
                     supportsVision = false,
                 ),
                 created = 1_700_000_000L + i,
             )
         }
         cache.write(
-            key = ModelDiscoveryCache.cacheKey(LLMProvider.OPENROUTER, "https://openrouter.ai/api/v1"),
+            key = ModelDiscoveryCache.cacheKey(LLMProvider.OTHER, "https://example.test/v1"),
             fetchedAt = 1L,
             discovered = discovered,
         )

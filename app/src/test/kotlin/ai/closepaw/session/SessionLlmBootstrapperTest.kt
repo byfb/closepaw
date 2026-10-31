@@ -165,7 +165,7 @@ class SessionLlmBootstrapperTest {
                 // Non-empty seed so ModelCatalog.fromJson() does not refuse to construct.
                 // The test only checks `other-custom` is absent because of the invalid URL.
                 java.io.ByteArrayInputStream(
-                    """{ "glm-5": {"display_name":"GLM-5","provider":"OPENROUTER","api":"chat","model_id":"z-ai/glm-5"} }""".toByteArray()
+                    """{ "glm-5": {"display_name":"GLM-5","provider":"OTHER","api":"chat","model_id":"z-ai/glm-5"} }""".toByteArray()
                 )
             }
             every { context.assets } returns assets

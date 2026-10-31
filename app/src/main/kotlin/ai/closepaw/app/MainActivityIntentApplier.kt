@@ -65,10 +65,6 @@ internal suspend fun applyIntentPayloadToSettings(
             authStore.set(LLMProvider.OPENAI_API, AuthCredential.ApiKey(key))
             log("OPENAI_API key set from intent via AuthStore")
         }
-        payload.openRouterApiKey?.let { key ->
-            authStore.set(LLMProvider.OPENROUTER, AuthCredential.ApiKey(key))
-            log("OPENROUTER key set from intent via AuthStore")
-        }
         payload.otherApiKey?.let { key ->
             authStore.set(LLMProvider.OTHER, AuthCredential.ApiKey(key))
             otherChanged = true

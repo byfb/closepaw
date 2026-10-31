@@ -9,6 +9,7 @@ import ai.closepaw.history.model.HistoryItemConverter
 import ai.closepaw.history.model.SessionRuntimeSnapshot
 import ai.closepaw.history.model.TodoSnapshot
 import ai.closepaw.llm.LocalLLMConfig
+import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.perception.PerceptionConfig
 import ai.closepaw.protocol.ApprovalMode
 import ai.closepaw.protocol.LLMBackendType
@@ -105,7 +106,7 @@ private fun PerceptionConfig.toModeString(): String = when (this) {
 }
 
 internal fun ConversationConfigSnapshot.toSessionConfig(): SessionConfig = SessionConfig(
-    mainModel = mainModel,
+    mainModel = ModelCatalog.migrateRetiredModel(mainModel),
     perceptionConfig = when (perceptionMode) {
         "screenshot_only" -> PerceptionConfig.ScreenshotOnly()
         "hybrid" -> PerceptionConfig.Hybrid()

@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import ai.closepaw.llm.ModelCatalogRepositoryHolder
+import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.protocol.ApprovalMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
@@ -100,8 +101,8 @@ class AppSettingsState(
     }
 
     fun updateModel(model: String) {
-        selectedModel = model
-        store.saveModel(model)
+        selectedModel = ModelCatalog.migrateRetiredModel(model)
+        store.saveModel(selectedModel)
     }
 
     fun updateLocalModel(model: LocalModelOption) {

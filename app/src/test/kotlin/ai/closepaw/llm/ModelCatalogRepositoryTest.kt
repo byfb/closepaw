@@ -45,10 +45,10 @@ class ModelCatalogRepositoryTest {
 
     @Test
     fun `invalidate emits a new catalog value`() {
-        val first = """{"a":{"display_name":"A","provider":"OPENROUTER","api":"chat","model_id":"x/a"}}"""
+        val first = """{"a":{"display_name":"A","provider":"OTHER","api":"chat","model_id":"x/a"}}"""
         val second =
-            """{"a":{"display_name":"A","provider":"OPENROUTER","api":"chat","model_id":"x/a"},""" +
-                """"b":{"display_name":"B","provider":"OPENROUTER","api":"chat","model_id":"x/b"}}"""
+            """{"a":{"display_name":"A","provider":"OTHER","api":"chat","model_id":"x/a"},""" +
+                """"b":{"display_name":"B","provider":"OTHER","api":"chat","model_id":"x/b"}}"""
         val context = contextReturningSequentialAssets(first.toByteArray(), second.toByteArray())
         val repo = ModelCatalogRepository(
             context = context,
@@ -198,25 +198,25 @@ class ModelCatalogRepositoryTest {
     @Test
     fun `refresh writes cache, emits new catalog containing discovered entries`() = runTest {
         val cache = ModelDiscoveryCache(context = realContextForCache())
-        val openRouterBase = LLMProvider.OPENROUTER.defaultBaseUrl!!
-        val store = fakeSettingsStore(otherBaseUrl = "", otherModelId = "")
+        val endpointBase = "https://example.test/v1"
+        val store = fakeSettingsStore(otherBaseUrl = endpointBase, otherModelId = "")
         val repo = ModelCatalogRepository(
             context = contextReturningAsset(seedBytes()),
             settingsStore = store,
             discoveryCache = cache,
             discoverFn = { provider, base, _ ->
-                assertThat(provider).isEqualTo(LLMProvider.OPENROUTER)
-                assertThat(base).isEqualTo(openRouterBase)
+                assertThat(provider).isEqualTo(LLMProvider.OTHER)
+                assertThat(base).isEqualTo(endpointBase)
                 listOf(
                     DiscoveredModel(
                         entry = ModelEntry(
-                            name = "openrouter:anthropic/claude-opus-4.7",
+                            name = "other:anthropic/claude-opus-4.7",
                             displayName = "Claude Opus 4.7",
-                            provider = LLMProvider.OPENROUTER,
+                            provider = LLMProvider.OTHER,
                             api = ApiType.CHAT,
                             modelId = "anthropic/claude-opus-4.7",
                             contextWindow = 200_000,
-                            baseUrl = openRouterBase,
+                            baseUrl = endpointBase,
                         ),
                         created = 1_700_000_000L,
                     )
@@ -225,18 +225,18 @@ class ModelCatalogRepositoryTest {
             clock = { 9_999L },
         )
 
-        repo.refresh(LLMProvider.OPENROUTER, "sk-fake", openRouterBase)
+        repo.refresh(LLMProvider.OTHER, "sk-fake", endpointBase)
         val after = repo.catalog.value
-        assertThat(after.resolveOrNull("openrouter:anthropic/claude-opus-4.7")).isNotNull()
-        assertThat(repo.discoveryState.value.lastFetchedAt[LLMProvider.OPENROUTER]).isEqualTo(9_999L)
+        assertThat(after.resolveOrNull("other:anthropic/claude-opus-4.7")).isNotNull()
+        assertThat(repo.discoveryState.value.lastFetchedAt[LLMProvider.OTHER]).isEqualTo(9_999L)
         assertThat(repo.discoveryState.value.refreshing).isEmpty()
     }
 
     @Test
     fun `refresh failure surfaces error in discoveryState and leaves cache untouched`() = runTest {
         val cache = ModelDiscoveryCache(context = realContextForCache())
-        val store = fakeSettingsStore(otherBaseUrl = "", otherModelId = "")
-        val openRouterBase = LLMProvider.OPENROUTER.defaultBaseUrl!!
+        val store = fakeSettingsStore(otherBaseUrl = "https://example.test/v1", otherModelId = "")
+        val endpointBase = "https://example.test/v1"
         val repo = ModelCatalogRepository(
             context = contextReturningAsset(seedBytes()),
             settingsStore = store,
@@ -244,10 +244,10 @@ class ModelCatalogRepositoryTest {
             discoverFn = { _, _, _ -> throw java.io.IOException("HTTP 503") },
         )
 
-        repo.refresh(LLMProvider.OPENROUTER, "sk-fake", openRouterBase)
+        repo.refresh(LLMProvider.OTHER, "sk-fake", endpointBase)
 
         val state = repo.discoveryState.value
-        assertThat(state.lastError[LLMProvider.OPENROUTER]).contains("503")
+        assertThat(state.lastError[LLMProvider.OTHER]).contains("503")
         assertThat(state.refreshing).isEmpty()
         // Cache is empty — no successful refresh happened.
         assertThat(cache.readAll()).isEmpty()

@@ -53,7 +53,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Searchable grouped model picker for OPENROUTER + OTHER. Renders the pure
+ * Searchable grouped model picker for OTHER. Renders the pure
  * state from [ModelPicker.buildState] — the Compose layer is a thin
  * presentation shell so all sort, filter, and grouping behavior is covered
  * by [ModelPickerTest]. On open the selected row's group is auto-expanded

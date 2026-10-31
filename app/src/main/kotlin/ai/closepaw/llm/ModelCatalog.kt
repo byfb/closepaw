@@ -7,7 +7,7 @@ import kotlinx.serialization.json.Json
 /**
  * Which OpenAI-compatible API shape this model uses.
  *
- * Independent of provider — both OPENAI and OPENROUTER support both shapes. The value controls
+ * Independent of provider — OpenAI and compatible endpoints can support both shapes. The value controls
  * which [LLMClient] implementation is instantiated.
  */
 enum class ApiType {
@@ -151,6 +151,15 @@ class ModelCatalog private constructor(private val entries: Map<String, ModelEnt
     }
 
     companion object {
+        const val DEFAULT_MODEL = "gpt-5.5"
+        private val retiredModelNames = setOf(
+            "glm-5", "glm-4.7", "minimax-m2.5", "kimi-k2.5", "qwen3.5", "qwen3-vl-235b-a22b-instruct",
+        )
+
+        /** Migrate only removed provider selections; custom endpoint model names are preserved. */
+        fun migrateRetiredModel(name: String): String =
+            if (name in retiredModelNames || name.startsWith("openrouter:", ignoreCase = true)) DEFAULT_MODEL else name
+
         private val json = Json { ignoreUnknownKeys = true }
 
         /**

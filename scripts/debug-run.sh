@@ -177,7 +177,7 @@ if [[ "$USE_LOCAL" == "true" ]]; then
 fi
 
 # Keep the fallback model aligned with the selected backend.
-DEFAULT_MAIN_MODEL="minimax-m2.5"
+DEFAULT_MAIN_MODEL="gpt-5.5"
 if [[ "$LLM_BACKEND" == "openai" ]]; then
     DEFAULT_MAIN_MODEL="gpt-5.4"
 fi
@@ -367,10 +367,7 @@ if [[ -n "${OPENAI_API_KEY:-}" ]]; then
     INTENT_EXTRAS="--es api_key '$SAFE_API_KEY' $INTENT_EXTRAS"
 fi
 
-if [[ -n "${OPENROUTER_API_KEY:-}" ]]; then
-    SAFE_OR_KEY=$(escape_shell_arg "$OPENROUTER_API_KEY")
-    INTENT_EXTRAS="$INTENT_EXTRAS --es openrouter_api_key '$SAFE_OR_KEY'"
-fi
+
 
 if [[ -n "${OTHER_API_KEY:-}" ]]; then
     SAFE_OTHER_KEY=$(escape_shell_arg "$OTHER_API_KEY")

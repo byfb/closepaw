@@ -9,6 +9,8 @@ import ai.closepaw.ui.settings.OpenAiAuthUiState
 import ai.closepaw.ui.theme.ClosePawTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -37,7 +39,6 @@ class SettingsLlmAuthTest {
           "gpt-5.2": {"display_name": "GPT-5.2", "provider":"OPENAI_API", "api": "response", "model_id": "gpt-5.2"},
           "gpt-5.2-chat": {"display_name": "GPT-5.2 (Chat API)", "provider":"OPENAI_API", "api": "chat", "model_id": "gpt-5.2"},
           "gpt-5.2-codex": {"display_name": "GPT-5.2 Codex", "provider":"OPENAI_CODEX", "api": "response", "model_id": "gpt-5.2"},
-          "glm-5": {"display_name": "GLM-5", "provider": "OPENROUTER", "api": "chat", "model_id": "z-ai/glm-5"},
           "autoglm": {"display_name": "AutoGLM", "provider": "OTHER", "api": "chat", "model_id": "zai-org/autoglm", "base_url": "https://example.invalid/v1"}
         }
         """.trimIndent()
@@ -117,10 +118,10 @@ class SettingsLlmAuthTest {
             )
         }
 
-        // OpenAI initial; switch to OpenRouter.
-        compose.onNodeWithText("OpenRouter").performClick()
-        // API Key field label reflects the provider change (view-only).
-        compose.onNodeWithText("OpenRouter Key").assertExists()
+        // OpenAI initial; switch to Other.
+        compose.onNodeWithText("Other").performClick()
+        // Custom model field reflects the provider change (view-only).
+        compose.onNode(hasText("Custom Model Id") and hasSetTextAction()).assertExists()
         assertEquals("provider sub-selector must not commit a model", 0, modelChanges)
     }
 

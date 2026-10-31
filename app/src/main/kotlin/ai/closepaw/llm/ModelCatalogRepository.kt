@@ -74,30 +74,16 @@ class ModelCatalogRepository(
      * when the user has moved on (e.g. a slow refresh against URL A
      * finishes after the user switched to URL B).
      *
-     * For [LLMProvider.OPENROUTER] the caller should pass
-     * `LLMProvider.OPENROUTER.defaultBaseUrl!!`; for [LLMProvider.OTHER] the
-     * validated `otherBaseUrl` setting. Other providers are rejected because
-     * their `/models` payloads are either too thin (OpenAI) or unavailable
-     * (LOCAL_LFM, OPENAI_CODEX).
      */
     suspend fun refresh(provider: LLMProvider, key: String, baseUrl: String) {
-        require(provider == LLMProvider.OPENROUTER || provider == LLMProvider.OTHER) {
-            "Refresh only supported for OPENROUTER and OTHER (got $provider)"
+        require(provider == LLMProvider.OTHER) {
+            "Refresh only supported for OTHER (got $provider)"
         }
         require(baseUrl.isNotBlank()) { "baseUrl must not be blank" }
         // Defence in depth: even if the UI gates on validation, we re-check
         // here so a misuse of the API can't write a malformed URL into the
-        // cache. For OPENROUTER, ensure the caller didn't ask us to fetch
-        // from a non-default URL.
+        // cache.
         when (provider) {
-            LLMProvider.OPENROUTER -> {
-                if (baseUrl != provider.defaultBaseUrl) {
-                    updateDiscoveryState {
-                        it.withError(provider, "OPENROUTER base URL is fixed.")
-                    }
-                    return
-                }
-            }
             LLMProvider.OTHER -> {
                 if (OtherBaseUrlValidator.validate(baseUrl).getOrNull() != baseUrl) {
                     updateDiscoveryState {
@@ -146,7 +132,6 @@ class ModelCatalogRepository(
      * is blank or invalid).
      */
     fun effectiveBaseUrlFor(provider: LLMProvider): String? = when (provider) {
-        LLMProvider.OPENROUTER -> provider.defaultBaseUrl
         LLMProvider.OTHER -> OtherBaseUrlValidator.validate(settingsStore.load().otherBaseUrl).getOrNull()
         else -> null
     }
@@ -168,19 +153,13 @@ class ModelCatalogRepository(
      * the current key to the stale URL.
      */
     private fun discoveredEntriesScopedByCurrentBaseUrl(): List<ModelEntry> {
-        val openRouterBase = effectiveBaseUrlFor(LLMProvider.OPENROUTER)
-        val otherBase = effectiveBaseUrlFor(LLMProvider.OTHER)
         val all = discoveryCache.readAll()
         return all.entries.flatMap { (key, bucket) ->
             val sep = key.indexOf(':')
             if (sep <= 0) return@flatMap emptyList()
             val provider = runCatching { LLMProvider.valueOf(key.substring(0, sep)) }
                 .getOrNull() ?: return@flatMap emptyList()
-            val expectedBase = when (provider) {
-                LLMProvider.OPENROUTER -> openRouterBase
-                LLMProvider.OTHER -> otherBase
-                else -> null
-            } ?: return@flatMap emptyList()
+            val expectedBase = effectiveBaseUrlFor(provider) ?: return@flatMap emptyList()
             val expectedKey = ModelDiscoveryCache.cacheKey(provider, expectedBase)
             if (expectedKey != key) emptyList() else bucket.toDiscovered(provider).map { it.entry }
         }
@@ -234,22 +213,13 @@ class ModelCatalogRepository(
         }
     }
 
-    private fun initialDiscoveryState(): DiscoveryState {
-        val openRouterAt = readLastFetchedAtFor(LLMProvider.OPENROUTER)
-        val otherAt = readLastFetchedAtFor(LLMProvider.OTHER)
-        return DiscoveryState(
-            lastFetchedAt = mapOf(
-                LLMProvider.OPENROUTER to openRouterAt,
-                LLMProvider.OTHER to otherAt,
-            ).filterValues { it != null }
-                .mapValues { (_, v) -> v!! },
-        )
-    }
+    private fun initialDiscoveryState(): DiscoveryState =
+        DiscoveryState(lastFetchedAt = readLastFetchedAt())
 
-    private fun readLastFetchedAt(): Map<LLMProvider, Long> = mapOf(
-        LLMProvider.OPENROUTER to readLastFetchedAtFor(LLMProvider.OPENROUTER),
-        LLMProvider.OTHER to readLastFetchedAtFor(LLMProvider.OTHER),
-    ).filterValues { it != null }.mapValues { (_, v) -> v!! }
+    private fun readLastFetchedAt(): Map<LLMProvider, Long> =
+        LLMProvider.entries.mapNotNull { provider ->
+            readLastFetchedAtFor(provider)?.let { provider to it }
+        }.toMap()
 
     private fun readLastFetchedAtFor(provider: LLMProvider): Long? {
         val base = effectiveBaseUrlFor(provider) ?: return null
@@ -291,11 +261,11 @@ class ModelCatalogRepository(
         private const val FALLBACK_CATALOG_JSON =
             """
             {
-              "glm-5": {
-                "display_name": "GLM-5",
-                "provider": "OPENROUTER",
-                "api": "chat",
-                "model_id": "z-ai/glm-5"
+              "gpt-5.5": {
+                "display_name": "GPT-5.5",
+                "provider": "OPENAI_API",
+                "api": "response",
+                "model_id": "gpt-5.5"
               }
             }
             """

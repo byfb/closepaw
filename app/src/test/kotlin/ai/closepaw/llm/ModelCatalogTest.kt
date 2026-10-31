@@ -25,9 +25,10 @@ class ModelCatalogTest {
           },
           "glm-4.7": {
             "display_name": "GLM-4.7",
-            "provider": "OPENROUTER",
+            "provider": "OTHER",
             "api": "chat",
-            "model_id": "zhipu-ai/glm-4.7"
+            "model_id": "zhipu-ai/glm-4.7",
+            "base_url": "https://example.test/v1"
           }
         }
     """.trimIndent()
@@ -67,15 +68,15 @@ class ModelCatalogTest {
     }
 
     @Test
-    fun `resolve returns correct entry for OpenRouter model`() {
+    fun `resolve returns correct entry for custom endpoint model`() {
         val catalog = ModelCatalog.fromJson(sampleJson)
         val entry = catalog.resolve("glm-4.7")
 
         assertEquals("GLM-4.7", entry.displayName)
-        assertEquals(LLMProvider.OPENROUTER, entry.provider)
+        assertEquals(LLMProvider.OTHER, entry.provider)
         assertEquals(ApiType.CHAT, entry.api)
         assertEquals("zhipu-ai/glm-4.7", entry.modelId)
-        assertEquals("https://openrouter.ai/api/v1", entry.effectiveBaseUrl)
+        assertEquals("https://example.test/v1", entry.effectiveBaseUrl)
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -124,10 +125,10 @@ class ModelCatalogTest {
     fun `effectiveApiKeyEnv uses provider default when entry has no override`() {
         val catalog = ModelCatalog.fromJson(sampleJson)
         val openai = catalog.resolve("gpt-5.2")
-        val openrouter = catalog.resolve("glm-4.7")
+        val other = catalog.resolve("glm-4.7")
 
         assertEquals("OPENAI_API_KEY", openai.effectiveApiKeyEnv)
-        assertEquals("OPENROUTER_API_KEY", openrouter.effectiveApiKeyEnv)
+        assertEquals("OTHER_API_KEY", other.effectiveApiKeyEnv)
     }
 
     @Test
@@ -148,13 +149,13 @@ class ModelCatalogTest {
     }
 
     @Test
-    fun `effectiveBaseUrl uses provider default when entry has no override`() {
+    fun `effectiveBaseUrl uses SDK default or configured endpoint`() {
         val catalog = ModelCatalog.fromJson(sampleJson)
         val openai = catalog.resolve("gpt-5.2")
-        val openrouter = catalog.resolve("glm-4.7")
+        val other = catalog.resolve("glm-4.7")
 
         assertNull(openai.effectiveBaseUrl) // OpenAI uses SDK default
-        assertEquals("https://openrouter.ai/api/v1", openrouter.effectiveBaseUrl)
+        assertEquals("https://example.test/v1", other.effectiveBaseUrl)
     }
 
     @Test
@@ -250,9 +251,10 @@ class ModelCatalogTest {
           },
           "glm-4.7": {
             "display_name": "GLM-4.7",
-            "provider": "OPENROUTER",
+            "provider": "OTHER",
             "api": "chat",
-            "model_id": "zhipu-ai/glm-4.7"
+            "model_id": "zhipu-ai/glm-4.7",
+            "base_url": "https://example.test/v1"
           },
           "novita-model": {
             "display_name": "Novita Model",
@@ -275,21 +277,12 @@ class ModelCatalogTest {
     }
 
     @Test
-    fun `modelsFor OPENROUTER returns only OpenRouter models`() {
-        val catalog = ModelCatalog.fromJson(multiProviderJson)
-        val models = catalog.modelsFor(LLMProvider.OPENROUTER)
-
-        assertEquals(1, models.size)
-        assertEquals("glm-4.7", models[0].name)
-    }
-
-    @Test
     fun `modelsFor OTHER returns only OTHER models`() {
         val catalog = ModelCatalog.fromJson(multiProviderJson)
         val models = catalog.modelsFor(LLMProvider.OTHER)
 
-        assertEquals(1, models.size)
-        assertEquals("novita-model", models[0].name)
+        assertEquals(2, models.size)
+        assertEquals(listOf("glm-4.7", "novita-model"), models.map { it.name })
     }
 
     @Test
@@ -352,7 +345,7 @@ class ModelCatalogTest {
         """.trimIndent()
         val catalog = ModelCatalog.fromJson(singleProviderJson)
 
-        assertTrue(catalog.modelsFor(LLMProvider.OPENROUTER).isEmpty())
+        assertTrue(catalog.modelsFor(LLMProvider.OTHER).isEmpty())
     }
 
     // ── withBaseUrlOverrides ────────────────────────────────────────────

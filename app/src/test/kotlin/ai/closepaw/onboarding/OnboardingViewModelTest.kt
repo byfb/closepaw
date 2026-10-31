@@ -48,8 +48,7 @@ class OnboardingViewModelTest {
             {
               "oai-resp":{"display_name":"OAI","provider":"OPENAI_API","api":"response","model_id":"gpt-test"},
               "oai-chat":{"display_name":"OAI-Chat","provider":"OPENAI_API","api":"chat","model_id":"gpt-chat","base_url":"$baseUrl"},
-              "oai-codex":{"display_name":"Codex","provider":"OPENAI_CODEX","api":"response","model_id":"gpt-test"},
-              "or-chat":{"display_name":"OR","provider":"OPENROUTER","api":"chat","model_id":"or-test","base_url":"$baseUrl"}
+              "oai-codex":{"display_name":"Codex","provider":"OPENAI_CODEX","api":"response","model_id":"gpt-test"}
             }
         """.trimIndent()
         catalog = ModelCatalog.fromJson(catalogJson)
@@ -222,7 +221,7 @@ class OnboardingViewModelTest {
         val vm = makeVm(scope)
         drain(scope, this)
 
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL)
         vm.onApiKeyChanged("sk-good")
         vm.validateApiKey()
         drain(scope, this)
@@ -230,9 +229,9 @@ class OnboardingViewModelTest {
         assertThat(vm.outcomes.apiKey).isEqualTo(StepOutcome.Done)
         assertThat(vm.currentStep).isEqualTo(WizardStep.Demo)
         coVerify {
-            authStore.set(LLMProvider.OPENROUTER, AuthCredential.ApiKey("sk-good"))
+            authStore.set(LLMProvider.OPENAI_API, AuthCredential.ApiKey("sk-good"))
         }
-        verify { settingsState.updateModel("or-chat") }
+        verify { settingsState.updateModel("oai-chat") }
 
         scope.coroutineContext.job.cancel()
     }
@@ -251,7 +250,7 @@ class OnboardingViewModelTest {
         val vm = makeVm(scope)
         drain(scope, this)
 
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL)
         vm.onApiKeyChanged("sk-bad")
         vm.validateApiKey()
         drain(scope, this)
@@ -809,7 +808,7 @@ class OnboardingViewModelTest {
         assertThat(vm.currentStep).isEqualTo(WizardStep.Accessibility)
         val before = vm.selectedProvider
 
-        vm.selectProvider(OnboardingProvider.OPENROUTER)
+        vm.selectProvider(OnboardingProvider.OPENAI_API)
         assertThat(vm.selectedProvider).isEqualTo(before)
         scope.coroutineContext.job.cancel()
     }
@@ -846,7 +845,7 @@ class OnboardingViewModelTest {
         )
         val scope = newScope(this)
         val vm = makeVm(scope); drain(scope, this)
-        vm.selectProvider(OnboardingProvider.OPENROUTER) // → Empty
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL) // → Empty
         assertThat(vm.stepState).isEqualTo(ApiKeyStepState.Empty)
 
         vm.validateApiKey(); drain(scope, this)

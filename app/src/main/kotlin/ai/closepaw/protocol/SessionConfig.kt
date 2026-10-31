@@ -34,7 +34,7 @@ data class SessionConfig(
          * Primary model name (key in llm_models.json) for the main agent.
          * Subagents inherit this model — there is no separate subagent model.
          */
-        val mainModel: String = "glm-5",
+        val mainModel: String = ai.closepaw.llm.ModelCatalog.DEFAULT_MODEL,
         /** Platform mode: real screen (accessibility) or virtual display (Shizuku) */
         val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY,
         /** Tool names to exclude from the agent's allowed tool set (e.g. for eval) */
@@ -43,7 +43,7 @@ data class SessionConfig(
          * Eval-only safety net plumbed to [ai.closepaw.agent.AgentExecutionConfig.evalTurnBudget].
          * Production leaves this null; eval bridge sets it from yaml `max_turns:`.
          */
-        val evalTurnBudget: Int? = null
+        val evalTurnBudget: Int? = null,
 )
 
 /** Canonical LLM routing config used at runtime. */

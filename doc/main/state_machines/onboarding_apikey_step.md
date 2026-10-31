@@ -8,7 +8,7 @@
 
 The step is split between two paths chosen via `ApiKeyAuthMethod`:
 
-- `MANUAL` — user pastes an API key (used by OpenRouter, Novita, and OpenAI manual fallback).
+- `MANUAL` — user pastes an API key (used by OpenAI manual fallback).
 - `OAUTH` — sign-in with `openAiSignIn` (currently only `OPENAI_CODEX` provider).
 
 `selectAuthMethod` (OnboardingViewModel.kt:83-88) and `selectProvider` (OnboardingViewModel.kt:70-81) coordinate which path is active and reset `stepState` accordingly. Both no-op unless `currentStep == ApiKey`.

@@ -36,13 +36,6 @@ enum class LLMProvider(
         defaultBaseUrl = null,
     ),
 
-    /** OpenRouter — openrouter.ai (aggregates many model providers). */
-    OPENROUTER(
-        mode = AuthMode.ApiKey,
-        defaultApiKeyEnv = "OPENROUTER_API_KEY",
-        defaultBaseUrl = "https://openrouter.ai/api/v1",
-    ),
-
     /**
      * User-configured OpenAI-compatible endpoint. Base URL and model id live in
      * [ai.closepaw.app.AppSettingsState] (`otherBaseUrl`, `otherModelId`) and are
@@ -69,7 +62,6 @@ val LLMProvider.displayLabel: String
     get() = when (this) {
         LLMProvider.OPENAI_API -> "OpenAI"
         LLMProvider.OPENAI_CODEX -> "OpenAI (ChatGPT sign-in)"
-        LLMProvider.OPENROUTER -> "OpenRouter"
         LLMProvider.OTHER -> "Other"
         LLMProvider.LOCAL_LFM -> "Local"
     }

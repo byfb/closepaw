@@ -239,7 +239,6 @@ class OnboardingDemoController(
 private fun LLMProvider.displayName(): String = when (this) {
     LLMProvider.OPENAI_API -> "OpenAI"
     LLMProvider.OPENAI_CODEX -> "OpenAI"
-    LLMProvider.OPENROUTER -> "OpenRouter"
     LLMProvider.OTHER -> "Other"
     LLMProvider.LOCAL_LFM -> "Local"
 }

@@ -212,7 +212,6 @@ class NativeAgentBridge:
         if self._config.api_keys:
             _KEY_MAP = {
                 "OPENAI_API_KEY": "api_key",
-                "OPENROUTER_API_KEY": "openrouter_api_key",
                 "OTHER_API_KEY": "other_api_key",
             }
             for env_name, extra_name in _KEY_MAP.items():

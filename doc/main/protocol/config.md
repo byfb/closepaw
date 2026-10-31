@@ -17,7 +17,7 @@ data class SessionConfig(
     val traceEnabled: Boolean = false,
     val traceRunId: String? = null,
     val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
-    val mainModel: String = "glm-5",
+    val mainModel: String = "gpt-5.5",
     val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY,
     val excludedTools: Set<String> = emptySet(),
     val evalTurnBudget: Int? = null
@@ -28,7 +28,7 @@ data class SessionConfig(
 |---------|---------|-------------|
 | `actionDelayMs` | 2000 | Delay after actions for UI settle |
 | `approvalMode` | `SMART` | `ALWAYS_ASK` / `AUTO_APPROVE` / `SMART` |
-| `mainModel` | `glm-5` | Model for the main agent (subagents inherit this) |
+| `mainModel` | `gpt-5.5` | Model for the main agent (subagents inherit this) |
 | `traceEnabled` | false | Persist full JSONL trace events/artifacts |
 | `platformMode` | `ACCESSIBILITY` | `ACCESSIBILITY` or `VIRTUAL_DISPLAY` |
 | `excludedTools` | empty | Tool names to exclude (e.g., for eval) |
@@ -58,7 +58,7 @@ data class SessionLlmConfig(
 
 | Backend | Description |
 |---------|-------------|
-| `OPENAI` | Cloud API (OpenAI, OpenRouter, Novita via model catalog) |
+| `OPENAI` | Cloud API (OpenAI and compatible endpoints via model catalog) |
 | `LOCAL` | On-device LLM via Leap SDK |
 
 ## ApprovalMode

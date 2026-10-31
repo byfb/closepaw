@@ -16,7 +16,7 @@ ClosePaw can read the current screen only through the Android Accessibility Serv
 
 ## What is sent to third parties
 
-ClosePaw sends screen content and task context to the LLM provider you choose, such as OpenAI, OpenRouter, or Novita, only during active task execution. This allows the provider's model to decide the next step for the task you started.
+ClosePaw sends screen content and task context to the LLM provider you choose, such as OpenAI or a compatible endpoint you configure, only during active task execution. This allows the provider's model to decide the next step for the task you started.
 
 Examples of sent data may include visible text on the screen, app UI structure, your typed task request, and recent action history needed to continue the task. ClosePaw sends this data only so the chosen provider can process the automation request. ClosePaw does not send this information to advertising, analytics, or tracking services.
 
@@ -58,7 +58,7 @@ Full deletion (one tap):
 What is deleted vs. kept:
 
 - **Deleted:** all data created by your use of the app, stored on the device — credentials, history, traces, memory, settings.
-- **Not in ClosePaw's control:** copies of prompts and screen content that you sent to your chosen third-party LLM provider during prior tasks. To delete those, use the provider's account dashboard (OpenAI, OpenRouter, Anthropic, etc.).
+- **Not in ClosePaw's control:** copies of prompts and screen content that you sent to your chosen third-party LLM provider during prior tasks. To delete those, use the provider's account dashboard (OpenAI, Anthropic, etc.).
 
 ## Children
 

@@ -14,7 +14,7 @@ import java.io.File
  * keyed by `"{provider.name}:{normalizedBaseUrl}"`. Each bucket carries the
  * fetch timestamp, the source `baseUrl`, and a SLIM list of model fields.
  * Rich upstream metadata (pricing, description, modality details) is
- * dropped before persist so a ~440KB OpenRouter response collapses to ~30KB
+ * dropped before persist so a large upstream response collapses to a compact file
  * on disk. Field names are intentionally compact and per-entry `baseUrl`
  * is folded onto the bucket — every entry in a bucket shares the bucket's
  * baseUrl by construction.
@@ -34,7 +34,14 @@ class ModelDiscoveryCache(context: Context) {
         if (!file.exists()) return emptyMap()
         return try {
             val text = file.readText()
-            if (text.isBlank()) emptyMap() else json.decodeFromString<Map<String, Bucket>>(text)
+            if (text.isBlank()) emptyMap() else {
+                val buckets = json.decodeFromString<Map<String, Bucket>>(text)
+                val active = buckets.filterKeys { key ->
+                    LLMProvider.entries.any { key.startsWith("${it.name}:") }
+                }
+                if (active.size != buckets.size) file.writeText(json.encodeToString(active))
+                active
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to read $FILE_NAME; treating as empty", e)
             emptyMap()

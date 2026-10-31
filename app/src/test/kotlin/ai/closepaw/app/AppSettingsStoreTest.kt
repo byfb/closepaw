@@ -34,6 +34,19 @@ class AppSettingsStoreTest {
     }
 
     @Test
+    fun `retired provider selection migrates without changing custom endpoint selections`() {
+        val store = AppSettingsStore(context)
+        for (retired in listOf("glm-5", "openrouter:vendor/model")) {
+            store.saveModel(retired)
+            val loaded = store.load()
+            assertThat(loaded.selectedModel).isEqualTo(ai.closepaw.llm.ModelCatalog.DEFAULT_MODEL)
+            assertThat(store.load().selectedModel).isEqualTo(loaded.selectedModel)
+        }
+        store.saveModel("other:vendor/glm-5")
+        assertThat(store.load().selectedModel).isEqualTo("other:vendor/glm-5")
+    }
+
+    @Test
     fun `browser_script setting defaults disabled`() {
         assertThat(AppSettingsStore(context).load().browserScriptEnabled).isFalse()
     }
@@ -257,6 +270,7 @@ class AppSettingsStoreTest {
         }
 
         val prefs = mockk<SharedPreferences>(relaxed = true)
+        every { prefs.all } answers { backing.toMap() }
         every { prefs.edit() } returns editor
         every { prefs.getString(any(), any()) } answers {
             backing[firstArg()] as? String ?: secondArg()

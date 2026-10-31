@@ -87,7 +87,6 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_BROWSER_SCRIPT_ENABLED = "browser_script_enabled"
         const val EXTRA_PLATFORM_MODE = "platform_mode"
         const val EXTRA_EXCLUDED_TOOLS = "excluded_tools"
-        const val EXTRA_OPENROUTER_API_KEY = "openrouter_api_key"
         const val EXTRA_OPENAI_BASE_URL = "openai_base_url"
         const val EXTRA_OTHER_API_KEY = "other_api_key"
         const val EXTRA_OTHER_BASE_URL = "other_base_url"
@@ -935,7 +934,6 @@ class MainActivity : ComponentActivity() {
         val providers = listOf(
             LLMProvider.OPENAI_API,
             LLMProvider.OPENAI_CODEX,
-            LLMProvider.OPENROUTER,
         )
         if (providers.any { authStore.has(it) }) return true
         if (settings.selectedModel != AppSettingsStore.DEFAULT_MODEL) return true

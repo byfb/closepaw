@@ -63,7 +63,11 @@ class AuthStore(
 
     private fun prefs(): SharedPreferences {
         _prefs?.let { return it }
-        return prefsProvider(context).also { _prefs = it }
+        return prefsProvider(context).also { prefs ->
+            // Remove credentials for the retired provider during upgrade.
+            if (prefs.contains("OPENROUTER")) prefs.edit().remove("OPENROUTER").apply()
+            _prefs = prefs
+        }
     }
 
     suspend fun get(provider: LLMProvider): AuthCredential? = read(provider.name)

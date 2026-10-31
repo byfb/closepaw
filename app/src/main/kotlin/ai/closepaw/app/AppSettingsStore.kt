@@ -1,6 +1,7 @@
 package ai.closepaw.app
 
 import android.content.Context
+import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.protocol.ApprovalMode
 import ai.closepaw.protocol.AppTier
 import ai.closepaw.protocol.LLMBackendType
@@ -54,7 +55,7 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_DISABLED_AGENT_SKILLS = "disabled_agent_skills"
         private const val KEY_APPROVAL_MODE = "approval_mode"
 
-        const val DEFAULT_MODEL = "glm-5"
+        const val DEFAULT_MODEL = ModelCatalog.DEFAULT_MODEL
         const val DEFAULT_DEBUG_MODE = false
         const val DEFAULT_PERCEPTION_MODE = "accessibility_only"
         val DEFAULT_LLM_BACKEND = LLMBackendType.OPENAI
@@ -85,7 +86,11 @@ class AppSettingsStore(private val context: Context) {
     fun load(): AppSettings {
         val prefs = prefs()
 
-        val selectedModel = prefs.getString(KEY_MODEL, DEFAULT_MODEL) ?: DEFAULT_MODEL
+        val storedModel = prefs.getString(KEY_MODEL, DEFAULT_MODEL) ?: DEFAULT_MODEL
+        val selectedModel = ModelCatalog.migrateRetiredModel(storedModel)
+        if (selectedModel != storedModel) {
+            prefs.edit().putString(KEY_MODEL, selectedModel).apply()
+        }
         val debugMode = prefs.getBoolean(KEY_DEBUG_MODE, DEFAULT_DEBUG_MODE)
         val perceptionMode =
                 prefs.getString(KEY_PERCEPTION_MODE, null)

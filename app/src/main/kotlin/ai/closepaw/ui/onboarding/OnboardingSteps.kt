@@ -194,34 +194,28 @@ fun ApiKeyStepContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text(
-            text = "Choose your provider to connect.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
         // Provider picker
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OnboardingProvider.visibleInUi.forEach { provider ->
-                FilterChip(
-                    selected = selectedProvider == provider,
-                    onClick = { onProviderSelected(provider) },
-                    label = { Text(provider.label) },
-                    enabled = state !is ApiKeyStepState.Validating
-                            && state !is ApiKeyStepState.Valid
-                            && state !is ApiKeyStepState.OAuthInProgress
-                            && state !is ApiKeyStepState.OAuthFinishing
-                )
+        if (OnboardingProvider.visibleInUi.size > 1) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OnboardingProvider.visibleInUi.forEach { provider ->
+                    FilterChip(
+                        selected = selectedProvider == provider,
+                        onClick = { onProviderSelected(provider) },
+                        label = { Text(provider.label) },
+                        enabled = state !is ApiKeyStepState.Validating
+                                && state !is ApiKeyStepState.Valid
+                                && state !is ApiKeyStepState.OAuthInProgress
+                                && state !is ApiKeyStepState.OAuthFinishing
+                    )
+                }
             }
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+        }
 
         // Show OAuth or manual content based on auth method + provider
         if (selectedProvider == OnboardingProvider.OPENAI_API && authMethod == ApiKeyAuthMethod.OAUTH) {

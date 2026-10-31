@@ -7,7 +7,6 @@ import ai.closepaw.protocol.PlatformMode
 
 data class MainActivityIntentPayload(
         val apiKey: String?,
-        val openRouterApiKey: String?,
         val openaiBaseUrl: String?,
         val otherApiKey: String?,
         val otherBaseUrl: String?,
@@ -30,11 +29,6 @@ data class MainActivityIntentPayload(
         fun from(intent: Intent): MainActivityIntentPayload {
             val apiKey =
                     intent.getStringExtra(MainActivity.EXTRA_API_KEY)?.takeIf { it.isNotBlank() }
-
-            val openRouterApiKey =
-                    intent.getStringExtra(MainActivity.EXTRA_OPENROUTER_API_KEY)?.takeIf {
-                        it.isNotBlank()
-                    }
 
             val openaiBaseUrl =
                     intent.getStringExtra(MainActivity.EXTRA_OPENAI_BASE_URL)?.takeIf {
@@ -139,7 +133,6 @@ data class MainActivityIntentPayload(
 
             return MainActivityIntentPayload(
                     apiKey = apiKey,
-                    openRouterApiKey = openRouterApiKey,
                     openaiBaseUrl = openaiBaseUrl,
                     otherApiKey = otherApiKey,
                     otherBaseUrl = otherBaseUrl,

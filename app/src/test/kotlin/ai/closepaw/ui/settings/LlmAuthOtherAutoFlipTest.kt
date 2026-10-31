@@ -22,7 +22,7 @@ class LlmAuthOtherAutoFlipTest {
     private val emptyCatalog: ModelCatalog = ModelCatalog.fromJson(
         // ModelCatalog requires at least one entry; the test asserts absence of `other-custom`,
         // so any unrelated seed entry is fine.
-        """{ "glm-5": {"display_name":"GLM-5","provider":"OPENROUTER","api":"chat","model_id":"z-ai/glm-5"} }"""
+        """{ "glm-5": {"display_name":"GLM-5","provider":"OTHER","api":"chat","model_id":"z-ai/glm-5"} }"""
     )
 
     @Test

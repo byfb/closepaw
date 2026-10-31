@@ -27,7 +27,6 @@ class MainActivityIntentApplierSecurityTest {
     fun `production build ignores all sensitive intent extras`() = runBlocking<Unit> {
         val payload = MainActivityIntentPayload(
             apiKey = "injected-key",
-            openRouterApiKey = "injected-or-key",
             openaiBaseUrl = "https://evil.example.com",
             otherApiKey = "injected-other-key",
             otherBaseUrl = "https://evil.example.com/v1",
@@ -63,7 +62,6 @@ class MainActivityIntentApplierSecurityTest {
 
         // Nothing should change — all extras ignored
         assertThat(authStore.has(LLMProvider.OPENAI_API)).isFalse()
-        assertThat(authStore.has(LLMProvider.OPENROUTER)).isFalse()
         assertThat(authStore.has(LLMProvider.OTHER)).isFalse()
         assertThat(result.pendingTraceEnabled).isNull()
         assertThat(result.pendingTraceRunId).isNull()
@@ -76,7 +74,6 @@ class MainActivityIntentApplierSecurityTest {
     fun `production build preserves existing pending state`() = runBlocking<Unit> {
         val payload = MainActivityIntentPayload(
             apiKey = "injected-key",
-            openRouterApiKey = null,
             openaiBaseUrl = null,
             otherApiKey = null,
             otherBaseUrl = null,
@@ -122,7 +119,6 @@ class MainActivityIntentApplierSecurityTest {
     fun `debug build applies intent extras normally`() = runBlocking<Unit> {
         val payload = MainActivityIntentPayload(
             apiKey = "debug-key",
-            openRouterApiKey = null,
             openaiBaseUrl = null,
             otherApiKey = null,
             otherBaseUrl = null,
@@ -253,7 +249,6 @@ class MainActivityIntentApplierSecurityTest {
     fun `debug build round-trips OTHER trio and invokes invalidateCatalog`() = runBlocking<Unit> {
         val payload = MainActivityIntentPayload(
             apiKey = null,
-            openRouterApiKey = null,
             openaiBaseUrl = null,
             otherApiKey = "other-key",
             otherBaseUrl = "https://api.example.com/v1",
@@ -331,7 +326,6 @@ class MainActivityIntentApplierSecurityTest {
         // persistent settings that a later UI render would surface to the user.
         val payload = MainActivityIntentPayload(
             apiKey = null,
-            openRouterApiKey = null,
             openaiBaseUrl = null,
             otherApiKey = null,
             otherBaseUrl = "not a url",
@@ -381,7 +375,6 @@ class MainActivityIntentApplierSecurityTest {
         // no clue to the user.
         val payload = MainActivityIntentPayload(
             apiKey = null,
-            openRouterApiKey = null,
             openaiBaseUrl = null,
             otherApiKey = null,
             otherBaseUrl = null,
@@ -426,7 +419,6 @@ class MainActivityIntentApplierSecurityTest {
     private fun browserScriptPayload(enabled: Boolean): MainActivityIntentPayload =
         MainActivityIntentPayload(
             apiKey = null,
-            openRouterApiKey = null,
             openaiBaseUrl = null,
             otherApiKey = null,
             otherBaseUrl = null,

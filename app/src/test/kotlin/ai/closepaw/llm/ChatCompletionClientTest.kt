@@ -51,7 +51,7 @@ class ChatCompletionClientTest {
 
     @Test
     fun `constructor succeeds with custom base url`() {
-        val client = ChatCompletionClient(apiKey, baseUrl = "https://openrouter.ai/api/v1")
+        val client = ChatCompletionClient(apiKey, baseUrl = "https://example.test/v1")
         assertThat(client.isReady()).isTrue()
     }
 

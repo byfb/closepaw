@@ -41,6 +41,16 @@ class AuthStoreTest {
     ) = AuthStore(context, refresher, now, prefsProvider = { fakePrefs })
 
     @Test
+    fun `initialization removes retired credentials and preserves active credentials`() = runBlocking {
+        fakePrefs.edit()
+            .putString("OPENROUTER", "retired-key")
+            .putString("OPENAI_API", """{"type":"api_key","key":"active-key"}""")
+            .apply()
+        assertThat(newStore().requireApiKey(LLMProvider.OPENAI_API)).isEqualTo("active-key")
+        assertThat(fakePrefs.contains("OPENROUTER")).isFalse()
+    }
+
+    @Test
     fun `api key set get has clear`() = runBlocking {
         val store = newStore()
         val provider = LLMProvider.OPENAI_API

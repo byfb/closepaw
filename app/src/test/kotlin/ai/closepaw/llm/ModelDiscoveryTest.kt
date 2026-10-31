@@ -26,7 +26,7 @@ class ModelDiscoveryTest {
     // ── Field-priority reader: three fixture types ───────────────────────
 
     @Test
-    fun `OpenRouter fixture parses name + context_length + image modality + tool support`() {
+    fun `compatible endpoint fixture parses name + context_length + image modality + tool support`() {
         val body = """
             {"data":[
               {
@@ -40,7 +40,7 @@ class ModelDiscoveryTest {
             ]}
         """.trimIndent()
 
-        val entries = ModelDiscovery.parse(LLMProvider.OPENROUTER, BASE, body)
+        val entries = ModelDiscovery.parse(LLMProvider.OTHER, BASE, body)
 
         assertThat(entries).hasSize(1)
         val e = entries.single().entry
@@ -105,7 +105,7 @@ class ModelDiscoveryTest {
             ]}
         """.trimIndent()
 
-        val ids = ModelDiscovery.parse(LLMProvider.OPENROUTER, BASE, body)
+        val ids = ModelDiscovery.parse(LLMProvider.OTHER, BASE, body)
             .map { it.entry.modelId }
         assertThat(ids).containsExactly("chat/with-tools")
     }
@@ -120,14 +120,14 @@ class ModelDiscoveryTest {
     // ── Non-chat filter ──────────────────────────────────────────────────
 
     @Test
-    fun `OpenRouter embedding model dropped by id substring`() {
+    fun `compatible endpoint embedding model dropped by id substring`() {
         val body = """
             {"data":[
               {"id":"openai/text-embedding-3-small","supported_parameters":["tools"]},
               {"id":"openai/gpt-5","supported_parameters":["tools"]}
             ]}
         """.trimIndent()
-        val ids = ModelDiscovery.parse(LLMProvider.OPENROUTER, BASE, body)
+        val ids = ModelDiscovery.parse(LLMProvider.OTHER, BASE, body)
             .map { it.entry.modelId }
         assertThat(ids).containsExactly("openai/gpt-5")
     }
@@ -163,24 +163,24 @@ class ModelDiscoveryTest {
     @Test
     fun `discovered name is provider colon modelId, lowercase enum`() {
         val body = """{"data":[{"id":"vendor/x"}]}"""
-        val e = ModelDiscovery.parse(LLMProvider.OPENROUTER, BASE, body).single().entry
-        assertThat(e.name).isEqualTo("openrouter:vendor/x")
+        val e = ModelDiscovery.parse(LLMProvider.OTHER, BASE, body).single().entry
+        assertThat(e.name).isEqualTo("other:vendor/x")
     }
 
     @Test
-    fun `discovered openrouter gpt-5 does not collide with seed gpt-5`() {
+    fun `discovered other gpt-5 does not collide with seed gpt-5`() {
         val seedBody = """
             {"gpt-5":{"display_name":"Seed GPT-5","provider":"OPENAI_API","api":"chat","model_id":"gpt-5"}}
         """.trimIndent()
         val seed = ModelCatalog.fromJson(seedBody)
 
         val discoBody = """{"data":[{"id":"gpt-5"}]}"""
-        val disco = ModelDiscovery.parse(LLMProvider.OPENROUTER, BASE, discoBody)
+        val disco = ModelDiscovery.parse(LLMProvider.OTHER, BASE, discoBody)
         val merged = seed.withExtraEntries(disco.map { it.entry })
 
-        assertThat(merged.names()).containsExactly("gpt-5", "openrouter:gpt-5")
+        assertThat(merged.names()).containsExactly("gpt-5", "other:gpt-5")
         assertThat(merged.resolveOrNull("gpt-5")!!.displayName).isEqualTo("Seed GPT-5")
-        assertThat(merged.resolveOrNull("openrouter:gpt-5")!!.provider).isEqualTo(LLMProvider.OPENROUTER)
+        assertThat(merged.resolveOrNull("other:gpt-5")!!.provider).isEqualTo(LLMProvider.OTHER)
     }
 
     @Test
@@ -193,7 +193,7 @@ class ModelDiscoveryTest {
               {"id":"vendor/ok-model"}
             ]}
         """.trimIndent()
-        val ids = ModelDiscovery.parse(LLMProvider.OPENROUTER, BASE, body)
+        val ids = ModelDiscovery.parse(LLMProvider.OTHER, BASE, body)
             .map { it.entry.modelId }
         assertThat(ids).containsExactly("vendor/ok-model")
     }
@@ -209,7 +209,7 @@ class ModelDiscoveryTest {
               {"id":"vendor/b","name":"$longName"}
             ]}
         """.trimIndent()
-        val entries = ModelDiscovery.parse(LLMProvider.OPENROUTER, BASE, body)
+        val entries = ModelDiscovery.parse(LLMProvider.OTHER, BASE, body)
             .associate { it.entry.modelId to it.entry.displayName }
         assertThat(entries["vendor/a"]).isEqualTo("HelloWorld")
         assertThat(entries["vendor/b"]?.length).isEqualTo(80)
@@ -240,7 +240,7 @@ class ModelDiscoveryTest {
               {"id":"a/with-image","architecture":{"input_modalities":["text","image"]}}
             ]}
         """.trimIndent()
-        val map = ModelDiscovery.parse(LLMProvider.OPENROUTER, BASE, body)
+        val map = ModelDiscovery.parse(LLMProvider.OTHER, BASE, body)
             .associate { it.entry.modelId to it.entry.supportsVision }
         assertThat(map["a/plain"]).isFalse()
         assertThat(map["a/with-image"]).isTrue()

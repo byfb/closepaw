@@ -16,7 +16,7 @@ enum class SettingsPage { HOME, LLM_AUTH }
  *
  * [provider] disambiguates within the API Key tab so banners can land directly on
  * the OTHER sub-tab (key/url/modelId trio); [authTab] alone is too coarse since
- * OPENAI_API / OPENROUTER / OTHER all share `AuthMode.ApiKey`.
+ * OPENAI_API / OTHER all share `AuthMode.ApiKey`.
  */
 data class SettingsDeepLink(
     val page: SettingsPage = SettingsPage.LLM_AUTH,

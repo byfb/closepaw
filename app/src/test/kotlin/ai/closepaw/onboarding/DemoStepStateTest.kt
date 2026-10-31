@@ -50,8 +50,7 @@ class DemoStepStateTest {
         val catalogJson = """
             {
               "oai-resp":{"display_name":"OAI","provider":"OPENAI_API","api":"response","model_id":"gpt-test"},
-              "oai-codex":{"display_name":"Codex","provider":"OPENAI_CODEX","api":"response","model_id":"gpt-test"},
-              "or-chat":{"display_name":"OR","provider":"OPENROUTER","api":"chat","model_id":"or-test","base_url":"https://example.test/v1"}
+              "oai-codex":{"display_name":"Codex","provider":"OPENAI_CODEX","api":"response","model_id":"gpt-test"}
             }
         """.trimIndent()
         catalog = ModelCatalog.fromJson(catalogJson)
@@ -330,7 +329,7 @@ class DemoStepStateTest {
         vm.startDemo()
         drain(scope, this)
 
-        onCredErrSlot.captured("OpenRouter key bad", false)
+        onCredErrSlot.captured("OpenAI key bad", false)
         drain(scope, this)
 
         val err = vm.stepState as DemoStepState.CredentialError

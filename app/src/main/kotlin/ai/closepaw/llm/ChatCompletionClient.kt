@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicReference
 /**
  * LLM client using OpenAI Chat Completions API.
  *
- * Works with any OpenAI-compatible endpoint (OpenRouter, vLLM, etc.)
+ * Works with any OpenAI-compatible endpoint (vLLM, etc.)
  * by setting [baseUrl] and [apiKey]. Accepts the same ResponseInputItem /
  * FunctionTool types as the callers produce and converts them internally
  * to Chat Completions types via [ChatCompletionInterop].

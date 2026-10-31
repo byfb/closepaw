@@ -8,7 +8,6 @@ import ai.closepaw.llm.OtherBaseUrlValidator
  * for [provider]. Designed so the Compose layer renders a disabled button
  * with a tooltip naming the missing piece without re-doing validation.
  *
- * - `OPENROUTER` needs a non-blank API key (the URL is seed-fixed).
  * - `OTHER` needs a non-blank API key AND a base URL that passes
  *   [OtherBaseUrlValidator] (validated against debug-vs-release policy).
  */
@@ -26,10 +25,6 @@ object RefreshButtonGate {
         allowDebugHttp: Boolean,
     ): State {
         return when (provider) {
-            LLMProvider.OPENROUTER -> {
-                if (apiKey.isBlank()) State.Disabled("Enter your OpenRouter API key first")
-                else State.Enabled
-            }
             LLMProvider.OTHER -> {
                 if (apiKey.isBlank()) State.Disabled("Enter your API key first")
                 else {
@@ -39,7 +34,7 @@ object RefreshButtonGate {
                     ) else State.Enabled
                 }
             }
-            else -> State.Disabled("Refresh is only supported for OpenRouter and Other")
+            else -> State.Disabled("Refresh is only supported for Other")
         }
     }
 }
