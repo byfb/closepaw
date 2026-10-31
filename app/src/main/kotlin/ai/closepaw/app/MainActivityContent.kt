@@ -170,6 +170,8 @@ internal fun MainActivityContent(
                     reasoningEfforts = settingsState.reasoningEfforts,
                     liveVoice = settingsState.liveVoice,
                     onLiveVoiceChange = settingsState::updateLiveVoice,
+                    coreInstructions = settingsState.coreInstructions,
+                    onCoreInstructionsChange = settingsState::updateCoreInstructions,
                     modelCatalog = modelCatalog,
                     selectedLocalModel = settingsState.localModel.id,
                     onLocalModelChange = modelLoadingStatusHolder::updateLocalModel,

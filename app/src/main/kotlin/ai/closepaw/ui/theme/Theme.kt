@@ -11,6 +11,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.core.view.WindowCompat
 
 // D1 → Material role mapping (design_aligned.md §1).
@@ -81,11 +83,18 @@ private val ClosePawDarkColorScheme = darkColorScheme(
 
 @Composable
 fun ClosePawTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean? = null,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = if (darkTheme) ClosePawDarkColorScheme else ClosePawLightColorScheme
-    val tokens = if (darkTheme) darkClosePawTokens() else lightClosePawTokens()
+    val appearance = rememberAppearance()
+    val resolvedDark = darkTheme ?: when (appearance.theme) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
+    val density = LocalDensity.current
+    val colorScheme = if (resolvedDark) ClosePawDarkColorScheme else ClosePawLightColorScheme
+    val tokens = if (resolvedDark) darkClosePawTokens() else lightClosePawTokens()
 
     val view = LocalView.current
     if (!view.isInEditMode) {
@@ -93,7 +102,11 @@ fun ClosePawTheme(
             val activity = view.context as? Activity
             if (activity != null) {
                 val window = activity.window
-                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+                WindowCompat.getInsetsController(window, view).apply {
+                    isAppearanceLightStatusBars = !resolvedDark
+                    isAppearanceLightNavigationBars = !resolvedDark
+                }
+                window.isNavigationBarContrastEnforced = false
                 if (Build.VERSION.SDK_INT < 35) {
                     @Suppress("DEPRECATION")
                     window.statusBarColor = colorScheme.background.toArgb()
@@ -104,7 +117,10 @@ fun ClosePawTheme(
         }
     }
 
-    CompositionLocalProvider(LocalClosePawTokens provides tokens) {
+    CompositionLocalProvider(
+        LocalClosePawTokens provides tokens,
+        LocalDensity provides Density(density.density, density.fontScale * appearance.fontSize.scale),
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = ClosePawTypography,

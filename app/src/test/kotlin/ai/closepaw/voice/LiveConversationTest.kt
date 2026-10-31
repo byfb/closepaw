@@ -34,6 +34,17 @@ class LiveConversationTest {
         assertThat(work.text.split("user: Open Settings")).hasSize(2)
     }
 
+    @Test fun `reconnection restores context without allowing old requests to be replayed`() {
+        val live = LiveConversation()
+        live.receive("""{"type":"turn.done","turn":{"role":"user","transcript":"Open Settings"}}""")
+        live.receive(delegation("done", "Open Settings"))
+        assertThat(live.reconnectContext()).contains("user: Open Settings")
+        assertThat(live.receive(delegation("new-id", "Open Settings"))).isNull()
+        live.receive("""{"type":"turn.done","turn":{"role":"user","transcript":"Read this page"}}""")
+        assertThat(live.receive(delegation("done", "Open Settings"))).isNull()
+        assertThat(live.receive(delegation("next", "Read this page"))!!.text).startsWith("Read this page")
+    }
+
     @Test fun `malformed and foreign events cannot create tasks`() {
         val live = LiveConversation()
         listOf("not json", "[]", "null", "{}", """{"type":{}}""",

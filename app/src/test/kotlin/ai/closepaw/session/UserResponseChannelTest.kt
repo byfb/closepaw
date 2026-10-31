@@ -20,10 +20,12 @@ class UserResponseChannelTest {
         // Give the coroutine time to start awaiting
         delay(10)
         assertTrue(channel.hasPending)
+        assertEquals("call-1", channel.pendingCallId)
 
         assertTrue(channel.deliver("call-1", "hello"))
         assertEquals("hello", result.await())
         assertFalse(channel.hasPending)
+        assertNull(channel.pendingCallId)
     }
 
     @Test

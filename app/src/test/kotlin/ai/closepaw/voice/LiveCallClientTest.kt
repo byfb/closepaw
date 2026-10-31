@@ -51,11 +51,12 @@ class LiveCallClientTest {
     @Test fun `voice preferences configure the call without changing delegation or worker instructions`() = runBlocking {
         server.enqueue(MockResponse().setBody("v=0"))
         LiveCallClient(http, { CodexHeaders("token", "account", null) }, server.url("/calls").toString(),
-            LiveVoicePreferences(LiveVoice.JUNIPER, LiveLanguage.CANTONESE, LiveTone.CALM)).create("v=0", "voice")
+            LiveVoicePreferences(LiveVoice.JUNIPER, LiveLanguage.CANTONESE, LiveTone.CALM, "Use short sentences.")).create("v=0", "voice")
         val session = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject.obj("session")!!
         assertThat(session.obj("audio")?.obj("output")?.string("voice")).isEqualTo("juniper")
         assertThat(session.string("instructions")).contains("Hong Kong Cantonese")
         assertThat(session.string("instructions")).contains("calm, steady")
+        assertThat(session.string("instructions")).contains("Use short sentences.")
         assertThat(session.string("instructions")).contains("Do not claim an action succeeded")
         assertThat(session.obj("delegation")?.string("type")).isEqualTo("client")
     }

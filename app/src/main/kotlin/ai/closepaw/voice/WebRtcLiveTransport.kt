@@ -27,6 +27,8 @@ internal class WebRtcLiveTransport(
     private val captureMicrophone: Boolean = true,
     private val onPlaybackChanged: (Boolean) -> Unit = {},
     private val onConnecting: (String) -> Unit = {},
+    private val onMicrophoneActivity: (Boolean) -> Unit = {},
+    private val initialMuted: Boolean = false,
 ) {
     private var factory: PeerConnectionFactory? = null
     private var peer: PeerConnection? = null
@@ -39,6 +41,7 @@ internal class WebRtcLiveTransport(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     @Volatile private var closed = false
     private val playback = PlaybackActivity()
+    private val microphoneActivity = MicrophoneActivity()
     private val recovery = LiveConnectionRecovery(scope, onFailure = { message ->
         if (!closed) {
             channelReady.completeExceptionally(LiveVoiceException(message))
@@ -55,6 +58,11 @@ internal class WebRtcLiveTransport(
             val audio = JavaAudioDeviceModule.builder(context)
                 .setUseHardwareAcousticEchoCanceler(true)
                 .setUseHardwareNoiseSuppressor(true)
+                .setSamplesReadyCallback { samples ->
+                    if (!closed && captureMicrophone && samples.audioFormat == android.media.AudioFormat.ENCODING_PCM_16BIT) {
+                        microphoneActivity.accept(samples.data, android.os.SystemClock.elapsedRealtime())?.let(onMicrophoneActivity)
+                    }
+                }
                 .setPlaybackSamplesReadyCallback { samples ->
                     if (!closed && samples.audioFormat == android.media.AudioFormat.ENCODING_PCM_16BIT) {
                         playback.accept(samples.data, android.os.SystemClock.elapsedRealtime())?.let(onPlaybackChanged)
@@ -170,7 +178,7 @@ internal class WebRtcLiveTransport(
             if (withTimeoutOrNull(20_000) { channelReady.await(); true } != true) {
                 throw LiveVoiceException("GPT-Live accepted the call, but audio could not connect. Check your network or VPN, then reconnect.")
             }
-            track?.setEnabled(true)
+            track?.setEnabled(!initialMuted)
         }
     }
 

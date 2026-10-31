@@ -62,6 +62,9 @@ internal fun SettingsHomePage(
                 .padding(horizontal = MaterialTheme.closePaw.spacing.lg),
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm)
         ) {
+            SectionHeader("Personalization")
+            SettingsNavigationRow(title = "Appearance", subtitle = "", onClick = { onNavigate(SettingsPage.APPEARANCE) })
+            SettingsNavigationRow(title = "Custom instructions", subtitle = "", onClick = { onNavigate(SettingsPage.CUSTOM_INSTRUCTIONS) })
             SectionHeader("Behavior")
             SettingsNavigationRow(
                 title = "LLM & Authentication",

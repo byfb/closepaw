@@ -38,7 +38,7 @@ import kotlinx.coroutines.launch
  *   A. Capsule and Island are never simultaneously visible.
  *   B. In MAIN_APP, no system overlays — Compose capsule handles it.
  *   C. In overlay context + active task, ShowPreference decides capsule vs island.
- *   D. WaitingFor* / Error force capsule visibility regardless preference.
+ *   D. Task updates preserve the user's chosen expansion state.
  */
 class ServiceOverlayController(
     context: AccessibilityService,
@@ -121,7 +121,7 @@ class ServiceOverlayController(
         this.onDismissError = { dismissError() }
         // Navigation callbacks
         this.onMinimize = {
-            showPreference = ShowPreference.SUMMARY
+            showPreference = ShowPreference.ISLAND
             applyVisibility()
         }
         this.onOpenViewer = { this@ServiceOverlayController.onOpenViewer?.invoke() }
@@ -142,7 +142,7 @@ class ServiceOverlayController(
     private var isMainAppResumed = false
 
     /** Detail controls, a floating summary, or a collapsed status pill. */
-    private var showPreference = ShowPreference.SUMMARY
+    private var showPreference = ShowPreference.ISLAND
 
     init {
         statusIslandManager?.startObserving(stateHolder, scope)
@@ -271,7 +271,7 @@ class ServiceOverlayController(
         if (userLocation == OverlayUserLocation.VD_VIEWER) {
             userLocation = OverlayUserLocation.OTHER_APP
         }
-        showPreference = ShowPreference.SUMMARY
+        showPreference = ShowPreference.ISLAND
         updateContext()
         applyVisibility()
     }
@@ -347,7 +347,7 @@ class ServiceOverlayController(
 
     fun onTaskStarted(taskId: String, input: String) {
         stateHolder.onTaskStarted(taskId, input)
-        showPreference = ShowPreference.SUMMARY
+        showPreference = ShowPreference.ISLAND
         applyVisibility()
     }
 
@@ -377,7 +377,6 @@ class ServiceOverlayController(
     fun onSessionError(message: String) {
         stateHolder.onError(message)
         refreshGlowState()
-        showPreference = ShowPreference.CAPSULE
         applyVisibility()
     }
 
@@ -406,7 +405,6 @@ class ServiceOverlayController(
 
     fun onAskUser(type: AskUserType, message: String, callId: String) {
         stateHolder.onAskUser(type, message, callId)
-        showPreference = ShowPreference.CAPSULE
         applyVisibility()
     }
 
@@ -430,7 +428,6 @@ class ServiceOverlayController(
             packageName = details.packageName,
             reason = details.reason,
         )
-        showPreference = ShowPreference.CAPSULE
         applyVisibility()
     }
 

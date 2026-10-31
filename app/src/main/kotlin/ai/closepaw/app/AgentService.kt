@@ -145,6 +145,7 @@ class AgentService : AccessibilityService() {
             val config = SessionConfig(
                 mainModel = model,
                 reasoningEffort = settings.reasoningEfforts[model],
+                customInstructions = settings.coreInstructions,
                 approvalMode = settings.approvalMode,
                 debugMode = settings.debugMode,
                 traceEnabled = settings.traceEnabled,
@@ -406,6 +407,9 @@ class AgentService : AccessibilityService() {
                             if (ai.closepaw.voice.LiveVoiceRuntime.onAgentEvent(event)) {
                                 ai.closepaw.voice.GptLiveWidget.requestUpdate(applicationContext)
                             }
+                            if (ai.closepaw.voice.LiveContextStore.records(event)) withContext(Dispatchers.IO) {
+                                ai.closepaw.voice.LiveContextStore(applicationContext).recordAgentEvent(event)
+                            }
                             try {
                                 eventHandler.handleEvent(event, recordingService)
                             } catch (e: Exception) {
@@ -452,6 +456,7 @@ class AgentService : AccessibilityService() {
                 val settings = AppSettingsStore(this@AgentService).load()
                 val sessionConfig =
                         SessionConfig(
+                                customInstructions = settings.coreInstructions,
                                 mainModel = settings.selectedModel,
                                 reasoningEffort = settings.reasoningEfforts[settings.selectedModel],
                                 debugMode = true,

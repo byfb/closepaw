@@ -13,6 +13,7 @@ data class LiveVoiceState(
     val error: String? = null,
     val preview: Boolean = false,
     val speaking: Boolean = false,
+    val audioInterrupted: Boolean = false,
     val connectionStage: String? = null,
 ) {
     val running: Boolean get() = phase == LiveVoicePhase.Connecting || phase == LiveVoicePhase.Active
@@ -61,6 +62,7 @@ object LiveVoiceRuntime {
 
 internal fun voiceStatus(voice: LiveVoiceState, task: LiveTaskStatus): String = when {
     voice.phase == LiveVoicePhase.Connecting -> voice.connectionStage ?: "Connecting…"
+    voice.audioInterrupted && voice.running -> "Audio interrupted"
     voice.preview && voice.running -> "Previewing"
     voice.speaking && voice.running -> "Replying"
     voice.muted && voice.running -> "Microphone muted"

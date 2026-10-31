@@ -34,6 +34,7 @@ data class AppSettings(
         val otherModelId: String,
         val approvalMode: ApprovalMode,
         val reasoningEfforts: Map<String, String> = emptyMap(),
+        val coreInstructions: String = "",
         val liveVoice: ai.closepaw.voice.LiveVoicePreferences = ai.closepaw.voice.LiveVoicePreferences(),
 )
 
@@ -162,6 +163,7 @@ class AppSettingsStore(private val context: Context) {
                     } else null
                 }.toMap(),
                 liveVoice = loadLiveVoice(),
+                coreInstructions = loadCoreInstructions(),
         )
     }
 
@@ -172,6 +174,7 @@ class AppSettingsStore(private val context: Context) {
                 ?: ai.closepaw.voice.LiveVoice.COVE,
             language = ai.closepaw.voice.LiveLanguage.entries.firstOrNull { it.name == saved.getString("live_language", null) }
                 ?: ai.closepaw.voice.LiveLanguage.AUTO,
+            customInstructions = saved.getString("live_instructions", "").orEmpty().take(ai.closepaw.protocol.CustomInstructions.MAX_LENGTH),
             tone = ai.closepaw.voice.LiveTone.entries.firstOrNull { it.name == saved.getString("live_tone", null) }
                 ?: ai.closepaw.voice.LiveTone.NATURAL,
         )
@@ -179,7 +182,15 @@ class AppSettingsStore(private val context: Context) {
 
     fun saveLiveVoice(value: ai.closepaw.voice.LiveVoicePreferences) {
         prefs().edit().putString("live_voice", value.voice.id)
-            .putString("live_language", value.language.name).putString("live_tone", value.tone.name).apply()
+            .putString("live_language", value.language.name).putString("live_tone", value.tone.name)
+            .putString("live_instructions", value.customInstructions.take(ai.closepaw.protocol.CustomInstructions.MAX_LENGTH)).apply()
+    }
+
+    fun loadCoreInstructions(): String =
+        prefs().getString("core_instructions", "").orEmpty().take(ai.closepaw.protocol.CustomInstructions.MAX_LENGTH)
+
+    fun saveCoreInstructions(value: String) {
+        prefs().edit().putString("core_instructions", value.take(ai.closepaw.protocol.CustomInstructions.MAX_LENGTH)).apply()
     }
 
     fun loadTermuxShellEnabled(): Boolean =

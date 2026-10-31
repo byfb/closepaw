@@ -7,19 +7,31 @@ agent and speaks its questions and results. Mute and end-call controls remain in
 chat; the microphone foreground notification also offers **End voice** when
 notification permission is granted.
 
-While another app is in front, a small floating summary shows the current task's
-latest progress and live captions. **Controls** opens the existing takeover,
-stop, and response panel; **Open chat** returns to the complete conversation.
-The arrow collapses the summary to the status pill, and tapping the pill expands
-it again. Mute and end-voice controls remain available in the summary. Questions
-and approval requests open the response panel automatically. Voice-only calls
-remain visible without an active task; previews do not create a floating window.
+While another app is in front, a compact status pill appears by default. Tap it
+to open a floating summary with the latest task progress and live captions. The
+expanded card fills the available width with 12 dp side margins and respects
+display cutouts. **Controls** opens takeover, stop, and response controls; **Open
+chat** returns to the conversation. The arrow folds the card again. Task updates,
+questions, and approval requests do not expand a folded overlay; tap it to view
+and respond. Every new task starts folded. Voice-only calls remain available
+without an active task; previews do not create a floating window.
 
 ## Home-screen widget and settings
 
 Open **Settings → GPT-Live** (or the settings icon beside the chat's voice button).
-**Add to home screen** opens the launcher's widget confirmation. The same widget
+**Add voice widget** opens the launcher's widget confirmation. The same widget
 is also available from the launcher's Widgets menu.
+
+**Add voice shortcut** pins a single start action. Long-pressing the ClosePaw app
+icon also exposes **Start GPT-Live**. The shortcut uses a visible Activity to
+request microphone permission and start the foreground service, then returns to
+the previous screen. Repeated taps do not create another call.
+
+**Add Quick Settings tile** (Android 13+) requests the system tile. On Android 12,
+add GPT-Live using Quick Settings' Edit menu. Tap the tile to start voice, or tap
+again to end it. Starting from a locked device first requests unlock. Tile state
+updates while the panel is visible; it does not poll or open the microphone in
+background. Android 14+ uses the PendingIntent tile launch API.
 
 After ChatGPT sign-in, microphone permission, and Accessibility setup, **Start
 voice** starts the existing foreground service directly from the widget. A widget
@@ -107,10 +119,13 @@ its public wire event names differ from this Codex v3 adapter.
 `GptLiveService` owns the call, audio focus, microphone/media-playback foreground notification,
 and event collectors. An Activity-scoped binder exposes state to Compose; leaving
 the Activity does not end an active call. Permission denial, sign-out, audio-focus
-loss, accessibility disconnection, network failure, and explicit hang-up all
-release the peer connection and microphone. Calls are not restarted after process
+loss, accessibility disconnection, and explicit hang-up release the peer
+connection and microphone. Transient audio-focus interruptions mute input until
+focus returns, preserving the user's own mute setting. Calls are not restarted after process
 death. Ending voice leaves an already-running phone task under the ordinary
-ClosePaw task controls.
+ClosePaw task controls. HTTP connection-pool cleanup runs on the client executor;
+closing a TLS socket during service destruction must not perform network I/O on
+the Android main thread.
 
 `WebRtcLiveTransport` owns the native audio track and data channel. Native setup
 and disposal run off the main thread. The service preserves headset routing and
@@ -120,7 +135,20 @@ The one-shot SDP request waits for ICE gathering and includes the local network
 candidates. Setup reports its current stage; a failed media connection is
 distinguished from HTTP sign-in, account-access, and quota errors. Temporary ICE
 disconnects have a 12-second recovery window; native failure or a closed event
-channel ends the call. Explicit hang-up cancels that recovery timer. Both the
+channel requests a replacement voice connection. The UI stays in Connecting
+until `session.started` arrives (a data channel alone is insufficient). A response
+watchdog waits 30 seconds after transcribed speech or sustained local microphone
+activity ends. Assistant output or delegation clears the wait; ordinary silence
+and worker execution do not start a timer. The energy detector discards samples
+immediately and is not a speech recognizer.
+
+After an established call fails, the service makes at most two automatic reconnect
+attempts. It preserves the running worker, pending question, and bounded recent
+conversation. Task updates received during recovery are buffered and delivered
+as session context because delegation IDs belong to the old connection. No
+request is automatically resubmitted, and the replacement connection ignores
+new delegations until fresh user speech arrives. Exhausted retries show a
+reconnect error. Explicit hang-up cancels all recovery work. Both the
 summary and control overlays temporarily pass through injected agent gestures.
 `LiveVoiceRuntime` holds context-free status shared with settings and the widget;
 it does not own the service or native resources. `GptLiveWidget` uses short-lived
@@ -128,8 +156,25 @@ receiver work and event-driven RemoteViews updates, with no periodic polling.
 
 `LiveConversation` handles transcripts, explicit `delegation.created` events,
 duplicate delegation suppression, and UTF-8-safe feedback chunks. Transcription
-alone never starts a task. Conversation context stays in memory for the call;
-the normal task history records delegated requests as ordinary agent inputs.
+alone never starts a phone task. A completed user turn with an exact hang-up
+command, such as **結束語音**, **掛斷 GPT-Live**, **收線**, or **hang up**, ends
+voice locally. Partial transcripts, assistant speech, negations, and questions do
+not trigger hang-up. These controls still depend on server transcription; use the
+tile, widget, or foreground notification if the connection is unresponsive. A bounded text handoff is saved locally: the initial user brief, up to 12 recent
+turns (8,000 characters total), the latest phone request, progress/result, and
+pending question. Automatic and manual reconnects restore this context. Worker
+updates continue to refresh it after voice ends. No raw audio, screenshots, or
+tool traces are kept in this handoff. The normal task history records delegated
+requests as ordinary agent inputs.
+
+**Settings → GPT-Live → Clear voice context** removes the handoff while voice is
+stopped. New chats, switching history conversations, and ChatGPT sign-out clear
+it too. A generation check prevents delayed saves from restoring cleared text.
+A different active chat cannot inherit the previous chat's handoff. After process
+death, saved progress is explicitly marked historical if there is no active
+worker; reconnecting never restarts that task automatically. This bounded handoff
+is not unlimited recall: put enduring preferences and background in custom
+instructions. Core Agent instructions also survive chat checkpoint reloads.
 
 `AgentService.getOrCreateLiveSession()` reuses an active ChatGPT-backed session
 or creates one with the selected ChatGPT model (the preferred ChatGPT model when
@@ -158,7 +203,8 @@ emulator snapshot before testing and use replacement installs to retain app data
 JVM tests cover request headers, fresh credentials on reconnect, authentication
 failure, cancellation, malformed events, duplicate handoffs, transcript assembly,
 Unicode feedback, preference persistence, request configuration, playback activity,
-and task outcome presentation. `GptLiveTransportTest` establishes two successive native
+task outcome presentation, hang-up command matching, response deadlines, and
+reconnect delegation suppression. `GptLiveTransportTest` establishes two successive native
 WebRTC loopback calls, exchanges events in both directions, toggles mute, and
 closes the transport. It also negotiates a preview with recording disabled and checks that
 no microphone recording is active. It uses no account and sends no audio off the device.
@@ -204,3 +250,18 @@ check setup after microphone denial, duplicate taps, and task completion after
 hang-up. Check incoming calls, headset routing, and screen-off behavior on the
 target phone. Phone UI tasks still use the chosen execution platform and its
 lock-screen restrictions; background voice does not grant access through a lock screen.
+
+The appearance, shortcuts, and recovery update passed 2,160 JVM tests, the five
+native/UI tests above, and Lint with no errors. Tests also cover bounded local
+voice-context persistence, late-save rejection after clearing, chat isolation,
+worker updates after hang-up, and Core Agent instruction checkpoint reloads.
+
+On the signed Android 16 release, the pinned shortcut and Quick Settings tile
+started voice; the spoken command “Please hang up”, tile, and summary controls
+all ended it without killing the app process. A spoken request opened Android Settings and produced a spoken
+completion. New tasks stayed folded; expanded summaries were checked in portrait
+and landscape with dark mode and enlarged text. A temporary emulator-network
+interruption exercised automatic reconnection. Manual reconnect testing recalled
+an earlier spoken fact without repeating it, including after process restart.
+These checks used the existing signed-in emulator and unchanged ProtonVPN
+configuration; physical-device audio behavior was not part of this acceptance.

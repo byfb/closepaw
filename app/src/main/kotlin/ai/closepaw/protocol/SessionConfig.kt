@@ -46,6 +46,8 @@ data class SessionConfig(
         val evalTurnBudget: Int? = null,
         /** Null lets the provider choose its default effort. */
         val reasoningEffort: String? = null,
+        /** User-authored operating preferences, snapshotted for this chat. */
+        val customInstructions: String = "",
 )
 
 /** Canonical LLM routing config used at runtime. */

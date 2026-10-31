@@ -44,7 +44,7 @@ class IslandOverlayHost(
     )
 
     private var stateHolder: CapsuleStateHolder? = null
-    private val expanded = MutableStateFlow(true)
+    private val expanded = MutableStateFlow(false)
     var onMinimizeSummary: (() -> Unit)? = null
     var onOpenApp: (() -> Unit)? = null
     var onOpenControls: (() -> Unit)? = null
@@ -69,8 +69,9 @@ class IslandOverlayHost(
         if (expanded.value == value) return
         expanded.value = value
         composeHost.updateLayoutParams { params ->
-            params.gravity = Gravity.TOP or if (value) Gravity.END else Gravity.CENTER_HORIZONTAL
-            params.x = if (value) dp(12) else 0
+            params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            params.x = 0
+            params.width = if (value) WindowManager.LayoutParams.MATCH_PARENT else WindowManager.LayoutParams.WRAP_CONTENT
         }
     }
 
@@ -155,7 +156,7 @@ class IslandOverlayHost(
     private fun createLayoutParams(): WindowManager.LayoutParams {
         val statusBarHeight = getStatusBarHeight()
         return WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            if (expanded.value) WindowManager.LayoutParams.MATCH_PARENT else WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
@@ -168,8 +169,8 @@ class IslandOverlayHost(
                 (if (passThroughDepth > 0) WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE else 0),
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or if (expanded.value) Gravity.END else Gravity.CENTER_HORIZONTAL
-            x = if (expanded.value) dp(12) else 0
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            x = 0
             y = statusBarHeight + dp(4)
         }
     }

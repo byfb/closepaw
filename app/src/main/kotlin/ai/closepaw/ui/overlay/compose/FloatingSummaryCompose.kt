@@ -63,7 +63,8 @@ internal fun FloatingSummaryCompose(
         is CapsuleMode.Hidden -> ""
     }
     Surface(
-        modifier = Modifier.width(312.dp).testTag("qa-floating-summary"),
+        modifier = Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
+            .padding(horizontal = 12.dp).testTag("qa-floating-summary"),
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),

@@ -43,14 +43,14 @@ class OverlayLocationPolicyTest {
     }
 
     @Test
-    fun `required responses expand the summary into existing controls`() {
+    fun `required responses preserve the chosen summary until controls are requested`() {
         val modes = listOf(CapsuleMode.WaitingForInput("Which page?", "ask"),
             CapsuleMode.WaitingForApproval("approve", "Open Chrome", "Chrome", "com.android.chrome", "ask"))
         for (platform in PlatformMode.entries) for (mode in modes) {
             val result = deriveOverlayVisibility(platform, OverlayUserLocation.OTHER_APP,
                 mode, true, ShowPreference.SUMMARY, hasLiveVoice = true)
-            assertThat(result.showCapsule).isTrue()
-            assertThat(result.showIsland).isFalse()
+            assertThat(result.showCapsule).isFalse()
+            assertThat(result.showIsland).isTrue()
         }
     }
 
@@ -302,7 +302,7 @@ class OverlayLocationPolicyTest {
     }
 
     @Test
-    fun `derive visibility forces capsule in interactive accessibility modes even when preference is island`() {
+    fun `interactive accessibility updates keep the status folded`() {
         val modes = listOf(
             CapsuleMode.WaitingForInput(question = "q", callId = "1"),
             CapsuleMode.WaitingForAction(instruction = "do", callId = "1"),
@@ -316,14 +316,14 @@ class OverlayLocationPolicyTest {
                 hasActiveTask = mode !is CapsuleMode.Error,
                 showPreference = ShowPreference.ISLAND,
             )
-            assertThat(decision.normalizedShowPreference).isEqualTo(ShowPreference.CAPSULE)
-            assertThat(decision.showCapsule).isTrue()
-            assertThat(decision.showIsland).isFalse()
+            assertThat(decision.normalizedShowPreference).isEqualTo(ShowPreference.ISLAND)
+            assertThat(decision.showCapsule).isFalse()
+            assertThat(decision.showIsland).isTrue()
         }
     }
 
     @Test
-    fun `derive visibility forces capsule in interactive vd modes even when preference is island`() {
+    fun `interactive vd updates keep the status folded`() {
         val modes = listOf(
             CapsuleMode.WaitingForInput(question = "q", callId = "1"),
             CapsuleMode.WaitingForAction(instruction = "do", callId = "1"),
@@ -337,9 +337,9 @@ class OverlayLocationPolicyTest {
                 hasActiveTask = mode !is CapsuleMode.Error,
                 showPreference = ShowPreference.ISLAND,
             )
-            assertThat(decision.normalizedShowPreference).isEqualTo(ShowPreference.CAPSULE)
-            assertThat(decision.showCapsule).isTrue()
-            assertThat(decision.showIsland).isFalse()
+            assertThat(decision.normalizedShowPreference).isEqualTo(ShowPreference.ISLAND)
+            assertThat(decision.showCapsule).isFalse()
+            assertThat(decision.showIsland).isTrue()
         }
     }
 

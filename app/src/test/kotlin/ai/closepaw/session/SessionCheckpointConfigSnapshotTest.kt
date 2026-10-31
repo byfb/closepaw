@@ -59,6 +59,7 @@ class SessionCheckpointConfigSnapshotTest {
                 traceEnabled = true,
                 traceRunId = "run-xyz",
                 reasoningEffort = "xhigh",
+                customInstructions = "Read before acting.",
                 excludedTools = setOf("open_app", "shell")
             )
 
@@ -71,6 +72,7 @@ class SessionCheckpointConfigSnapshotTest {
         assertThat(restored.traceEnabled).isTrue()
         assertThat(restored.traceRunId).isEqualTo("run-xyz")
         assertThat(restored.reasoningEffort).isEqualTo("xhigh")
+        assertThat(restored.customInstructions).isEqualTo("Read before acting.")
         assertThat(restored.excludedTools).containsExactly("open_app", "shell")
     }
 }

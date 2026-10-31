@@ -50,9 +50,10 @@ internal fun resolveUserLocation(
 
     val normalizedClassName = className?.substringBefore('$') ?: return null
     // Our overlay views also emit window events. Their release names can be
-    // obfuscated, so only the two manifest activities identify our app screens.
+    // obfuscated, so only our manifest activities identify our app screens.
     return when (normalizedClassName) {
         "$appPackage.ui.viewer.VirtualDisplayViewerActivity" -> OverlayUserLocation.VD_VIEWER
+        "$appPackage.voice.GptLiveShortcutActivity",
         "$appPackage.app.MainActivity" -> OverlayUserLocation.MAIN_APP
         else -> null
     }
@@ -136,10 +137,6 @@ internal fun deriveOverlayVisibility(
     val isActive = hasActiveTask || hasLiveVoice || mode is CapsuleMode.Done || mode is CapsuleMode.Error
     val normalizedShowPreference = when {
         location == OverlayUserLocation.MAIN_APP || !isActive -> showPreference
-        mode is CapsuleMode.WaitingForInput ||
-            mode is CapsuleMode.WaitingForAction ||
-            mode is CapsuleMode.WaitingForApproval ||
-            mode is CapsuleMode.Error -> ShowPreference.CAPSULE
         mode is CapsuleMode.Hidden && hasLiveVoice && showPreference == ShowPreference.CAPSULE -> ShowPreference.SUMMARY
         else -> showPreference
     }
@@ -177,10 +174,9 @@ internal fun deriveOverlayVisibility(
                     normalizedShowPreference = normalizedShowPreference,
                 )
             } else {
-                // Show overlay in VD_VIEWER, OTHER_APP, or MAIN_APP when user attention needed.
-                // For needsUserAttention modes, always force capsule regardless of preference —
-                // in MAIN_APP the default preference is ISLAND, which won't show without this.
-                val forceCapsule = needsUserAttention
+                // Keep background details folded until requested. In the VD main app,
+                // retain the existing explicit response surface for pending questions.
+                val forceCapsule = needsUserAttention && location == OverlayUserLocation.MAIN_APP
                 OverlayVisibilityDecision(
                     showCapsule = forceCapsule || normalizedShowPreference == ShowPreference.CAPSULE,
                     showIsland = !forceCapsule && normalizedShowPreference != ShowPreference.CAPSULE,

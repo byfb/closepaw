@@ -63,5 +63,7 @@ class UserResponseChannel {
         pending.getAndSet(null)?.deferred?.cancel()
     }
 
+    val pendingCallId: String? get() = pending.get()?.callId
+
     val hasPending: Boolean get() = pending.get() != null
 }

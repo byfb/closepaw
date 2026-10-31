@@ -45,7 +45,7 @@ fun StatusIslandCompose(
             .clip(shape)
             .clickable(
                 role = Role.Button,
-                onClickLabel = "Open current app",
+                onClickLabel = "Show task details",
                 onClick = onClick,
             )
             .semantics {

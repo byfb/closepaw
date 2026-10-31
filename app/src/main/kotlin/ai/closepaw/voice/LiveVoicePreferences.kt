@@ -5,8 +5,11 @@ data class LiveVoicePreferences(
     val voice: LiveVoice = LiveVoice.COVE,
     val language: LiveLanguage = LiveLanguage.AUTO,
     val tone: LiveTone = LiveTone.NATURAL,
+    val customInstructions: String = "",
 ) {
-    fun instructions(): String = "${language.instruction}\n${tone.instruction}"
+    fun instructions(): String = ai.closepaw.protocol.CustomInstructions.appendTo(
+        "${language.instruction}\n${tone.instruction}", customInstructions,
+    )
 }
 
 enum class LiveVoice(val id: String, val label: String) {

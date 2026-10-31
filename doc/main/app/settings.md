@@ -1,7 +1,7 @@
 # Settings & Configuration
 
 > User settings, preferences, and configuration persistence.
-> Last updated: 2026-05-20 (approval mode selector, settings reorder, copy audit)
+> Last updated: 2026-10-31 (appearance and custom instructions)
 
 ## Overview
 
@@ -12,6 +12,29 @@ The app manages user preferences through `AppSettingsState` + `AppSettingsStore`
 ---
 
 ## Settings Categories
+
+### Appearance
+
+**Settings → Appearance** selects Follow system (default), Light, or Dark.
+Font size defaults to the Android size, with Large (115%) and Extra large (130%)
+multipliers. Changes apply immediately to Compose pages and floating overlays.
+`AppearanceStore` persists `theme_mode` and `font_size` in `agent_prefs`; each
+composed theme observes changes and removes its listener when disposed.
+
+### Custom instructions
+
+**Settings → Custom instructions** provides two independent editors with Save:
+
+- **GPT-Live**: speaking style, conversational rules, and voice context. Saved as
+  `live_instructions` and appended to voice instructions for each new call.
+- **Core Agent**: phone workflows, operating preferences, and background facts.
+  Saved as `core_instructions`, copied into `SessionConfig.customInstructions`
+  for new chats, and appended to the main agent and delegated agent role prompts.
+
+Each field accepts up to 12,000 characters. Empty fields restore the base behavior.
+Existing calls and chats retain their configuration; runtime tool permissions and
+approval checks still apply. Text is stored on the device and sent to the selected
+model as instructions when that call or task runs.
 
 ### LLM Backend
 
@@ -96,10 +119,12 @@ data class SessionConfig(
 
 > See: `ui/settings/SettingsSheet.kt`
 
-The settings UI is a full-screen page overlay with sub-page navigation (system back: sub-page → HOME, HOME → dismiss). The HOME page groups entries into three sections:
+The settings UI is a full-screen page overlay with sub-page navigation (system back: sub-page → HOME, HOME → dismiss). The HOME page groups entries into four sections:
 
 | Section | Entry | Destination |
 |---------|-------|-------------|
+| **Personalization** | Appearance | Theme and font size |
+| | Custom instructions | GPT-Live and Core Agent instruction editors |
 | **Behavior** | LLM & Authentication | `LlmAuthSettingsPage` — provider → model hierarchy, Sign In / API Key tabs (Local tab gated by `LOCAL_TAB_ENABLED`) |
 | | Agent Behavior | `AgentBehaviorSettingsPage` — Approval (Per-App / Auto-Approve selector + App Access Rules link), Perception, Display Mode, Tools |
 | | Memory | `MemorySettingsPage` — User Memory + Device Memory editors (per-app memory lives under App Access) |

@@ -25,6 +25,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 
 @Composable
 internal fun GptLiveSettingsPage(
@@ -41,7 +44,10 @@ internal fun GptLiveSettingsPage(
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var contextCleared by remember { mutableStateOf(false) }
     val voice by LiveVoiceRuntime.state.collectAsStateWithLifecycle()
+    LaunchedEffect(voice.running) { if (voice.running) contextCleared = false }
     var previewRequested by remember { mutableStateOf(false) }
     var localError by remember { mutableStateOf<String?>(null) }
     val widgetManager = remember(context) { AppWidgetManager.getInstance(context) }
@@ -111,12 +117,48 @@ internal fun GptLiveSettingsPage(
             Text("Worker changes apply to new chats.", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
 
+            SectionHeader("Conversation")
+            Text("Previous voice context is restored when you reconnect. New chats start fresh.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedButton(onClick = {
+                scope.launch {
+                    withContext(Dispatchers.IO) { LiveContextStore(context).clear() }
+                    contextCleared = true
+                }
+            }, enabled = !voice.running, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text(if (contextCleared) "Voice context cleared" else "Clear voice context")
+            }
+
+            SectionHeader("Shortcuts")
+            val shortcuts = remember(context) { context.getSystemService(android.content.pm.ShortcutManager::class.java) }
+            if (shortcuts.isRequestPinShortcutSupported) {
+                OutlinedButton(onClick = {
+                    val shortcut = android.content.pm.ShortcutInfo.Builder(context, "gpt_live")
+                        .setShortLabel("Start GPT-Live")
+                        .setIcon(android.graphics.drawable.Icon.createWithResource(context, ai.closepaw.R.drawable.ic_live_microphone))
+                        .setIntent(GptLiveShortcutActivity.startIntent(context)).build()
+                    if (!shortcuts.requestPinShortcut(shortcut, null)) localError = "Long-press ClosePaw to add the voice shortcut."
+                }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Add voice shortcut") }
+            }
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                OutlinedButton(onClick = {
+                    context.getSystemService(android.app.StatusBarManager::class.java).requestAddTileService(
+                        ComponentName(context, GptLiveTileService::class.java), "GPT-Live",
+                        android.graphics.drawable.Icon.createWithResource(context, ai.closepaw.R.drawable.ic_live_microphone),
+                        context.mainExecutor,
+                    ) { result ->
+                        if (result != android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED &&
+                            result != android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED)
+                            localError = "Add GPT-Live from Quick Settings → Edit."
+                    }
+                }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Add Quick Settings tile") }
+            }
             if (widgetManager.isRequestPinAppWidgetSupported) {
                 OutlinedButton(onClick = {
                     if (!widgetManager.requestPinAppWidget(ComponentName(context, GptLiveWidget::class.java), null, null)) {
                         localError = "Add GPT-Live from your launcher's Widgets menu."
                     }
-                }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Add to home screen") }
+                }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Add voice widget") }
             }
             Spacer(Modifier.height(8.dp))
         }

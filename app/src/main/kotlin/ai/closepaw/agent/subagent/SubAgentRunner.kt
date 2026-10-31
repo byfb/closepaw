@@ -108,7 +108,9 @@ internal class IsolatedSubAgentRunner(
                 taskId = childTaskId,
                 uiSettleDelayMs = parentServices.config.actionDelayMs,
                 debugMode = parentServices.config.debugMode,
-                systemPrompt = resolvedRoleDef.systemPrompt,
+                systemPrompt = ai.closepaw.protocol.CustomInstructions.appendTo(
+                    resolvedRoleDef.systemPrompt, parentServices.config.customInstructions,
+                ),
                 allowedToolNames = childAllowedToolNames,
                 agentId = childSessionId.value,
                 agentRole = AgentExecutionRole.SUBAGENT,

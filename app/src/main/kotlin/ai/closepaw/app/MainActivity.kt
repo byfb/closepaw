@@ -262,6 +262,7 @@ class MainActivity : ComponentActivity() {
                     onSessionSelect = { session ->
                         coordinator.selectedSessionForReload = session
                         viewModel.resumeSession(session) {
+                            resetSavedVoiceContext()
                             sessionHistoryManager.setActiveSessionId(null)
                             sessionHistoryManager.getRecordingService().clearSessionAndAwait()
                             coordinator.detachSession()
@@ -273,8 +274,11 @@ class MainActivity : ComponentActivity() {
                     },
                     onNewSession = {
                         coordinator.selectedSessionForReload = null
-                        lifecycleScope.launch { coordinator.clearSession() }
-                        viewModel.startNewSession(settingsState.selectedModel, BuildConfig.VERSION_NAME)
+                        lifecycleScope.launch {
+                            resetSavedVoiceContext()
+                            coordinator.clearSession()
+                            viewModel.startNewSession(settingsState.selectedModel, BuildConfig.VERSION_NAME)
+                        }
                     },
                     onOpenViewer = { openViewer(this@MainActivity) },
                     onOpenApp = { pkg ->
@@ -461,7 +465,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private suspend fun resetSavedVoiceContext() {
+        if (ai.closepaw.voice.LiveVoiceRuntime.state.value.running) startService(
+            Intent(this, ai.closepaw.voice.GptLiveService::class.java).setAction(ai.closepaw.voice.GptLiveService.ACTION_STOP))
+        withContext(Dispatchers.IO) { ai.closepaw.voice.LiveContextStore(applicationContext).clear() }
+    }
+
     private suspend fun clearCurrentSession() {
+        resetSavedVoiceContext()
         coordinator.clearSession()
 
         if (::viewModel.isInitialized) {
@@ -738,6 +749,7 @@ class MainActivity : ComponentActivity() {
                         approvalMode = pendingApprovalMode ?: settingsState.approvalMode,
                         mainModel = settingsState.selectedModel,
                         reasoningEffort = settingsState.reasoningEffort,
+                        customInstructions = settingsState.coreInstructions,
                         debugMode = settingsState.debugMode,
                         traceEnabled = pendingTraceEnabled ?: settingsState.traceEnabled,
                         traceRunId = pendingTraceRunId,
@@ -892,6 +904,7 @@ class MainActivity : ComponentActivity() {
 
     private fun handleSignOut() {
         lifecycleScope.launch {
+            resetSavedVoiceContext()
             authStore.clear(LLMProvider.OPENAI_CODEX)
             ai.closepaw.voice.GptLiveWidget.requestUpdate(applicationContext)
         }

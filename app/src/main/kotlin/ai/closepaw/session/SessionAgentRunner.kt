@@ -86,7 +86,9 @@ internal class SessionAgentRunner(
             taskId = taskId,
             uiSettleDelayMs = config.actionDelayMs,
             debugMode = config.debugMode,
-            systemPrompt = resolvePromptTemplates(resolvedAgentDef.systemPrompt),
+            systemPrompt = ai.closepaw.protocol.CustomInstructions.appendTo(
+                resolvePromptTemplates(resolvedAgentDef.systemPrompt), config.customInstructions,
+            ),
             allowedToolNames = resolvedAgentDef.allowedToolNames,
             agentId = sessionId.value,
             agentRole = resolvedAgentDef.executionRole,

@@ -41,6 +41,8 @@ enum class SettingsPage {
     HOME,
     LLM_AUTH,
     GPT_LIVE,
+    APPEARANCE,
+    CUSTOM_INSTRUCTIONS,
     AGENT_BEHAVIOR,
     MEMORY,
     PERMISSIONS_ADVANCED,
@@ -97,6 +99,8 @@ fun SettingsSheet(
     reasoningEfforts: Map<String, String> = emptyMap(),
     liveVoice: ai.closepaw.voice.LiveVoicePreferences = ai.closepaw.voice.LiveVoicePreferences(),
     onLiveVoiceChange: (ai.closepaw.voice.LiveVoicePreferences) -> Unit = {},
+    coreInstructions: String = "",
+    onCoreInstructionsChange: (String) -> Unit = {},
 ) {
     var settingsPage by rememberSaveable(initialPage) { mutableStateOf(initialPage) }
     var workerSettings by rememberSaveable { mutableStateOf(false) }
@@ -204,6 +208,18 @@ fun SettingsSheet(
                         onWorkerSettings = { workerSettings = true; settingsPage = SettingsPage.LLM_AUTH },
                         onBack = { settingsPage = SettingsPage.HOME },
                         onClose = onDismiss,
+                    )
+                    SettingsPage.APPEARANCE -> AppearanceSettingsPage(
+                        onBack = { settingsPage = SettingsPage.HOME }, onClose = onDismiss,
+                    )
+                    SettingsPage.CUSTOM_INSTRUCTIONS -> CustomInstructionsSettingsPage(
+                        liveInstructions = liveVoice.customInstructions,
+                        coreInstructions = coreInstructions,
+                        onSave = { live, core ->
+                            onLiveVoiceChange(liveVoice.copy(customInstructions = live))
+                            onCoreInstructionsChange(core)
+                        },
+                        onBack = { settingsPage = SettingsPage.HOME }, onClose = onDismiss,
                     )
                     SettingsPage.AGENT_BEHAVIOR -> AgentBehaviorSettingsPage(
                         perceptionMode = perceptionMode,

@@ -50,6 +50,20 @@ class AppSettingsStoreTest {
     }
 
     @Test
+    fun `custom instructions persist independently and can be cleared`() {
+        val state = AppSettingsState(AppSettingsStore(context)).apply { load() }
+        state.updateLiveVoice(state.liveVoice.copy(customInstructions = "Speak slowly."))
+        state.updateCoreInstructions("Read the page before acting.")
+        val loaded = AppSettingsState(AppSettingsStore(context)).apply { load() }
+        assertThat(loaded.liveVoice.customInstructions).isEqualTo("Speak slowly.")
+        assertThat(loaded.coreInstructions).isEqualTo("Read the page before acting.")
+        loaded.updateLiveVoice(loaded.liveVoice.copy(customInstructions = ""))
+        assertThat(AppSettingsStore(context).loadCoreInstructions()).isEqualTo("Read the page before acting.")
+        loaded.updateCoreInstructions("")
+        assertThat(AppSettingsStore(context).loadCoreInstructions()).isEmpty()
+    }
+
+    @Test
     fun `unknown voice preferences fall back without losing valid choices`() {
         backing["live_voice"] = "removed-voice"
         backing["live_language"] = "CANTONESE"

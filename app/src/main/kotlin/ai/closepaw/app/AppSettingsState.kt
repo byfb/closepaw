@@ -50,6 +50,8 @@ class AppSettingsState(
     val reasoningEffort: String? get() = reasoningEfforts[selectedModel]
     var liveVoice by mutableStateOf(ai.closepaw.voice.LiveVoicePreferences())
         private set
+    var coreInstructions by mutableStateOf("")
+        private set
     var debugMode by mutableStateOf(AppSettingsStore.DEFAULT_DEBUG_MODE)
         private set
     var perceptionMode by mutableStateOf(AppSettingsStore.DEFAULT_PERCEPTION_MODE)
@@ -84,6 +86,7 @@ class AppSettingsState(
         selectedModel = settings.selectedModel
         reasoningEfforts = settings.reasoningEfforts
         liveVoice = settings.liveVoice
+        coreInstructions = settings.coreInstructions
         debugMode = settings.debugMode
         perceptionMode = settings.perceptionMode
         llmBackend = settings.llmBackend
@@ -121,6 +124,11 @@ class AppSettingsState(
     fun updateLiveVoice(value: ai.closepaw.voice.LiveVoicePreferences) {
         liveVoice = value
         store.saveLiveVoice(value)
+    }
+
+    fun updateCoreInstructions(value: String) {
+        coreInstructions = value.take(ai.closepaw.protocol.CustomInstructions.MAX_LENGTH)
+        store.saveCoreInstructions(coreInstructions)
     }
 
     fun updateLocalModel(model: LocalModelOption) {

@@ -7,8 +7,11 @@ internal class LiveConversation {
     data class Delegation(val id: String, val text: String)
     private val handled = linkedSetOf<String>()
     private val history = ArrayDeque<Pair<String, String>>()
+    private var awaitingFreshUser = false
     private var pendingUser = ""
     private var pendingAssistant = ""
+    var initialBrief: String = ""
+        private set
     var transcript: String = ""
         private set
 
@@ -16,6 +19,7 @@ internal class LiveConversation {
         val event = runCatching { Json.parseToJsonElement(raw) as? JsonObject }.getOrNull() ?: return null
         when (event.string("type")) {
             "input_transcript.added" -> {
+                if (!event.obj("item")?.string("text").isNullOrBlank()) awaitingFreshUser = false
                 pendingUser += event.obj("item")?.string("text").orEmpty()
                 pendingUser = pendingUser.takeLast(6000)
                 transcript = pendingUser
@@ -29,6 +33,10 @@ internal class LiveConversation {
                 val turn = event.obj("turn") ?: return null
                 val role = turn.string("role") ?: return null
                 val text = turn.string("transcript").orEmpty().take(6000)
+                if (role == "user" && text.isNotBlank()) {
+                    awaitingFreshUser = false
+                    if (initialBrief.isBlank()) initialBrief = text.take(3000)
+                }
                 if (role == "user" || role == "assistant") {
                     if (text.isNotBlank()) history.addLast(role to text)
                     while (history.size > 12) history.removeFirst()
@@ -37,6 +45,7 @@ internal class LiveConversation {
                 }
             }
             "delegation.created" -> {
+                if (awaitingFreshUser) return null
                 val item = event.obj("item") ?: return null
                 if (item.string("type") != "delegation" || item.string("target") != "client") return null
                 val id = item.string("id")?.takeIf { it.isNotBlank() } ?: return null
@@ -60,6 +69,25 @@ internal class LiveConversation {
             }
         }
         return null
+    }
+
+    fun historySnapshot(): List<Pair<String, String>> = LiveContextSnapshot.boundedTurns(history.toList())
+
+    fun restore(snapshot: LiveContextSnapshot) {
+        initialBrief = snapshot.brief
+        history.clear()
+        history.addAll(snapshot.turns)
+        awaitingFreshUser = snapshot.hasContext
+    }
+
+    fun reconnectContext(): String {
+        awaitingFreshUser = true
+        pendingUser = ""
+        pendingAssistant = ""
+        return buildString {
+            append("Voice reconnected. Earlier requests are context only; do not repeat them. Wait for a new user request before delegating.\n")
+            append(history.joinToString("\n") { (role, text) -> "$role: $text" }.takeLast(8000))
+        }
     }
 
     fun append(delegationId: String?, text: String, spoken: Boolean): List<String> =
