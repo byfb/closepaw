@@ -90,6 +90,12 @@
 }
 -dontwarn ai.liquid.leap.**
 
+# ── WebRTC ──────────────────────────────────────────────────────────────
+# This AAR has no consumer rules. Its native library looks up Java classes,
+# constructors and @CalledByNative callbacks by name, including members that
+# have no Java callers. Retain the small Java binding layer as a unit.
+-keep class org.webrtc.** { *; }
+
 # ── HiddenApiBypass ─────────────────────────────────────────────────────
 -keep class org.lsposed.hiddenapibypass.** { *; }
 
