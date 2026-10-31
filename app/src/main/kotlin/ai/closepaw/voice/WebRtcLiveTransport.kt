@@ -18,6 +18,8 @@ internal class WebRtcLiveTransport(
     private val createCall: suspend (offer: String, sessionId: String) -> String,
     private val onEvent: (String) -> Unit,
     private val onDisconnected: () -> Unit,
+    private val captureMicrophone: Boolean = true,
+    private val onPlaybackChanged: (Boolean) -> Unit = {},
 ) {
     private var factory: PeerConnectionFactory? = null
     private var peer: PeerConnection? = null
@@ -26,6 +28,7 @@ internal class WebRtcLiveTransport(
     private var channel: DataChannel? = null
     private val channelReady = CompletableDeferred<Unit>()
     @Volatile private var closed = false
+    private val playback = PlaybackActivity()
 
     suspend fun connect(sessionId: String) = withContext(Dispatchers.Default) {
         withTimeout(35_000) {
@@ -35,6 +38,11 @@ internal class WebRtcLiveTransport(
             val audio = JavaAudioDeviceModule.builder(context)
                 .setUseHardwareAcousticEchoCanceler(true)
                 .setUseHardwareNoiseSuppressor(true)
+                .setPlaybackSamplesReadyCallback { samples ->
+                    if (!closed && samples.audioFormat == android.media.AudioFormat.ENCODING_PCM_16BIT) {
+                        playback.accept(samples.data, android.os.SystemClock.elapsedRealtime())?.let(onPlaybackChanged)
+                    }
+                }
                 .createAudioDeviceModule()
             factory = try {
                 PeerConnectionFactory.builder().setAudioDeviceModule(audio).createPeerConnectionFactory()
@@ -65,10 +73,15 @@ internal class WebRtcLiveTransport(
             val connection = factory!!.createPeerConnection(configuration, observer)
                 ?: throw LiveVoiceException("This device could not create an audio connection.")
             peer = connection
-            source = factory!!.createAudioSource(MediaConstraints())
-            track = factory!!.createAudioTrack("closepaw-microphone", source).also {
-                it.setEnabled(false)
-                connection.addTrack(it, listOf("closepaw-audio"))
+            if (captureMicrophone) {
+                source = factory!!.createAudioSource(MediaConstraints())
+                track = factory!!.createAudioTrack("closepaw-microphone", source).also {
+                    it.setEnabled(false)
+                    connection.addTrack(it, listOf("closepaw-audio"))
+                }
+            } else {
+                connection.addTransceiver(MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO,
+                    RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.RECV_ONLY))
             }
             channel = connection.createDataChannel("oai-events", DataChannel.Init()).also { events ->
                 events.registerObserver(object : DataChannel.Observer {

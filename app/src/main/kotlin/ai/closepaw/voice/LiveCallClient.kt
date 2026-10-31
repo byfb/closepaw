@@ -20,13 +20,15 @@ internal class LiveCallClient(
     private val client: OkHttpClient,
     private val headers: suspend () -> CodexHeaders,
     private val endpoint: String = ENDPOINT,
+    private val preferences: LiveVoicePreferences = LiveVoicePreferences(),
+    private val preview: Boolean = false,
 ) {
     companion object {
         const val ENDPOINT = "https://chatgpt.com/backend-api/codex/realtime/calls?intent=quicksilver&architecture=avas"
         const val MODEL = "gpt-live-1-codex"
         private val JSON = "application/json".toMediaType()
         private val INSTRUCTIONS = """
-            You are ClosePaw's live voice assistant on this Android phone. Speak in the user's language.
+            You are ClosePaw's live voice assistant on this Android phone.
             Delegate requests to operate the phone or inspect apps to the client agent. The client can
             run Android accessibility tools, ask the user questions, and return progress and results.
             Include the user's exact request and relevant conversation context when delegating.
@@ -44,8 +46,10 @@ internal class LiveCallClient(
             put("sdp", offer)
             putJsonObject("session") {
                 put("model", MODEL)
-                put("instructions", INSTRUCTIONS)
-                putJsonObject("audio") { putJsonObject("output") { put("voice", "marin") } }
+                put("instructions", if (preview) {
+                    "You are previewing a voice. Say only the supplied sample once. Do not delegate or perform tasks.\n${preferences.instructions()}"
+                } else "$INSTRUCTIONS\n${preferences.instructions()}")
+                putJsonObject("audio") { putJsonObject("output") { put("voice", preferences.voice.id) } }
                 putJsonObject("delegation") { put("type", "client") }
             }
         }
@@ -74,6 +78,7 @@ internal class LiveCallClient(
                             if (!continuation.isActive) return
                             if (answer != null && answer.startsWith("v=")) continuation.resume(answer)
                             else continuation.resumeWithException(LiveVoiceException(when (it.code) {
+                                400 -> "GPT-Live rejected these voice settings. Try Marin and reconnect."
                                 401 -> "ChatGPT sign-in expired. Sign in again."
                                 403, 404 -> "GPT-Live is not available for this ChatGPT account or sign-in route."
                                 429 -> "GPT-Live usage limit reached. Try again later."

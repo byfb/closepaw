@@ -235,7 +235,7 @@ internal fun SettingsNavigationRow(
                     text = title,
                     style = MaterialTheme.typography.bodyLarge
                 )
-                Text(
+                if (subtitle.isNotBlank()) Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.rounded.CallEnd
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MicOff
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,12 +34,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 
 /** Binding is Activity-scoped; the started microphone service survives app switches. */
 @Composable
-fun GptLiveControls(onRunningChanged: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+fun GptLiveControls(onRunningChanged: (Boolean) -> Unit, modifier: Modifier = Modifier, onOpenSettings: (() -> Unit)? = null) {
     val context = LocalContext.current
     val activity = context as? Activity ?: return
     var service by remember { mutableStateOf<GptLiveService?>(null) }
     val idle = remember { MutableStateFlow(LiveVoiceState()) }
     val state by (service?.state ?: idle).collectAsStateWithLifecycle()
+    val task by LiveVoiceRuntime.task.collectAsStateWithLifecycle()
     var permissionError by remember { mutableStateOf<String?>(null) }
     var notificationRequested by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -81,15 +83,15 @@ fun GptLiveControls(onRunningChanged: (Boolean) -> Unit, modifier: Modifier = Mo
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.End) {
             if (state.running) {
-                Text(if (state.phase == LiveVoicePhase.Connecting) "Connecting…" else if (state.muted) "Muted" else "GPT-Live",
+                Text(voiceStatus(state, task),
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.weight(1f).padding(start = 12.dp).testTag("qa-live-status"))
-                if (state.phase == LiveVoicePhase.Active) {
+                if (state.phase == LiveVoicePhase.Active && !state.preview) {
                     IconButton(onClick = { service?.toggleMute() }, modifier = Modifier.size(48.dp).testTag("qa-live-mute")) {
                         Icon(if (state.muted) Icons.Rounded.MicOff else Icons.Rounded.Mic,
                             contentDescription = if (state.muted) "Unmute GPT-Live" else "Mute GPT-Live")
                     }
-                } else CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else if (state.phase == LiveVoicePhase.Connecting) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                 IconButton(onClick = { service?.stopCall() }, modifier = Modifier.size(48.dp).testTag("qa-live-end")) {
                     Icon(Icons.Rounded.CallEnd, contentDescription = "End GPT-Live", tint = MaterialTheme.colorScheme.error)
                 }
@@ -107,6 +109,11 @@ fun GptLiveControls(onRunningChanged: (Boolean) -> Unit, modifier: Modifier = Mo
                     Icon(Icons.Rounded.GraphicEq, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("GPT-Live")
+                }
+            }
+            onOpenSettings?.let { open ->
+                IconButton(onClick = open, modifier = Modifier.size(48.dp)) {
+                    Icon(Icons.Rounded.Settings, contentDescription = "GPT-Live settings")
                 }
             }
         }

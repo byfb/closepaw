@@ -69,6 +69,11 @@ internal fun SettingsHomePage(
                 onClick = { onNavigate(SettingsPage.LLM_AUTH) }
             )
             SettingsNavigationRow(
+                title = "GPT-Live",
+                subtitle = "",
+                onClick = { onNavigate(SettingsPage.GPT_LIVE) }
+            )
+            SettingsNavigationRow(
                 title = "Agent Behavior",
                 subtitle = agentBehaviorSubtitle(perceptionMode, platformMode, effectivePlatformMode, approvalMode),
                 onClick = { onNavigate(SettingsPage.AGENT_BEHAVIOR) }

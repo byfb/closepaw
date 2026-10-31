@@ -34,6 +34,7 @@ data class AppSettings(
         val otherModelId: String,
         val approvalMode: ApprovalMode,
         val reasoningEfforts: Map<String, String> = emptyMap(),
+        val liveVoice: ai.closepaw.voice.LiveVoicePreferences = ai.closepaw.voice.LiveVoicePreferences(),
 )
 
 class AppSettingsStore(private val context: Context) {
@@ -160,7 +161,25 @@ class AppSettingsStore(private val context: Context) {
                         key.removePrefix(KEY_REASONING_EFFORT_PREFIX) to value
                     } else null
                 }.toMap(),
+                liveVoice = loadLiveVoice(),
         )
+    }
+
+    fun loadLiveVoice(): ai.closepaw.voice.LiveVoicePreferences {
+        val saved = prefs()
+        return ai.closepaw.voice.LiveVoicePreferences(
+            voice = ai.closepaw.voice.LiveVoice.entries.firstOrNull { it.id == saved.getString("live_voice", null) }
+                ?: ai.closepaw.voice.LiveVoice.MARIN,
+            language = ai.closepaw.voice.LiveLanguage.entries.firstOrNull { it.name == saved.getString("live_language", null) }
+                ?: ai.closepaw.voice.LiveLanguage.AUTO,
+            tone = ai.closepaw.voice.LiveTone.entries.firstOrNull { it.name == saved.getString("live_tone", null) }
+                ?: ai.closepaw.voice.LiveTone.NATURAL,
+        )
+    }
+
+    fun saveLiveVoice(value: ai.closepaw.voice.LiveVoicePreferences) {
+        prefs().edit().putString("live_voice", value.voice.id)
+            .putString("live_language", value.language.name).putString("live_tone", value.tone.name).apply()
     }
 
     fun loadTermuxShellEnabled(): Boolean =

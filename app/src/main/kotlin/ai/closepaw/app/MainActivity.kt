@@ -189,6 +189,7 @@ class MainActivity : ComponentActivity() {
         }
 
         consumeVoicePermissionRequestIfPresent(intent)
+        consumeLiveSettingsRequest(intent)
         handleIntent(intent)
         val sessionStorage = SessionStorage(applicationContext)
         sessionHistoryManager = SessionHistoryManager.create(sessionStorage, sessionScope)
@@ -326,6 +327,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         Log.d(TAG, "onNewIntent called")
         setIntent(intent)
+        consumeLiveSettingsRequest(intent)
         consumeVoicePermissionRequestIfPresent(intent)
         intentPayloadConsumed = false
         if (onboardingRequired && isEvalIntent(intent)) {
@@ -341,10 +343,18 @@ class MainActivity : ComponentActivity() {
             intent.getBooleanExtra(EXTRA_FRESH_SESSION, false) &&
             intent.hasExtra(EXTRA_GOAL)
 
+    private fun consumeLiveSettingsRequest(intent: Intent) {
+        if (!intent.getBooleanExtra(ai.closepaw.voice.GptLiveWidget.EXTRA_OPEN_SETTINGS, false)) return
+        intent.removeExtra(ai.closepaw.voice.GptLiveWidget.EXTRA_OPEN_SETTINGS)
+        pendingSettingsDeepLink = ai.closepaw.ui.chat.SettingsDeepLink(page = ai.closepaw.ui.chat.SettingsPage.GPT_LIVE)
+        showSettings = true
+    }
+
     private var activeSessionObserver: kotlinx.coroutines.Job? = null
 
     override fun onStart() {
         super.onStart()
+        ai.closepaw.voice.GptLiveWidget.requestUpdate(applicationContext)
         AgentService.instance?.onMainAppVisible()
         rebindActiveServiceSessionIfNeeded()
         activeSessionObserver?.cancel()
@@ -856,6 +866,7 @@ class MainActivity : ComponentActivity() {
                     }
                     settingsState.updateBackend(ai.closepaw.protocol.LLMBackendType.OPENAI)
                     openAiAuthUiState = ai.closepaw.ui.settings.OpenAiAuthUiState.SignedIn(tokens.email)
+                    ai.closepaw.voice.GptLiveWidget.requestUpdate(applicationContext)
                     Log.d(TAG, "Settings OAuth success")
                 }
                 is ai.closepaw.auth.OpenAiSignInResult.Error -> {
@@ -873,7 +884,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleSignOut() {
-        lifecycleScope.launch { authStore.clear(LLMProvider.OPENAI_CODEX) }
+        lifecycleScope.launch {
+            authStore.clear(LLMProvider.OPENAI_CODEX)
+            ai.closepaw.voice.GptLiveWidget.requestUpdate(applicationContext)
+        }
         openAiAuthUiState = ai.closepaw.ui.settings.OpenAiAuthUiState.SignedOut
         Log.d(TAG, "Settings OAuth sign-out, manual key preserved")
     }

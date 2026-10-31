@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -62,6 +63,18 @@ class SettingsNavTest {
         compose.onAllNodesWithText("Sign In").assertCountEquals(0)
         compose.onNodeWithText("Agent Behavior").assertExists()
         compose.onNodeWithText("System & Debug").assertExists()
+    }
+
+    @Test fun voice_worker_settings_return_to_voice_preferences() {
+        compose.setContent { TestSettingsSheet() }
+        compose.onNodeWithText("GPT-Live").performClick()
+        compose.onNodeWithText("Reply language").assertExists()
+        compose.onNodeWithText("Model & reasoning effort").performScrollTo().performClick()
+        compose.onNodeWithText("Sign In").assertExists()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithText("Reply language").assertExists()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithText("Agent Behavior").assertExists()
     }
 
     // S4: Page state is rememberSaveable — survives config change (simulated via StateRestorationTester).

@@ -167,6 +167,9 @@ internal fun MainActivityContent(
                     onModelChange = settingsState::updateModel,
                     reasoningEffort = settingsState.reasoningEffort,
                     onReasoningEffortChange = settingsState::updateReasoningEffort,
+                    reasoningEfforts = settingsState.reasoningEfforts,
+                    liveVoice = settingsState.liveVoice,
+                    onLiveVoiceChange = settingsState::updateLiveVoice,
                     modelCatalog = modelCatalog,
                     selectedLocalModel = settingsState.localModel.id,
                     onLocalModelChange = modelLoadingStatusHolder::updateLocalModel,
@@ -193,6 +196,7 @@ internal fun MainActivityContent(
                     onDismiss = dismissSettings,
                     initialPage = when (pendingDeepLink?.page) {
                         DeepLinkPage.LLM_AUTH -> SettingsPage.LLM_AUTH
+                        DeepLinkPage.GPT_LIVE -> SettingsPage.GPT_LIVE
                         DeepLinkPage.HOME, null -> SettingsPage.HOME
                     },
                     initialAuthTab = pendingDeepLink?.authTab,

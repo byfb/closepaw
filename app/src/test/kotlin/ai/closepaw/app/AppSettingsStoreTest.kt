@@ -34,6 +34,33 @@ class AppSettingsStoreTest {
     }
 
     @Test
+    fun `voice preferences survive reload independently of worker model and effort`() {
+        val state = AppSettingsState(AppSettingsStore(context))
+        state.load()
+        state.updateModel("worker-model")
+        state.updateReasoningEffort("high")
+        val voice = ai.closepaw.voice.LiveVoicePreferences(
+            ai.closepaw.voice.LiveVoice.CEDAR, ai.closepaw.voice.LiveLanguage.CANTONESE, ai.closepaw.voice.LiveTone.CALM)
+        state.updateLiveVoice(voice)
+        val loaded = AppSettingsStore(context).load()
+        assertThat(loaded.liveVoice).isEqualTo(voice)
+        assertThat(loaded.selectedModel).isEqualTo("worker-model")
+        assertThat(loaded.reasoningEfforts["worker-model"]).isEqualTo("high")
+        assertThat(AppSettingsState(AppSettingsStore(context)).apply { load() }.liveVoice).isEqualTo(voice)
+    }
+
+    @Test
+    fun `unknown voice preferences fall back without losing valid choices`() {
+        backing["live_voice"] = "removed-voice"
+        backing["live_language"] = "CANTONESE"
+        backing["live_tone"] = "removed-tone"
+        val loaded = AppSettingsStore(context).loadLiveVoice()
+        assertThat(loaded.voice).isEqualTo(ai.closepaw.voice.LiveVoice.MARIN)
+        assertThat(loaded.language).isEqualTo(ai.closepaw.voice.LiveLanguage.CANTONESE)
+        assertThat(loaded.tone).isEqualTo(ai.closepaw.voice.LiveTone.NATURAL)
+    }
+
+    @Test
     fun `retired provider selection migrates without changing custom endpoint selections`() {
         val store = AppSettingsStore(context)
         for (retired in listOf("glm-5", "openrouter:vendor/model")) {

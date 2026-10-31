@@ -47,6 +47,29 @@ class LiveCallClientTest {
         assertThat(server.takeRequest().getHeader("Authorization")).isEqualTo("Bearer refreshed")
     }
 
+    @Test fun `voice preferences configure the call without changing delegation or worker instructions`() = runBlocking {
+        server.enqueue(MockResponse().setBody("v=0"))
+        LiveCallClient(http, { CodexHeaders("token", "account", null) }, server.url("/calls").toString(),
+            LiveVoicePreferences(LiveVoice.CEDAR, LiveLanguage.CANTONESE, LiveTone.CALM)).create("v=0", "voice")
+        val session = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject.obj("session")!!
+        assertThat(session.obj("audio")?.obj("output")?.string("voice")).isEqualTo("cedar")
+        assertThat(session.string("instructions")).contains("Hong Kong Cantonese")
+        assertThat(session.string("instructions")).contains("calm, steady")
+        assertThat(session.string("instructions")).contains("Do not claim an action succeeded")
+        assertThat(session.obj("delegation")?.string("type")).isEqualTo("client")
+    }
+
+    @Test fun `preview asks for a sample without phone operation instructions`() = runBlocking {
+        server.enqueue(MockResponse().setBody("v=0"))
+        LiveCallClient(http, { CodexHeaders("token", "account", null) }, server.url("/calls").toString(),
+            LiveVoicePreferences(language = LiveLanguage.MANDARIN, tone = LiveTone.LIVELY), preview = true)
+            .create("v=0", "preview")
+        val session = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject.obj("session")!!
+        assertThat(session.string("instructions")).contains("Do not delegate or perform tasks")
+        assertThat(session.string("instructions")).doesNotContain("run Android accessibility tools")
+        assertThat(session.string("instructions")).contains("Mandarin Chinese")
+    }
+
     @Test fun `account access rejection is actionable and does not expose response body`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(403).setBody("private phone-token backend trace"))
         val error = runCatching { client().create("v=0", "voice") }.exceptionOrNull()!!

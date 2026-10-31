@@ -254,7 +254,8 @@ fun ChatScreen(
                             )
                         }
                         CompositionLocalProvider(LocalVoiceFeedback provides reportVoiceFeedback) {
-                            ai.closepaw.voice.GptLiveControls(onRunningChanged = { liveVoiceRunning = it })
+                            ai.closepaw.voice.GptLiveControls(onRunningChanged = { liveVoiceRunning = it },
+                                onOpenSettings = { onOpenSettings(SettingsDeepLink(page = SettingsPage.GPT_LIVE)) })
                             SmartCapsuleSurface(
                                 mode = capsuleMode,
                                 isStopPending = isStopPending,

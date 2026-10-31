@@ -4,7 +4,7 @@ import ai.closepaw.llm.AuthMode
 import ai.closepaw.llm.LLMProvider
 
 /** Settings pages available for deep-linking from runtime banners. */
-enum class SettingsPage { HOME, LLM_AUTH }
+enum class SettingsPage { HOME, LLM_AUTH, GPT_LIVE }
 
 /**
  * Instruction to the settings host to open a specific page/tab.

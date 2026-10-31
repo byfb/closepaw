@@ -28,31 +28,24 @@ import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.*
 import okhttp3.OkHttpClient
 
-enum class LiveVoicePhase { Idle, Connecting, Active, Error }
-
-data class LiveVoiceState(
-    val phase: LiveVoicePhase = LiveVoicePhase.Idle,
-    val muted: Boolean = false,
-    val transcript: String = "",
-    val error: String? = null,
-) {
-    val running: Boolean get() = phase == LiveVoicePhase.Connecting || phase == LiveVoicePhase.Active
-}
-
-/** Started only from a visible Activity after RECORD_AUDIO permission has been granted. */
+/** Started by a visible Activity or an explicit home-widget tap. */
 class GptLiveService : Service() {
     companion object {
         const val ACTION_START = "ai.closepaw.voice.START"
         const val ACTION_STOP = "ai.closepaw.voice.STOP"
+        const val ACTION_PREVIEW = "ai.closepaw.voice.PREVIEW"
+        const val ACTION_STOP_PREVIEW = "ai.closepaw.voice.STOP_PREVIEW"
+        const val ACTION_MUTE = "ai.closepaw.voice.MUTE"
         private const val CHANNEL = "gpt_live"
         private const val NOTIFICATION = 7301
     }
 
     inner class LocalBinder : Binder() { val service: GptLiveService get() = this@GptLiveService }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val mutableState = MutableStateFlow(LiveVoiceState())
+    private val mutableState = LiveVoiceRuntime.mutableState
     val state: StateFlow<LiveVoiceState> = mutableState.asStateFlow()
     private var callJob: Job? = null
+    private var pendingStart: Boolean? = null
     private var transport: WebRtcLiveTransport? = null
     private var agentObserver: Job? = null
     private var observedSession: AgentSession? = null
@@ -63,65 +56,117 @@ class GptLiveService : Service() {
     private var focus: AudioFocusRequest? = null
     private var previousAudioMode: Int? = null
     private var previousAudioDevice: AudioDeviceInfo? = null
+    private var recordingMonitor: AudioManager.AudioRecordingCallback? = null
     private val audioManager by lazy { getSystemService(AudioManager::class.java) }
     private val http = OkHttpClient.Builder().callTimeout(30, TimeUnit.SECONDS)
         .followRedirects(false).followSslRedirects(false).build()
 
     override fun onBind(intent: Intent?): IBinder = LocalBinder()
 
+    override fun onCreate() {
+        super.onCreate()
+        scope.launch {
+            combine(state, LiveVoiceRuntime.task) { voice, task ->
+                // Captions never leave the app or trigger widget redraws.
+                voice.copy(transcript = "") to task
+            }.distinctUntilChanged().collect { (voice, _) ->
+                runCatching { GptLiveWidget.updateAll(applicationContext) }
+                if (voice.running) updateNotification()
+            }
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_START) startCall() else stopCall()
+        when (intent?.action) {
+            ACTION_START -> startCall(preview = false)
+            ACTION_PREVIEW -> startCall(preview = true)
+            ACTION_STOP_PREVIEW -> if (state.value.preview || callJob == null) stopCall()
+            ACTION_MUTE -> toggleMute()
+            else -> stopCall()
+        }
         return START_NOT_STICKY
     }
 
-    private fun startCall() {
-        if (callJob != null) return
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+    private fun startCall(preview: Boolean) {
+        if (callJob != null) {
+            if (!state.value.running) pendingStart = preview
+            return
+        }
+        if (!preview && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             fail("Allow microphone access to start GPT-Live."); return
         }
-        if (AgentService.instance == null) {
-            fail("Enable ClosePaw Accessibility in Settings first."); return
-        }
-        mutableState.value = LiveVoiceState(phase = LiveVoicePhase.Connecting)
+        mutableState.value = LiveVoiceState(phase = LiveVoicePhase.Connecting, preview = preview)
         try {
             getSystemService(NotificationManager::class.java).createNotificationChannel(
                 NotificationChannel(CHANNEL, "GPT-Live", NotificationManager.IMPORTANCE_LOW)
             )
             ServiceCompat.startForeground(this, NOTIFICATION, notification(),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+                if (preview) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                else ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
         } catch (_: Exception) {
             fail("Open ClosePaw to start the microphone."); return
         }
         val run = ++generation
-        AgentService.instance?.setLiveVoiceActive(true)
+        AgentService.instance?.setLiveVoiceActive(!preview)
         conversation = LiveConversation()
         val delegations = Channel<LiveConversation.Delegation>(16)
         callJob = scope.launch {
             var connection: WebRtcLiveTransport? = null
             try {
-                val auth = AuthStoreHolder.get(applicationContext)
+                val auth = withContext(Dispatchers.IO) { AuthStoreHolder.get(applicationContext) }
                 val signedIn = withContext(Dispatchers.IO) { auth.has(LLMProvider.OPENAI_CODEX) }
                 if (!signedIn) throw LiveVoiceException("Sign in to ChatGPT in Settings to use GPT-Live.")
+                if (!preview) {
+                    val ready = withTimeoutOrNull(3000) {
+                        while (AgentService.instance == null) delay(100)
+                        true
+                    } == true
+                    if (!ready) throw LiveVoiceException("Enable ClosePaw Accessibility in Settings first.")
+                    AgentService.instance?.setLiveVoiceActive(true)
+                }
+                val preferences = withContext(Dispatchers.IO) { ai.closepaw.app.AppSettingsStore(applicationContext).loadLiveVoice() }
                 acquireAudio()
+                if (!preview) {
+                    recordingMonitor = object : AudioManager.AudioRecordingCallback() {
+                        override fun onRecordingConfigChanged(configs: MutableList<android.media.AudioRecordingConfiguration>?) {
+                            if (configs?.any { it.isClientSilenced } == true) scope.launch {
+                                if (run == generation && state.value.running) {
+                                    fail("Android silenced the microphone. Check microphone access and other recording apps.")
+                                }
+                            }
+                        }
+                    }.also { audioManager.registerAudioRecordingCallback(it, android.os.Handler(mainLooper)) }
+                }
                 connection = WebRtcLiveTransport(applicationContext,
-                    LiveCallClient(http, headers = { withContext(Dispatchers.IO) { auth.codexHeaders(LLMProvider.OPENAI_CODEX) } })::create,
+                    LiveCallClient(http, headers = { withContext(Dispatchers.IO) { auth.codexHeaders(LLMProvider.OPENAI_CODEX) } },
+                        preferences = preferences, preview = preview)::create,
                     onEvent = { raw -> scope.launch {
                         if (run == generation && state.value.running) receive(raw, delegations)
                     } },
                     onDisconnected = { scope.launch {
                         if (run == generation && state.value.running) fail("GPT-Live disconnected. Tap to reconnect.")
                     } },
+                    captureMicrophone = !preview,
+                    onPlaybackChanged = { speaking -> scope.launch {
+                        if (run == generation && state.value.running) mutableState.value = state.value.copy(speaking = speaking)
+                    } },
                 )
                 transport = connection
                 connection.connect(UUID.randomUUID().toString())
                 mutableState.value = state.value.copy(phase = LiveVoicePhase.Active)
                 updateNotification()
+                if (preview) {
+                    append(null, "Say this sample once: ${preferences.language.sample}", spoken = true)
+                }
                 coroutineScope {
-                    launch { for (request in delegations) delegate(request) }
+                    if (!preview) launch { for (request in delegations) delegate(request) }
+                    // A transcript is not proof that audio has finished playing.
+                    // Previews have an explicit Stop control and a bounded playback window.
+                    if (preview) launch { delay(15_000); stopCall() }
                     launch {
                         while (isActive) {
                             delay(2000)
-                            if (AgentService.instance == null) throw LiveVoiceException("Accessibility disconnected. Start GPT-Live again after reconnecting.")
+                            if (!preview && AgentService.instance == null) throw LiveVoiceException("Accessibility disconnected. Start GPT-Live again after reconnecting.")
                             if (!withContext(Dispatchers.IO) { auth.has(LLMProvider.OPENAI_CODEX) })
                                 throw LiveVoiceException("ChatGPT signed out. Sign in again to use GPT-Live.")
                         }
@@ -150,16 +195,19 @@ class GptLiveService : Service() {
                     AgentService.instance?.setLiveVoiceActive(false)
                     conversation = LiveConversation()
                     if (state.value.running) mutableState.value = LiveVoiceState()
+                    GptLiveWidget.requestUpdate(applicationContext)
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     callJob = null
-                    stopSelf()
+                    val restart = pendingStart
+                    pendingStart = null
+                    if (restart != null && scope.isActive) startCall(restart) else stopSelf()
                 }
             }
         }
     }
 
     fun toggleMute() {
-        if (state.value.phase != LiveVoicePhase.Active) return
+        if (state.value.phase != LiveVoicePhase.Active || state.value.preview) return
         val muted = !state.value.muted
         transport?.mute(muted)
         mutableState.value = state.value.copy(muted = muted)
@@ -167,6 +215,7 @@ class GptLiveService : Service() {
     }
 
     fun stopCall() {
+        pendingStart = null
         mutableState.value = LiveVoiceState()
         generation++
         transport?.mute(true)
@@ -175,7 +224,9 @@ class GptLiveService : Service() {
     }
 
     private fun fail(message: String) {
+        pendingStart = null
         mutableState.value = LiveVoiceState(phase = LiveVoicePhase.Error, error = message)
+        GptLiveWidget.requestUpdate(applicationContext)
         transport?.mute(true)
         callJob?.cancel()
         if (callJob == null) { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
@@ -189,6 +240,8 @@ class GptLiveService : Service() {
         }
         val request = conversation.receive(raw)
         mutableState.value = state.value.copy(transcript = conversation.transcript)
+        // Preview never reaches the worker, even if the server emits a delegation.
+        if (state.value.preview) return
         if (request != null && !requests.trySend(request).isSuccess)
             append(request.id, "The phone agent is busy. Please wait and repeat the request.", spoken = true)
     }
@@ -278,23 +331,25 @@ class GptLiveService : Service() {
     }
 
     private fun releaseAudio() {
+        recordingMonitor?.let { runCatching { audioManager.unregisterAudioRecordingCallback(it) } }
+        recordingMonitor = null
         previousAudioMode?.let { mode ->
-            previousAudioDevice?.let { audioManager.setCommunicationDevice(it) } ?: audioManager.clearCommunicationDevice()
-            audioManager.mode = mode
+            runCatching {
+                val device = previousAudioDevice?.takeIf { old -> audioManager.availableCommunicationDevices.any { it.id == old.id } }
+                if (device != null) audioManager.setCommunicationDevice(device) else audioManager.clearCommunicationDevice()
+            }
+            runCatching { audioManager.mode = mode }
         }
         previousAudioDevice = null; previousAudioMode = null
-        focus?.let { audioManager.abandonAudioFocusRequest(it) }; focus = null
+        focus?.let { runCatching { audioManager.abandonAudioFocusRequest(it) } }; focus = null
     }
 
     private fun notification(): Notification {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(this, 1, Intent(this, GptLiveService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL).setSmallIcon(android.R.drawable.ic_btn_speak_now)
-            .setContentTitle("GPT-Live").setContentText(when {
-                state.value.phase == LiveVoicePhase.Connecting -> "Connecting…"
-                state.value.muted -> "Microphone muted"
-                else -> "Voice connected"
-            }).setContentIntent(open).setOngoing(true).setSilent(true)
+            .setContentTitle("GPT-Live").setContentText(voiceStatus(state.value, LiveVoiceRuntime.task.value))
+            .setContentIntent(open).setOngoing(true).setSilent(true)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "End voice", stop).build()
     }
 
@@ -305,6 +360,8 @@ class GptLiveService : Service() {
         scope.cancel()
         http.dispatcher.cancelAll()
         http.connectionPool.evictAll()
+        if (state.value.running) mutableState.value = LiveVoiceState()
+        GptLiveWidget.requestUpdate(applicationContext)
         super.onDestroy()
     }
 }

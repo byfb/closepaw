@@ -1,0 +1,7 @@
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp" android:minHeight="110dp"
+    android:targetCellWidth="3" android:targetCellHeight="2"
+    android:resizeMode="horizontal|vertical" android:minResizeWidth="180dp" android:minResizeHeight="110dp"
+    android:updatePeriodMillis="0" android:widgetCategory="home_screen"
+    android:initialLayout="@layout/gpt_live_widget" android:previewLayout="@layout/gpt_live_widget"
+    android:description="@string/gpt_live_widget_description" />

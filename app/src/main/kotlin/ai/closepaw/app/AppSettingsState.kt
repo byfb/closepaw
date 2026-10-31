@@ -48,6 +48,8 @@ class AppSettingsState(
     var reasoningEfforts by mutableStateOf<Map<String, String>>(emptyMap())
         private set
     val reasoningEffort: String? get() = reasoningEfforts[selectedModel]
+    var liveVoice by mutableStateOf(ai.closepaw.voice.LiveVoicePreferences())
+        private set
     var debugMode by mutableStateOf(AppSettingsStore.DEFAULT_DEBUG_MODE)
         private set
     var perceptionMode by mutableStateOf(AppSettingsStore.DEFAULT_PERCEPTION_MODE)
@@ -81,6 +83,7 @@ class AppSettingsState(
         val settings = store.load()
         selectedModel = settings.selectedModel
         reasoningEfforts = settings.reasoningEfforts
+        liveVoice = settings.liveVoice
         debugMode = settings.debugMode
         perceptionMode = settings.perceptionMode
         llmBackend = settings.llmBackend
@@ -113,6 +116,11 @@ class AppSettingsState(
         store.saveReasoningEffort(selectedModel, value)
         reasoningEfforts = if (value == null) reasoningEfforts - selectedModel
             else reasoningEfforts + (selectedModel to value)
+    }
+
+    fun updateLiveVoice(value: ai.closepaw.voice.LiveVoicePreferences) {
+        liveVoice = value
+        store.saveLiveVoice(value)
     }
 
     fun updateLocalModel(model: LocalModelOption) {

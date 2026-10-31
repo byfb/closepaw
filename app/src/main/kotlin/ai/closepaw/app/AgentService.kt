@@ -222,6 +222,7 @@ class AgentService : AccessibilityService() {
         super.onServiceConnected()
         isServiceActive = true
         instance = this
+        ai.closepaw.voice.GptLiveWidget.requestUpdate(applicationContext)
         Log.i(TAG, "AgentService connected")
 
         val info = serviceInfo
@@ -318,6 +319,8 @@ class AgentService : AccessibilityService() {
         isServiceActive = false
         _liveVoiceActive.value = false
         instance = null
+        ai.closepaw.voice.LiveVoiceRuntime.onAgentUnavailable()
+        ai.closepaw.voice.GptLiveWidget.requestUpdate(applicationContext)
 
         eventCollectorJob?.cancel()
         eventCollectorJob = null
@@ -399,6 +402,9 @@ class AgentService : AccessibilityService() {
                 serviceScope.launch {
                     try {
                         agentSession.events.collect { event ->
+                            if (ai.closepaw.voice.LiveVoiceRuntime.onAgentEvent(event)) {
+                                ai.closepaw.voice.GptLiveWidget.requestUpdate(applicationContext)
+                            }
                             try {
                                 eventHandler.handleEvent(event, recordingService)
                             } catch (e: Exception) {
@@ -432,6 +438,8 @@ class AgentService : AccessibilityService() {
             eventCollectorJob = null
             val oldSession = session
             session = null
+            ai.closepaw.voice.LiveVoiceRuntime.onAgentUnavailable()
+            ai.closepaw.voice.GptLiveWidget.requestUpdate(applicationContext)
             serviceScope.launch { oldSession?.submit(Op.Shutdown) }
         }
 

@@ -40,6 +40,7 @@ import ai.closepaw.ui.theme.paperGrain
 enum class SettingsPage {
     HOME,
     LLM_AUTH,
+    GPT_LIVE,
     AGENT_BEHAVIOR,
     MEMORY,
     PERMISSIONS_ADVANCED,
@@ -93,12 +94,19 @@ fun SettingsSheet(
     onApprovalModeChange: (ApprovalMode) -> Unit = {},
     reasoningEffort: String? = null,
     onReasoningEffortChange: (String?) -> Unit = {},
+    reasoningEfforts: Map<String, String> = emptyMap(),
+    liveVoice: ai.closepaw.voice.LiveVoicePreferences = ai.closepaw.voice.LiveVoicePreferences(),
+    onLiveVoiceChange: (ai.closepaw.voice.LiveVoicePreferences) -> Unit = {},
 ) {
     var settingsPage by rememberSaveable(initialPage) { mutableStateOf(initialPage) }
+    var workerSettings by rememberSaveable { mutableStateOf(false) }
     val reducedMotion = ClosePawMotion.reducedMotion()
 
     BackHandler {
-        if (settingsPage != SettingsPage.HOME) settingsPage = SettingsPage.HOME
+        if (settingsPage == SettingsPage.LLM_AUTH && workerSettings) {
+            workerSettings = false
+            settingsPage = SettingsPage.GPT_LIVE
+        } else if (settingsPage != SettingsPage.HOME) settingsPage = SettingsPage.HOME
         else onDismiss()
     }
 
@@ -172,14 +180,30 @@ fun SettingsSheet(
                         onStartOAuth = onStartOAuth,
                         onCancelOAuth = onCancelOAuth,
                         onSignOut = onSignOut,
-                        onBack = { settingsPage = SettingsPage.HOME },
+                        onBack = {
+                            settingsPage = if (workerSettings) SettingsPage.GPT_LIVE else SettingsPage.HOME
+                            workerSettings = false
+                        },
                         onClose = onDismiss,
-                        initialAuthTab = initialAuthTab,
-                        initialProvider = initialProvider,
+                        initialAuthTab = if (workerSettings) AuthMode.OAuth else initialAuthTab,
+                        initialProvider = if (workerSettings) LLMProvider.OPENAI_CODEX else initialProvider,
                         otherBaseUrl = otherBaseUrl,
                         otherModelId = otherModelId,
                         onOtherBaseUrlChange = onOtherBaseUrlChange,
                         onOtherModelIdChange = onOtherModelIdChange,
+                    )
+                    SettingsPage.GPT_LIVE -> GptLiveSettingsPage(
+                        preferences = liveVoice,
+                        onPreferencesChange = onLiveVoiceChange,
+                        selectedModel = selectedModel,
+                        reasoningEfforts = reasoningEfforts,
+                        catalog = modelCatalog,
+                        signedIn = openAiAuthUiState is OpenAiAuthUiState.SignedIn,
+                        accessibilityEnabled = isAccessibilityEnabled,
+                        onAccessibilityClick = onAccessibilityClick,
+                        onWorkerSettings = { workerSettings = true; settingsPage = SettingsPage.LLM_AUTH },
+                        onBack = { settingsPage = SettingsPage.HOME },
+                        onClose = onDismiss,
                     )
                     SettingsPage.AGENT_BEHAVIOR -> AgentBehaviorSettingsPage(
                         perceptionMode = perceptionMode,
