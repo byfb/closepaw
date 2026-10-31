@@ -8,6 +8,7 @@ import ai.closepaw.llm.OtherBaseUrlValidator
  * for [provider]. Designed so the Compose layer renders a disabled button
  * with a tooltip naming the missing piece without re-doing validation.
  *
+ * - `OPENAI_API` needs a non-blank API key (the URL is fixed).
  * - `OTHER` needs a non-blank API key AND a base URL that passes
  *   [OtherBaseUrlValidator] (validated against debug-vs-release policy).
  */
@@ -23,8 +24,16 @@ object RefreshButtonGate {
         apiKey: String,
         otherBaseUrl: String,
         allowDebugHttp: Boolean,
+        signedIn: Boolean = false,
     ): State {
         return when (provider) {
+            LLMProvider.OPENAI_CODEX -> {
+                if (signedIn) State.Enabled else State.Disabled("Sign in to refresh models")
+            }
+            LLMProvider.OPENAI_API -> {
+                if (apiKey.isBlank()) State.Disabled("Enter your OpenAI API key first")
+                else State.Enabled
+            }
             LLMProvider.OTHER -> {
                 if (apiKey.isBlank()) State.Disabled("Enter your API key first")
                 else {
@@ -34,7 +43,7 @@ object RefreshButtonGate {
                     ) else State.Enabled
                 }
             }
-            else -> State.Disabled("Refresh is only supported for Other")
+            LLMProvider.LOCAL_LFM -> State.Disabled("Local models do not need refreshing")
         }
     }
 }

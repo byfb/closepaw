@@ -37,11 +37,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import ai.closepaw.llm.LLMProvider
@@ -53,7 +56,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Searchable grouped model picker for OTHER. Renders the pure
+ * Searchable model picker for cloud providers. Renders the pure
  * state from [ModelPicker.buildState] — the Compose layer is a thin
  * presentation shell so all sort, filter, and grouping behavior is covered
  * by [ModelPickerTest]. On open the selected row's group is auto-expanded
@@ -65,7 +68,8 @@ internal fun SearchableGroupedModelPicker(
     selectedName: String,
     onSelect: (String) -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
+    val provider = entries.firstOrNull()?.provider
+    var query by rememberSaveable(provider) { mutableStateOf("") }
     var expandedKeys by remember(entries) { mutableStateOf(setOf<String>()) }
     val state = ModelPicker.buildState(
         allEntries = entries,
@@ -86,7 +90,7 @@ internal fun SearchableGroupedModelPicker(
             onValueChange = { query = it },
             singleLine = true,
             leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-            placeholder = { Text("Search models") },
+            label = { Text("Search models") },
             shape = MaterialTheme.shapes.small,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -120,16 +124,18 @@ internal fun SearchableGroupedModelPicker(
                 LazyColumn(state = listState, modifier = Modifier.fillMaxWidth()) {
                     state.groups.forEach { group ->
                         val expanded = group.key in state.expandedKeys
-                        item(key = "header:${group.key}") {
-                            GroupHeaderRow(
-                                label = group.key,
-                                count = group.rows.size,
-                                expanded = expanded,
-                                onClick = {
-                                    expandedKeys = if (expanded) expandedKeys - group.key
-                                    else expandedKeys + group.key
-                                },
-                            )
+                        if (state.showGroupHeaders) {
+                            item(key = "header:${group.key}") {
+                                GroupHeaderRow(
+                                    label = group.key,
+                                    count = group.rows.size,
+                                    expanded = expanded,
+                                    onClick = {
+                                        expandedKeys = if (expanded) expandedKeys - group.key
+                                        else expandedKeys + group.key
+                                    },
+                                )
+                            }
                         }
                         if (expanded) {
                             items(items = group.rows, key = { "row:${it.name}" }) { row ->
@@ -158,7 +164,9 @@ private fun GroupHeaderRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .minimumInteractiveComponentSize()
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" }
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(horizontal = MaterialTheme.closePaw.spacing.md, vertical = 10.dp),
     ) {
@@ -212,7 +220,7 @@ private fun PickerRow(
             if (selected) {
                 Icon(
                     imageVector = Icons.Outlined.Check,
-                    contentDescription = "Selected",
+                    contentDescription = null,
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.primary,
                 )
@@ -241,12 +249,14 @@ internal fun RefreshModelsRow(
     discoveryState: ModelCatalogRepository.DiscoveryState,
     allowDebugHttp: Boolean,
     onRefresh: () -> Unit,
+    signedIn: Boolean = false,
 ) {
     val gate = RefreshButtonGate.evaluate(
         provider = provider,
         apiKey = apiKey,
         otherBaseUrl = otherBaseUrl,
         allowDebugHttp = allowDebugHttp,
+        signedIn = signedIn,
     )
     val refreshing = provider in discoveryState.refreshing
     val enabled = gate is RefreshButtonGate.State.Enabled && !refreshing

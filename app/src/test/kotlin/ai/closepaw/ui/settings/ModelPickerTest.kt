@@ -9,6 +9,23 @@ import org.junit.Test
 class ModelPickerTest {
 
     @Test
+    fun `seed and discovered aliases render once and retain selected catalog key`() {
+        val entries = listOf(entry("seed", "gpt-test"), entry("discovered", "gpt-test"))
+        for (selected in listOf("seed", "discovered")) {
+            val state = ModelPicker.buildState(entries, "", selected, emptySet())
+            assertThat(state.groups.single().rows.single().name).isEqualTo(selected)
+            assertThat(state.selectedRowIndex).isEqualTo(0)
+        }
+    }
+
+    @Test
+    fun `single model group is visible without selection or an extra heading`() {
+        val state = ModelPicker.buildState(listOf(entry("a", "gpt-a")), "", null, emptySet())
+        assertThat(state.showGroupHeaders).isFalse()
+        assertThat(state.expandedKeys).contains(state.groups.single().key)
+    }
+
+    @Test
     fun `groups by id prefix - anthropic openai google pinned, others alphabetical`() {
         val entries = listOf(
             entry("a/qwen-1", "qwen/qwen-1"),

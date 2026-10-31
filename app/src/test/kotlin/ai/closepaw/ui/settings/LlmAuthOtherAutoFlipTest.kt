@@ -26,6 +26,23 @@ class LlmAuthOtherAutoFlipTest {
     )
 
     @Test
+    fun `discovered model selection is not overwritten by custom model`() {
+        val base = "https://api.example.com/v1"
+        val catalog = catalogWith(base, "vendor/manual").withExtraEntries(
+            ai.closepaw.llm.ModelDiscovery.parse(LLMProvider.OTHER, base,
+                """{"data":[{"id":"vendor/discovered"}]}""").map { it.entry }
+        )
+        assertThat(shouldAutoFlipToOtherCustom(
+            selectedProvider = LLMProvider.OTHER,
+            apiKeyText = "sk-test",
+            otherBaseUrlText = base,
+            otherModelIdText = "vendor/manual",
+            modelCatalog = catalog,
+            selectedModel = "other:vendor/discovered",
+        )).isFalse()
+    }
+
+    @Test
     fun `flips when provider OTHER and catalog matches normalized UI values`() {
         val flip = shouldAutoFlipToOtherCustom(
             selectedProvider = LLMProvider.OTHER,

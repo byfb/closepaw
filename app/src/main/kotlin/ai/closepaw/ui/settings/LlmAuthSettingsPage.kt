@@ -39,6 +39,7 @@ import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.llm.ModelCatalogRepository
 import ai.closepaw.llm.ModelCatalogRepositoryHolder
+import ai.closepaw.llm.ModelDiscovery
 import ai.closepaw.llm.ModelIdValidator
 import ai.closepaw.llm.OtherBaseUrlValidator
 import ai.closepaw.llm.displayLabel
@@ -335,13 +336,26 @@ private fun SignInTabContent(
 ) {
     // Canonical provider for this tab: selected model if OAuth-mode, else OPENAI_CODEX.
     val provider = resolveProviderForTab(LlmAuthTab.SIGN_IN, selectedModel, modelCatalog)
-    val modelOptions = catalogModelOptions(modelCatalog.modelsFor(provider))
+    val context = LocalContext.current
+    val repo = remember(context) { ModelCatalogRepositoryHolder.get(context) }
+    val discoveryState by repo.discoveryState.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
 
     SettingsSection(title = "Cloud Model") {
-        CloudModelDropdown(
-            selectedModel = selectedModel,
-            modelOptions = modelOptions,
-            onModelChange = onModelChange
+        SearchableGroupedModelPicker(
+            entries = modelCatalog.modelsFor(provider),
+            selectedName = selectedModel,
+            onSelect = onModelChange,
+        )
+        Spacer(Modifier.height(8.dp))
+        RefreshModelsRow(
+            provider = provider,
+            apiKey = "",
+            otherBaseUrl = "",
+            discoveryState = discoveryState,
+            allowDebugHttp = BuildConfig.DEBUG,
+            signedIn = openAiAuthUiState is OpenAiAuthUiState.SignedIn,
+            onRefresh = { scope.launch { repo.refreshCodex() } },
         )
     }
     Spacer(modifier = Modifier.height(20.dp))
@@ -376,8 +390,6 @@ private fun ApiKeyTabContent(
         val start = initialProvider?.takeIf { it in API_KEY_PROVIDERS } ?: derivedProvider
         mutableStateOf(start)
     }
-
-    val modelOptions = catalogModelOptions(modelCatalog.modelsFor(selectedProvider))
 
     // Per-provider API key text, seeded from AuthStore. Process-transient for typing;
     // blur/change invokes onApiKeyPersist to write through to AuthStore.
@@ -442,46 +454,43 @@ private fun ApiKeyTabContent(
     }
 
     SettingsSection(title = "Cloud Model") {
-        if (selectedProvider == LLMProvider.OTHER) {
-            SearchableGroupedModelPicker(
-                entries = modelCatalog.modelsFor(selectedProvider),
-                selectedName = selectedModel,
-                onSelect = onModelChange,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            val pickerContext = LocalContext.current
-            val repo = remember(pickerContext) { ModelCatalogRepositoryHolder.get(pickerContext) }
-            val discoveryState by repo.discoveryState.collectAsStateWithLifecycle()
-            val refreshScope = rememberCoroutineScope()
-            RefreshModelsRow(
-                provider = selectedProvider,
-                apiKey = apiKeyText,
-                otherBaseUrl = otherBaseUrlText,
-                discoveryState = discoveryState,
-                allowDebugHttp = BuildConfig.DEBUG,
-                onRefresh = {
-                    // Pass the LIVE typed URL to the repo, not the persisted
-                    // value: the 300ms persist debounce can lag the typed
-                    // text and would otherwise route the current key to the
-                    // STALE persisted URL (Codex review CRITICAL #1).
-                    val baseUrl = when (selectedProvider) {
-                        LLMProvider.OTHER ->
-                            OtherBaseUrlValidator.validate(otherBaseUrlText).getOrNull().orEmpty()
-                        else -> ""
-                    }
-                    if (baseUrl.isBlank()) return@RefreshModelsRow
-                    refreshScope.launch { repo.refresh(selectedProvider, apiKeyText, baseUrl) }
-                },
-            )
-        } else {
-            CloudModelDropdown(
-                selectedModel = selectedModel,
-                modelOptions = modelOptions,
-                onModelChange = onModelChange
-            )
-        }
+        SearchableGroupedModelPicker(
+            entries = modelCatalog.modelsFor(selectedProvider),
+            selectedName = selectedModel,
+            onSelect = onModelChange,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        val pickerContext = LocalContext.current
+        val repo = remember(pickerContext) { ModelCatalogRepositoryHolder.get(pickerContext) }
+        val discoveryState by repo.discoveryState.collectAsStateWithLifecycle()
+        val refreshScope = rememberCoroutineScope()
+        RefreshModelsRow(
+            provider = selectedProvider,
+            apiKey = apiKeyText,
+            otherBaseUrl = otherBaseUrlText,
+            discoveryState = discoveryState,
+            allowDebugHttp = BuildConfig.DEBUG,
+            onRefresh = {
+                // Pass the LIVE typed URL to the repo, not the persisted
+                // value: the 300ms persist debounce can lag the typed
+                // text and would otherwise route the current key to the
+                // STALE persisted URL (Codex review CRITICAL #1). For
+                // OpenAI API, the URL is fixed.
+                val baseUrl = when (selectedProvider) {
+                    LLMProvider.OPENAI_API -> ModelDiscovery.OPENAI_BASE_URL
+                    LLMProvider.OTHER ->
+                        OtherBaseUrlValidator.validate(otherBaseUrlText).getOrNull().orEmpty()
+                    else -> ""
+                }
+                if (baseUrl.isBlank()) return@RefreshModelsRow
+                val provider = selectedProvider
+                val key = apiKeyText
+                refreshScope.launch { repo.refresh(provider, key, baseUrl) }
+            },
+        )
     }
     Spacer(modifier = Modifier.height(20.dp))
+
 
     // Provider-linked API key field — value backed by AuthStore.
     SettingsSection(title = "API Key") {
@@ -553,6 +562,9 @@ internal fun shouldAutoFlipToOtherCustom(
     val entry = modelCatalog.resolveOrNull(ModelCatalogRepository.OTHER_CUSTOM_NAME) ?: return false
     if (entry.baseUrl != normalizedUrl || entry.modelId != trimmedModelId) return false
     if (selectedModel == ModelCatalogRepository.OTHER_CUSTOM_NAME) return false
+    // A deliberate selection from discovery must survive recomposition.
+    val selectedEntry = modelCatalog.resolveOrNull(selectedModel)
+    if (selectedEntry?.provider == LLMProvider.OTHER && selectedEntry.baseUrl == normalizedUrl) return false
     return true
 }
 

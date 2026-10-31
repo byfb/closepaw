@@ -109,6 +109,10 @@ The settings UI is a full-screen page overlay with sub-page navigation (system b
 
 The HOME page subtitle for Agent Behavior reflects the active approval mode label ("Per-App" or "Auto-Approve"), perception mode, and display mode. The navigation drawer uses `Lucide.SlidersHorizontal` for the Settings icon.
 
+### Model selection
+
+**LLM & Authentication** provides a searchable model list and **Refresh models** for OpenAI API, ChatGPT sign-in, and Other. Configure the API key or sign in, then refresh and select a model. Failed refreshes preserve the existing list. Other also supports manually entering a model ID.
+
 ### Memory Page
 
 > See: `ui/settings/MemorySettingsPage.kt`, `ui/settings/MemoryFileEditor.kt`, `ui/settings/MemoryFileEditorPage.kt`

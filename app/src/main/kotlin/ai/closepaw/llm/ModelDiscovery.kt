@@ -1,6 +1,7 @@
 package ai.closepaw.llm
 
 import android.util.Log
+import ai.closepaw.auth.CodexHeaders
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -8,12 +9,8 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -43,6 +40,11 @@ data class DiscoveredModel(
  */
 object ModelDiscovery {
 
+    const val OPENAI_BASE_URL = "https://api.openai.com/v1"
+    const val CODEX_BASE_URL = "https://chatgpt.com/backend-api/codex"
+    // Codex's catalog endpoint requires the client protocol version in the query.
+    internal const val CODEX_CLIENT_VERSION = "0.154.0"
+
     private const val TAG = "ModelDiscovery"
     private const val MAX_DISPLAY_NAME_LEN = 80
     private const val DEFAULT_CONTEXT_WINDOW = 128_000
@@ -55,7 +57,7 @@ object ModelDiscovery {
      * is available — structured signals always win.
      */
     private val NON_CHAT_ID_REGEX =
-        Regex("(?i)(embedding|whisper|tts|moderation|dall-?e|audio|image-gen|stt|speech)")
+        Regex("(?i)(embedding|whisper|tts|moderation|dall-?e|audio|image-gen|gpt-image|stt|speech|realtime|transcribe|sora|babbage|davinci)")
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -75,8 +77,29 @@ object ModelDiscovery {
         require(baseUrl.isNotBlank()) { "baseUrl must not be blank" }
         require(apiKey.isNotBlank()) { "apiKey must not be blank" }
         val normalizedBaseUrl = baseUrl.trimEnd('/')
-        val raw = fetch(normalizedBaseUrl, apiKey)
+        val raw = fetch(URL("$normalizedBaseUrl/models"), apiKey)
         parse(provider, normalizedBaseUrl, raw)
+    }
+
+    /** Uses the same OAuth token and account routing as Codex inference. */
+    suspend fun discoverCodex(headers: CodexHeaders): List<DiscoveredModel> =
+        discoverCodexAt(headers, CODEX_BASE_URL)
+
+    internal suspend fun discoverCodexAt(
+        headers: CodexHeaders,
+        baseUrl: String,
+    ): List<DiscoveredModel> = withContext(Dispatchers.IO) {
+        require(headers.accessToken.isNotBlank()) { "Sign in to refresh models" }
+        val extraHeaders = buildMap {
+            put("originator", "codex_cli_rs")
+            headers.chatgptAccountId?.let { put("chatgpt-account-id", it) }
+        }
+        val raw = fetch(
+            URL("$baseUrl/models?client_version=$CODEX_CLIENT_VERSION"),
+            headers.accessToken,
+            extraHeaders,
+        )
+        parse(LLMProvider.OPENAI_CODEX, baseUrl, raw)
     }
 
     /**
@@ -96,6 +119,7 @@ object ModelDiscovery {
         }
         val items = extractItems(root) ?: return emptyList()
         return items.mapNotNull { itemToDiscoveredModel(it, provider, sourceBaseUrl) }
+            .distinctBy { it.entry.modelId }
     }
 
     private fun extractItems(root: JsonElement): List<JsonObject>? {
@@ -114,7 +138,13 @@ object ModelDiscovery {
         provider: LLMProvider,
         sourceBaseUrl: String,
     ): DiscoveredModel? {
-        val rawId = obj.stringOrNull("id") ?: return null
+        val rawId = if (provider == LLMProvider.OPENAI_CODEX) {
+            // `supported_in_api` describes API-key access, not ChatGPT subscription access.
+            if (obj.stringOrNull("visibility")?.let { it != "list" } == true) return null
+            obj.stringOrNull("slug") ?: obj.stringOrNull("id")
+        } else {
+            obj.stringOrNull("id")
+        } ?: return null
         val modelId = ModelIdValidator.validate(rawId).getOrElse {
             Log.d(TAG, "Skipping invalid model id")
             return null
@@ -146,7 +176,10 @@ object ModelDiscovery {
                 name = name,
                 displayName = displayName,
                 provider = provider,
-                api = ApiType.CHAT,
+                api = when (provider) {
+                    LLMProvider.OPENAI_API, LLMProvider.OPENAI_CODEX -> ApiType.RESPONSE
+                    else -> ApiType.CHAT
+                },
                 modelId = modelId,
                 contextWindow = contextWindow,
                 baseUrl = sourceBaseUrl,
@@ -157,13 +190,6 @@ object ModelDiscovery {
             created = created,
         )
     }
-
-    /**
-     * Reject model ids that contain whitespace or start with `/` or `:`.
-     * Delegates to [ModelIdValidator] so the rule is identical for manually
-     * configured OTHER ids and discovered ids.
-     */
-    private fun isValidModelId(id: String): Boolean = ModelIdValidator.validate(id).isSuccess
 
     /**
      * Strip ASCII / Unicode control characters from the display name and cap
@@ -178,6 +204,7 @@ object ModelDiscovery {
     }
 
     private fun readContextWindow(obj: JsonObject): Int? {
+        obj.intOrNullSafe("context_window")?.takeIf { it > 0 }?.let { return it }
         obj.intOrNullSafe("context_length")?.let { return it }
         obj.intOrNullSafe("context_size")?.let { return it }
         (obj["top_provider"] as? JsonObject)?.intOrNullSafe("context_length")?.let { return it }
@@ -241,25 +268,24 @@ object ModelDiscovery {
 
     private val CHAT_MODEL_TYPES = setOf("chat", "llm", "language", "completion")
 
-    private fun fetch(baseUrl: String, apiKey: String): String {
-        val url = URL("$baseUrl/models")
+    private fun fetch(url: URL, apiKey: String, extraHeaders: Map<String, String> = emptyMap()): String {
         var connection: HttpURLConnection? = null
         try {
             connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
                 connectTimeout = CONNECT_TIMEOUT_MS
                 readTimeout = READ_TIMEOUT_MS
+                instanceFollowRedirects = false
                 setRequestProperty("Authorization", "Bearer $apiKey")
                 setRequestProperty("Accept", "application/json")
+                extraHeaders.forEach { (name, value) -> setRequestProperty(name, value) }
             }
             val code = connection.responseCode
             if (code !in 200..299) {
-                val err = (connection.errorStream ?: connection.inputStream)
-                    ?.bufferedReader()?.use { it.readText() }.orEmpty()
                 // Surface a host-only identifier so a misconfigured URL
                 // with embedded credentials or query secrets never reaches
                 // the UI banner or log sink.
-                throw IOException("HTTP $code from ${url.host}: ${err.take(200)}")
+                throw IOException("HTTP $code from ${url.host}")
             }
             return connection.inputStream.bufferedReader().use { it.readText() }
         } finally {

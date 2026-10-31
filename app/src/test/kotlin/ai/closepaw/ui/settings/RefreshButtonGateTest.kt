@@ -7,6 +7,22 @@ import org.junit.Test
 class RefreshButtonGateTest {
 
     @Test
+    fun `OpenAI API refresh needs an API key`() {
+        assertThat(RefreshButtonGate.evaluate(LLMProvider.OPENAI_API, "", "", false))
+            .isInstanceOf(RefreshButtonGate.State.Disabled::class.java)
+        assertThat(RefreshButtonGate.evaluate(LLMProvider.OPENAI_API, "key", "", false))
+            .isEqualTo(RefreshButtonGate.State.Enabled)
+    }
+
+    @Test
+    fun `Codex refresh needs sign in rather than an API key`() {
+        assertThat(RefreshButtonGate.evaluate(LLMProvider.OPENAI_CODEX, "key", "", false))
+            .isInstanceOf(RefreshButtonGate.State.Disabled::class.java)
+        assertThat(RefreshButtonGate.evaluate(LLMProvider.OPENAI_CODEX, "", "", false, signedIn = true))
+            .isEqualTo(RefreshButtonGate.State.Enabled)
+    }
+
+    @Test
     fun `OTHER disabled when key OR url blank`() {
         val keyBlank = RefreshButtonGate.evaluate(
             provider = LLMProvider.OTHER,

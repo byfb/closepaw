@@ -60,7 +60,12 @@ object ModelPicker {
         selectedName: String?,
         expandedKeys: Set<String>,
     ): ModelPickerState {
-        val rows = allEntries.map { it.toRow() }
+        // Seed and discovered aliases must not produce duplicate choices. Keep
+        // the selected catalog key so refreshing never changes the selection.
+        val rows = allEntries.groupBy { Triple(it.provider, it.api, it.modelId) }
+            .values.map { aliases ->
+                (aliases.firstOrNull { it.name == selectedName } ?: aliases.first()).toRow()
+            }
         val trimmed = query.trim()
         if (trimmed.isNotEmpty()) {
             val filtered = rows.filter { it.matches(trimmed) }.sortedByCreatedDesc()
@@ -86,7 +91,8 @@ object ModelPicker {
             query = query,
             isSearching = false,
             groups = groups,
-            expandedKeys = expandedKeys + listOfNotNull(selectedGroup),
+            expandedKeys = expandedKeys + listOfNotNull(selectedGroup) +
+                if (groups.size == 1) setOf(groups.single().key) else emptySet(),
             selectedName = selectedName,
         )
     }
@@ -147,6 +153,8 @@ data class ModelPickerState(
     val expandedKeys: Set<String>,
     val selectedName: String?,
 ) {
+    val showGroupHeaders: Boolean get() = groups.size > 1
+
     /**
      * Flat row index of the selected row across visible groups (counting
      * one slot per group header followed by rows in expanded groups). `-1`
@@ -159,10 +167,10 @@ data class ModelPickerState(
             for (group in groups) {
                 // Group header always takes one slot.
                 if (group.key !in expandedKeys) {
-                    index += 1
+                    if (showGroupHeaders) index += 1
                     continue
                 }
-                index += 1
+                if (showGroupHeaders) index += 1
                 for (row in group.rows) {
                     if (row.name == selectedName) return index
                     index += 1

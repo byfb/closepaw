@@ -376,6 +376,7 @@ class AgentService : AccessibilityService() {
                 val settings = AppSettingsStore(this@AgentService).load()
                 val sessionConfig =
                         SessionConfig(
+                                mainModel = settings.selectedModel,
                                 debugMode = true,
                                 traceEnabled = settings.traceEnabled,
                                 platformMode = platformMode

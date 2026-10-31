@@ -28,6 +28,30 @@ class ModelDiscoveryCacheTest {
     }
 
     @Test
+    fun `Responses API routing survives a cache restart`() {
+        val provider = LLMProvider.OPENAI_CODEX
+        val base = ModelDiscovery.CODEX_BASE_URL
+        val key = ModelDiscoveryCache.cacheKey(provider, base)
+        val models = ModelDiscovery.parse(provider, base,
+            """{"models":[{"slug":"gpt-codex-test"}]}""")
+        ModelDiscoveryCache(context).write(key, 100L, models)
+
+        val entry = ModelDiscoveryCache(context).read(key)!!.toDiscovered(provider).single().entry
+        assertThat(entry.api).isEqualTo(ApiType.RESPONSE)
+        assertThat(entry.modelId).isEqualTo("gpt-codex-test")
+    }
+
+    @Test
+    fun `older cached entries still use Chat Completions`() {
+        File(filesDir, ModelDiscoveryCache.FILE_NAME).writeText(
+            """{"OTHER:https://example.com/v1":{"t":100,"u":"https://example.com/v1","e":[{"i":"vendor/model"}]}}"""
+        )
+        val entry = ModelDiscoveryCache(context).readAll().values.single()
+            .toDiscovered(LLMProvider.OTHER).single().entry
+        assertThat(entry.api).isEqualTo(ApiType.CHAT)
+    }
+
+    @Test
     fun `cache key composes provider name and base url`() {
         assertThat(
             ModelDiscoveryCache.cacheKey(LLMProvider.OTHER, "https://example.test/v1")

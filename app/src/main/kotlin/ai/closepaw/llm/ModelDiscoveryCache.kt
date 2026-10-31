@@ -99,6 +99,7 @@ class ModelDiscoveryCache(context: Context) {
             contextWindow = d.entry.contextWindow.takeIf { it != DEFAULT_CONTEXT },
             supportsVision = d.entry.supportsVision.takeIf { it },
             created = d.created.takeIf { it != 0L },
+            api = d.entry.api,
         )
 
         private const val DEFAULT_CONTEXT = 128_000
@@ -123,7 +124,7 @@ class ModelDiscoveryCache(context: Context) {
                     name = "${provider.name.lowercase()}:${slim.modelId}",
                     displayName = displayName,
                     provider = provider,
-                    api = ApiType.CHAT,
+                    api = slim.api,
                     modelId = slim.modelId,
                     contextWindow = slim.contextWindow ?: 128_000,
                     baseUrl = baseUrl,
@@ -143,5 +144,6 @@ class ModelDiscoveryCache(context: Context) {
         @SerialName("c") val contextWindow: Int? = null,
         @SerialName("v") val supportsVision: Boolean? = null,
         @SerialName("k") val created: Long? = null,
+        @SerialName("a") val api: ApiType = ApiType.CHAT,
     )
 }

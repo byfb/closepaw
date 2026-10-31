@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.content.res.AssetManager
 import ai.closepaw.app.AppSettings
 import ai.closepaw.app.AppSettingsStore
+import ai.closepaw.auth.CodexHeaders
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.settings.AVAILABLE_LOCAL_MODELS
@@ -16,6 +17,9 @@ import io.mockk.unmockkConstructor
 import java.io.ByteArrayInputStream
 import java.io.File
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import org.junit.After
 import org.junit.Test
 
@@ -194,6 +198,99 @@ class ModelCatalogRepositoryTest {
     }
 
     // ── Discovery integration ────────────────────────────────────────────
+
+    @Test
+    fun `OpenAI refresh persists selectable Responses models after repository restart`() = runTest {
+        val context = contextReturningAsset(seedBytes())
+        val cache = ModelDiscoveryCache(context = realContextForCache())
+        val store = fakeSettingsStore("", "")
+        val repo = ModelCatalogRepository(context, store, cache,
+            discoverFn = { provider, base, key ->
+                assertThat(key).isEqualTo("test-key")
+                ModelDiscovery.parse(provider, base, """{"data":[{"id":"gpt-new-test"}]}""")
+            },
+            clock = { 123L },
+        )
+        repo.refresh(LLMProvider.OPENAI_API, "test-key", ModelDiscovery.OPENAI_BASE_URL)
+
+        val restarted = ModelCatalogRepository(context, store, cache)
+        val entry = restarted.catalog.value.resolve("openai_api:gpt-new-test")
+        assertThat(entry.provider).isEqualTo(LLMProvider.OPENAI_API)
+        assertThat(entry.api).isEqualTo(ApiType.RESPONSE)
+        assertThat(restarted.discoveryState.value.lastFetchedAt[LLMProvider.OPENAI_API]).isEqualTo(123L)
+    }
+
+    @Test
+    fun `Codex refresh obtains current OAuth headers for every request`() = runTest {
+        var token = "first-token"
+        val seenTokens = mutableListOf<String>()
+        val repo = ModelCatalogRepository(
+            contextReturningAsset(seedBytes()), fakeSettingsStore("", ""),
+            ModelDiscoveryCache(realContextForCache()),
+            codexHeaderSupplier = { CodexHeaders(token, "account", null) },
+            discoverCodexFn = { headers ->
+                seenTokens.add(headers.accessToken)
+                ModelDiscovery.parse(LLMProvider.OPENAI_CODEX, ModelDiscovery.CODEX_BASE_URL,
+                    """{"models":[{"slug":"codex-test","visibility":"list"}]}""")
+            },
+        )
+        repo.refreshCodex()
+        token = "rotated-token"
+        repo.refreshCodex()
+        assertThat(seenTokens).containsExactly("first-token", "rotated-token").inOrder()
+        assertThat(repo.catalog.value.resolve("openai_codex:codex-test").api).isEqualTo(ApiType.RESPONSE)
+    }
+
+    @Test
+    fun `empty refresh preserves last usable catalog and reports failure`() = runTest {
+        val cache = ModelDiscoveryCache(realContextForCache())
+        val provider = LLMProvider.OPENAI_API
+        val base = ModelDiscovery.OPENAI_BASE_URL
+        cache.write(ModelDiscoveryCache.cacheKey(provider, base), 123L,
+            ModelDiscovery.parse(provider, base, """{"data":[{"id":"gpt-cached"}]}"""))
+        val repo = ModelCatalogRepository(contextReturningAsset(seedBytes()), fakeSettingsStore("", ""), cache,
+            discoverFn = { _, _, _ -> emptyList() })
+
+        repo.refresh(provider, "key", base)
+        assertThat(repo.catalog.value.resolveOrNull("openai_api:gpt-cached")).isNotNull()
+        assertThat(repo.discoveryState.value.lastFetchedAt[provider]).isEqualTo(123L)
+        assertThat(repo.discoveryState.value.lastError[provider]).contains("No compatible models")
+    }
+
+    @Test
+    fun `concurrent refresh is ignored and cancellation permits retry without an error`() = runTest {
+        val started = CompletableDeferred<Unit>()
+        var calls = 0
+        val repo = ModelCatalogRepository(contextReturningAsset(seedBytes()), fakeSettingsStore("", ""),
+            ModelDiscoveryCache(realContextForCache()),
+            discoverFn = { provider, base, _ ->
+                calls++
+                if (calls == 1) {
+                    started.complete(Unit)
+                    CompletableDeferred<Unit>().await()
+                }
+                ModelDiscovery.parse(provider, base, """{"data":[{"id":"gpt-retry"}]}""")
+            })
+        val first = launch { repo.refresh(LLMProvider.OPENAI_API, "key", ModelDiscovery.OPENAI_BASE_URL) }
+        started.await()
+        repo.refresh(LLMProvider.OPENAI_API, "key", ModelDiscovery.OPENAI_BASE_URL)
+        assertThat(calls).isEqualTo(1)
+        first.cancelAndJoin()
+        assertThat(repo.discoveryState.value.refreshing).isEmpty()
+        assertThat(repo.discoveryState.value.lastError).isEmpty()
+
+        repo.refresh(LLMProvider.OPENAI_API, "key", ModelDiscovery.OPENAI_BASE_URL)
+        assertThat(repo.catalog.value.resolveOrNull("openai_api:gpt-retry")).isNotNull()
+    }
+
+    @Test
+    fun `OpenAI refresh refuses an alternate credential destination`() = runTest {
+        val repo = ModelCatalogRepository(contextReturningAsset(seedBytes()), fakeSettingsStore("", ""),
+            ModelDiscoveryCache(realContextForCache()),
+            discoverFn = { _, _, _ -> error("Must not send credentials") })
+        repo.refresh(LLMProvider.OPENAI_API, "key", "https://unrelated.example/v1")
+        assertThat(repo.discoveryState.value.lastError[LLMProvider.OPENAI_API]).contains("fixed")
+    }
 
     @Test
     fun `refresh writes cache, emits new catalog containing discovered entries`() = runTest {

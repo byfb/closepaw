@@ -1,5 +1,7 @@
 package ai.closepaw.llm
 
+import ai.closepaw.auth.CodexHeaders
+
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertThrows
@@ -92,6 +94,48 @@ class ModelDiscoveryTest {
         assertThat(e.displayName).isEqualTo("gpt-4o-mini")
         assertThat(e.contextWindow).isEqualTo(128_000)
         assertThat(e.supportsVision).isFalse()
+        assertThat(e.api).isEqualTo(ApiType.RESPONSE)
+    }
+
+    @Test
+    fun `Codex catalog reads slug context and modalities and excludes hidden models`() {
+        val body = """{"models":[
+            {"slug":"gpt-codex-test","display_name":"GPT Codex Test","visibility":"list",
+             "supported_in_api":false,"context_window":272000,"input_modalities":["text","image"]},
+            {"slug":"hidden-model","visibility":"hide"},
+            {"slug":"gpt-codex-test","visibility":"list"}
+        ]}"""
+        val entry = ModelDiscovery.parse(LLMProvider.OPENAI_CODEX, ModelDiscovery.CODEX_BASE_URL, body)
+            .single().entry
+        assertThat(entry.name).isEqualTo("openai_codex:gpt-codex-test")
+        assertThat(entry.displayName).isEqualTo("GPT Codex Test")
+        assertThat(entry.modelId).isEqualTo("gpt-codex-test")
+        assertThat(entry.api).isEqualTo(ApiType.RESPONSE)
+        assertThat(entry.contextWindow).isEqualTo(272_000)
+        assertThat(entry.supportsVision).isTrue()
+    }
+
+    @Test
+    fun `Codex discovery sends OAuth account headers and client version`() = runTest {
+        server.enqueue(MockResponse().setBody("""{"models":[{"slug":"gpt-codex-test","visibility":"list"}]}"""))
+        val base = server.url("/backend-api/codex").toString().trimEnd('/')
+        val result = ModelDiscovery.discoverCodexAt(CodexHeaders("oauth-token", "test-account", null), base)
+        val request = server.takeRequest()
+        assertThat(request.path).isEqualTo("/backend-api/codex/models?client_version=${ModelDiscovery.CODEX_CLIENT_VERSION}")
+        assertThat(request.getHeader("Authorization")).isEqualTo("Bearer oauth-token")
+        assertThat(request.getHeader("chatgpt-account-id")).isEqualTo("test-account")
+        assertThat(request.getHeader("originator")).isEqualTo("codex_cli_rs")
+        assertThat(result.single().entry.provider).isEqualTo(LLMProvider.OPENAI_CODEX)
+    }
+
+    @Test
+    fun `OpenAI discovery excludes image video realtime and transcription endpoints`() {
+        val body = """{"data":[
+            {"id":"gpt-image-1"},{"id":"sora-2"},{"id":"gpt-realtime"},
+            {"id":"gpt-4o-transcribe"},{"id":"babbage-002"},{"id":"gpt-5.4"}
+        ]}"""
+        val result = ModelDiscovery.parse(LLMProvider.OPENAI_API, BASE, body)
+        assertThat(result.map { it.entry.modelId }).containsExactly("gpt-5.4")
     }
 
     // ── Mandatory tool-calling filter ────────────────────────────────────

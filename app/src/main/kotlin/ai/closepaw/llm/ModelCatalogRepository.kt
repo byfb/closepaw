@@ -3,13 +3,22 @@ package ai.closepaw.llm
 import android.content.Context
 import android.util.Log
 import ai.closepaw.app.AppSettingsStore
+import ai.closepaw.app.AuthStoreHolder
+import ai.closepaw.auth.CodexHeaders
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import java.io.IOException
 
 /**
  * Process-wide observable model catalog.
@@ -35,7 +44,13 @@ class ModelCatalogRepository(
     private val discoverFn: suspend (LLMProvider, String, String) -> List<DiscoveredModel> =
         ModelDiscovery::discover,
     private val clock: () -> Long = System::currentTimeMillis,
+    private val codexHeaderSupplier: suspend () -> CodexHeaders = {
+        AuthStoreHolder.get(context).codexHeaders(LLMProvider.OPENAI_CODEX)
+    },
+    private val discoverCodexFn: suspend (CodexHeaders) -> List<DiscoveredModel> =
+        ModelDiscovery::discoverCodex,
 ) {
+    private val refreshLocks = LLMProvider.entries.associateWith { Mutex() }
     private val _catalog: MutableStateFlow<ModelCatalog> = MutableStateFlow(load())
     val catalog: StateFlow<ModelCatalog> = _catalog.asStateFlow()
 
@@ -74,16 +89,27 @@ class ModelCatalogRepository(
      * when the user has moved on (e.g. a slow refresh against URL A
      * finishes after the user switched to URL B).
      *
+     * Built-in API providers use their fixed discovery URL. OTHER uses the
+     * validated live URL. ChatGPT sign-in uses [refreshCodex] instead.
      */
     suspend fun refresh(provider: LLMProvider, key: String, baseUrl: String) {
-        require(provider == LLMProvider.OTHER) {
-            "Refresh only supported for OTHER (got $provider)"
+        require(provider.mode == AuthMode.ApiKey) {
+            "API-key refresh requires an API-key provider (got $provider)"
         }
         require(baseUrl.isNotBlank()) { "baseUrl must not be blank" }
         // Defence in depth: even if the UI gates on validation, we re-check
         // here so a misuse of the API can't write a malformed URL into the
-        // cache.
+        // cache. For OpenAI API, ensure the caller didn't ask us to fetch
+        // from a non-default URL.
         when (provider) {
+            LLMProvider.OPENAI_API -> {
+                if (baseUrl != effectiveBaseUrlFor(provider)) {
+                    updateDiscoveryState {
+                        it.withError(provider, "${provider.displayLabel} base URL is fixed.")
+                    }
+                    return
+                }
+            }
             LLMProvider.OTHER -> {
                 if (OtherBaseUrlValidator.validate(baseUrl).getOrNull() != baseUrl) {
                     updateDiscoveryState {
@@ -95,30 +121,48 @@ class ModelCatalogRepository(
             else -> {}
         }
 
-        updateDiscoveryState { it.withRefreshing(provider, true) }
+        refreshCatalog(provider, baseUrl) { discoverFn(provider, baseUrl, key) }
+    }
+
+    suspend fun refreshCodex() {
+        refreshCatalog(LLMProvider.OPENAI_CODEX, ModelDiscovery.CODEX_BASE_URL) {
+            discoverCodexFn(codexHeaderSupplier())
+        }
+    }
+
+    private suspend fun refreshCatalog(
+        provider: LLMProvider,
+        baseUrl: String,
+        discover: suspend () -> List<DiscoveredModel>,
+    ) {
+        val lock = refreshLocks.getValue(provider)
+        if (!lock.tryLock()) return
+        updateDiscoveryState {
+            it.withRefreshing(provider, true).copy(lastError = it.lastError - provider)
+        }
         try {
-            val discovered = discoverFn(provider, baseUrl, key)
-            val cacheKey = ModelDiscoveryCache.cacheKey(provider, baseUrl)
-            val now = clock()
-            // Stale-completion guard: if the user has switched URL while
-            // discovery was in flight, drop the result silently. Cache is
-            // NOT written and state is NOT updated for the now-stale URL.
-            val live = effectiveBaseUrlFor(provider)
-            if (live != baseUrl) {
-                Log.d(TAG, "Dropping stale refresh result for $provider (URL changed during fetch)")
-                updateDiscoveryState { it.withRefreshing(provider, false) }
-                return
+            withContext(Dispatchers.IO) {
+                val discovered = discover()
+                currentCoroutineContext().ensureActive()
+                if (effectiveBaseUrlFor(provider) != baseUrl) return@withContext
+                if (discovered.isEmpty()) {
+                    throw IOException("No compatible models returned. Previous list kept.")
+                }
+                val now = clock()
+                discoveryCache.write(ModelDiscoveryCache.cacheKey(provider, baseUrl), now, discovered)
+                _catalog.value = load()
+                updateDiscoveryState { it.withSuccess(provider, now) }
             }
-            discoveryCache.write(cacheKey, now, discovered)
-            _catalog.value = load()
-            updateDiscoveryState {
-                it.withRefreshing(provider, false).withSuccess(provider, now)
-            }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "refresh($provider) failed", e)
-            updateDiscoveryState {
-                it.withRefreshing(provider, false).withError(provider, e.message ?: "Refresh failed")
+            if (effectiveBaseUrlFor(provider) == baseUrl) {
+                updateDiscoveryState { it.withError(provider, e.message ?: "Refresh failed") }
             }
+        } finally {
+            updateDiscoveryState { it.withRefreshing(provider, false) }
+            lock.unlock()
         }
     }
 
@@ -132,6 +176,8 @@ class ModelCatalogRepository(
      * is blank or invalid).
      */
     fun effectiveBaseUrlFor(provider: LLMProvider): String? = when (provider) {
+        LLMProvider.OPENAI_API -> ModelDiscovery.OPENAI_BASE_URL
+        LLMProvider.OPENAI_CODEX -> ModelDiscovery.CODEX_BASE_URL
         LLMProvider.OTHER -> OtherBaseUrlValidator.validate(settingsStore.load().otherBaseUrl).getOrNull()
         else -> null
     }
