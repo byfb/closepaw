@@ -96,7 +96,12 @@
 # have no Java callers. Retain the small Java binding layer as a unit.
 -keep class org.webrtc.** { *; }
 # JNI_OnLoad resolves this companion runtime before creating any peer factory.
--keep class org.jni_zero.** { *; }
+# Keep native entry points, while allowing unused generated-JNI helpers to shrink.
+-keep class org.jni_zero.** {
+    @org.jni_zero.CalledByNative <methods>;
+    @org.jni_zero.CalledByNativeUnchecked <methods>;
+    @org.jni_zero.AccessedByNative <fields>;
+}
 
 # ── HiddenApiBypass ─────────────────────────────────────────────────────
 -keep class org.lsposed.hiddenapibypass.** { *; }
