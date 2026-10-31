@@ -30,7 +30,7 @@ class SettingsNavTest {
 
         compose.onNodeWithText("LLM & Authentication").assertExists()
         compose.onNodeWithText("Agent Behavior").assertExists()
-        compose.onNodeWithText("Permissions & Advanced").assertExists()
+        compose.onNodeWithText("System & Debug").assertExists()
 
         // Sub-page unique markers must be absent on home.
         compose.onAllNodesWithText("Sign In").assertCountEquals(0)
@@ -61,7 +61,7 @@ class SettingsNavTest {
         // Home markers back, sub-page tabs gone.
         compose.onAllNodesWithText("Sign In").assertCountEquals(0)
         compose.onNodeWithText("Agent Behavior").assertExists()
-        compose.onNodeWithText("Permissions & Advanced").assertExists()
+        compose.onNodeWithText("System & Debug").assertExists()
     }
 
     // S4: Page state is rememberSaveable — survives config change (simulated via StateRestorationTester).
