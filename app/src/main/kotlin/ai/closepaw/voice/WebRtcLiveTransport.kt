@@ -1,14 +1,20 @@
 package ai.closepaw.voice
 
 import android.content.Context
+import android.util.Log
+import ai.closepaw.BuildConfig
 import java.nio.ByteBuffer
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.webrtc.*
 import org.webrtc.audio.JavaAudioDeviceModule
 
@@ -17,9 +23,10 @@ internal class WebRtcLiveTransport(
     private val context: Context,
     private val createCall: suspend (offer: String, sessionId: String) -> String,
     private val onEvent: (String) -> Unit,
-    private val onDisconnected: () -> Unit,
+    private val onDisconnected: (String) -> Unit,
     private val captureMicrophone: Boolean = true,
     private val onPlaybackChanged: (Boolean) -> Unit = {},
+    private val onConnecting: (String) -> Unit = {},
 ) {
     private var factory: PeerConnectionFactory? = null
     private var peer: PeerConnection? = null
@@ -27,11 +34,21 @@ internal class WebRtcLiveTransport(
     private var track: AudioTrack? = null
     private var channel: DataChannel? = null
     private val channelReady = CompletableDeferred<Unit>()
+    private val iceGathered = CompletableDeferred<Unit>()
+    private val candidateReady = CompletableDeferred<Unit>()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     @Volatile private var closed = false
     private val playback = PlaybackActivity()
+    private val recovery = LiveConnectionRecovery(scope, onFailure = { message ->
+        if (!closed) {
+            channelReady.completeExceptionally(LiveVoiceException(message))
+            onDisconnected(message)
+        }
+    })
 
     suspend fun connect(sessionId: String) = withContext(Dispatchers.Default) {
-        withTimeout(35_000) {
+        withTimeout(65_000) {
+            onConnecting("Preparing audio…")
             PeerConnectionFactory.initialize(
                 PeerConnectionFactory.InitializationOptions.builder(context).createInitializationOptions()
             )
@@ -50,14 +67,26 @@ internal class WebRtcLiveTransport(
             val observer = object : PeerConnection.Observer {
                 override fun onSignalingChange(state: PeerConnection.SignalingState?) {}
                 override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
-                    if (!closed && state in listOf(PeerConnection.IceConnectionState.FAILED,
-                            PeerConnection.IceConnectionState.DISCONNECTED, PeerConnection.IceConnectionState.CLOSED)) {
-                        onDisconnected()
+                    if (closed) return
+                    if (BuildConfig.DEBUG) Log.d("GptLiveTransport", "ICE state: $state")
+                    when (state) {
+                        PeerConnection.IceConnectionState.CONNECTED,
+                        PeerConnection.IceConnectionState.COMPLETED -> recovery.connected()
+                        PeerConnection.IceConnectionState.DISCONNECTED -> recovery.disconnected()
+                        PeerConnection.IceConnectionState.FAILED -> {
+                            recovery.failed("Voice audio could not connect. Check your network or VPN, then reconnect.")
+                        }
+                        PeerConnection.IceConnectionState.CLOSED -> recovery.failed("Voice audio connection closed. Tap to reconnect.")
+                        else -> Unit
                     }
                 }
                 override fun onIceConnectionReceivingChange(receiving: Boolean) {}
-                override fun onIceGatheringChange(state: PeerConnection.IceGatheringState?) {}
-                override fun onIceCandidate(candidate: IceCandidate?) {}
+                override fun onIceGatheringChange(state: PeerConnection.IceGatheringState?) {
+                    if (state == PeerConnection.IceGatheringState.COMPLETE) iceGathered.complete(Unit)
+                }
+                override fun onIceCandidate(candidate: IceCandidate?) {
+                    if (candidate != null) candidateReady.complete(Unit)
+                }
                 override fun onIceCandidatesRemoved(candidates: Array<out IceCandidate>?) {}
                 override fun onAddStream(stream: MediaStream?) {}
                 override fun onRemoveStream(stream: MediaStream?) {}
@@ -89,7 +118,7 @@ internal class WebRtcLiveTransport(
                     override fun onStateChange() {
                         if (closed) return
                         if (events.state() == DataChannel.State.OPEN) channelReady.complete(Unit)
-                        if (!closed && events.state() == DataChannel.State.CLOSED) onDisconnected()
+                        if (events.state() == DataChannel.State.CLOSED) recovery.failed("GPT-Live's event connection closed. Tap to reconnect.")
                     }
                     override fun onMessage(buffer: DataChannel.Buffer) {
                         if (closed || buffer.binary || buffer.data.remaining() > 256_000) return
@@ -101,9 +130,32 @@ internal class WebRtcLiveTransport(
             }
             val offer = createOffer(connection)
             setDescription(connection, offer, local = true)
-            val answer = createCall(offer.description, sessionId)
+            onConnecting("Finding a network route…")
+            // This endpoint has no trickle-ICE exchange. Send the updated local SDP,
+            // including candidates, rather than the original candidate-free offer.
+            // Android's cold network monitor can report COMPLETE before its first candidate.
+            val gathered = withTimeoutOrNull(8_000) {
+                iceGathered.await()
+                candidateReady.await()
+                true
+            } == true
+            if (!gathered) throw LiveVoiceException("Could not find a voice network route. Check your connection and reconnect.")
+            val localOffer = connection.localDescription?.description
+                ?: throw LiveVoiceException("Could not prepare the voice network connection.")
+            onConnecting("Starting GPT-Live…")
+            val answer = createCall(localOffer, sessionId)
+            if (BuildConfig.DEBUG) {
+                val candidates = answer.lineSequence().filter { it.startsWith("a=candidate:") }.map {
+                    val parts = it.split(' ')
+                    "${parts.getOrNull(2)}:${parts.getOrNull(5)}:${parts.getOrNull(7)}"
+                }.toList()
+                Log.d("GptLiveTransport", "Remote candidates (protocol:port:type): $candidates; iceLite=${answer.contains("a=ice-lite")}")
+            }
             setDescription(connection, SessionDescription(SessionDescription.Type.ANSWER, answer), local = false)
-            channelReady.await()
+            onConnecting("Connecting audio…")
+            if (withTimeoutOrNull(20_000) { channelReady.await(); true } != true) {
+                throw LiveVoiceException("GPT-Live accepted the call, but audio could not connect. Check your network or VPN, then reconnect.")
+            }
             track?.setEnabled(true)
         }
     }
@@ -117,6 +169,8 @@ internal class WebRtcLiveTransport(
 
     suspend fun close() = withContext(Dispatchers.Default) {
         closed = true
+        recovery.close()
+        scope.cancel()
         track?.setEnabled(false)
         channel?.unregisterObserver()
         channel?.close()

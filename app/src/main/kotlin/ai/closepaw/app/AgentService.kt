@@ -261,6 +261,7 @@ class AgentService : AccessibilityService() {
                         onOpenApp = {
                             val intent =
                                     Intent(this, MainActivity::class.java).apply {
+                                        putExtra(MainActivity.EXTRA_OPEN_CHAT, true)
                                         flags =
                                                 Intent.FLAG_ACTIVITY_NEW_TASK or
                                                         Intent.FLAG_ACTIVITY_CLEAR_TOP or
@@ -276,7 +277,7 @@ class AgentService : AccessibilityService() {
                                         lifecycleOwner = serviceLifecycleOwner,
                                         savedStateRegistryOwner = serviceLifecycleOwner,
                                         onExpandCapsule = {
-                                            // Tap island → expand Smart Capsule overlay, hide island
+                                            // Tap the collapsed pill to restore the floating summary.
                                             overlayController?.onIslandTapped()
                                         }
                                 )

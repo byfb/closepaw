@@ -7,6 +7,14 @@ agent and speaks its questions and results. Mute and end-call controls remain in
 chat; the microphone foreground notification also offers **End voice** when
 notification permission is granted.
 
+While another app is in front, a small floating summary shows the current task's
+latest progress and live captions. **Controls** opens the existing takeover,
+stop, and response panel; **Open chat** returns to the complete conversation.
+The arrow collapses the summary to the status pill, and tapping the pill expands
+it again. Mute and end-voice controls remain available in the summary. Questions
+and approval requests open the response panel automatically. Voice-only calls
+remain visible without an active task; previews do not create a floating window.
+
 ## Home-screen widget and settings
 
 Open **Settings → GPT-Live** (or the settings icon beside the chat's voice button).
@@ -104,6 +112,12 @@ ClosePaw task controls.
 and disposal run off the main thread. The service preserves headset routing and
 restores the previous audio mode when it releases focus. Dictation controls are
 hidden while GPT-Live owns the microphone, including in the overlay.
+The one-shot SDP request waits for ICE gathering and includes the local network
+candidates. Setup reports its current stage; a failed media connection is
+distinguished from HTTP sign-in, account-access, and quota errors. Temporary ICE
+disconnects have a 12-second recovery window; native failure or a closed event
+channel ends the call. Explicit hang-up cancels that recovery timer. Both the
+summary and control overlays temporarily pass through injected agent gestures.
 `LiveVoiceRuntime` holds context-free status shared with settings and the widget;
 it does not own the service or native resources. `GptLiveWidget` uses short-lived
 receiver work and event-driven RemoteViews updates, with no periodic polling.
@@ -125,10 +139,17 @@ takeover and approval buttons remain authoritative.
 ## Verification
 
 ```bash
-./gradlew assembleDebug testDebugUnitTest lintDebug
-./gradlew connectedDebugAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.class=ai.closepaw.qa.GptLiveTransportTest,ai.closepaw.qa.SettingsNavTest,ai.closepaw.qa.SettingsLlmAuthTest,ai.closepaw.qa.SettingsModelRefreshTest
+./gradlew assembleDebug assembleDebugAndroidTest testDebugUnitTest lintDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w \
+  -e class ai.closepaw.qa.GptLiveTransportTest,ai.closepaw.qa.FloatingSummaryTest \
+  ai.closepaw.test/androidx.test.runner.AndroidJUnitRunner
 ```
+
+For a signed-in emulator, use the direct instrumentation commands above. Gradle's
+connected-test cleanup can uninstall the app and remove its login data. Save an
+emulator snapshot before testing and use replacement installs to retain app data.
 
 JVM tests cover request headers, fresh credentials on reconnect, authentication
 failure, cancellation, malformed events, duplicate handoffs, transcript assembly,
@@ -142,8 +163,22 @@ Local acceptance on Android 16 covered adding/resizing the launcher widget,
 portrait/landscape layouts, setup navigation, saved voice/language/tone after app
 restart, and returning from the shared worker model/effort page. The settings page
 was also checked with dark mode, enlarged text, reduced motion, and a small-phone
-layout. Build, all 2,130 JVM tests, and all 18 selected device tests passed; Lint
-reported no errors. This does not verify the remote account or voice options.
+layout. The earlier widget checks passed all 18 selected device tests.
+
+The floating-summary update passed all 2,142 JVM tests, five selected native/UI
+device tests, and Lint with no errors.
+Manual testing used a signed-in account and the emulator's WebView browser: a
+text task opened the browser, loaded a page, and returned its summary. Progress,
+collapse/expand, approval controls, returning to chat, and agent gestures beneath
+the summary were checked, along with dark mode and 1.5× text in portrait and
+landscape. Chrome was not installed on this emulator.
+
+The authenticated remote voice test on 2026-10-31 accepted the HTTPS call request
+and returned SDP, then failed ICE connectivity. Diagnostic candidate-pair counters
+showed outgoing connectivity checks and no responses on the tested VPN connection.
+Matching the installed official desktop client's newer model/session fields did
+not change that result. Remote audio, spoken completion, and voice delegation
+remain unverified; local loopback success does not resolve this failure.
 
 For a real account test, sign in inside ClosePaw, start GPT-Live, ask it to open
 Android Settings, and confirm both task execution and spoken completion. Also

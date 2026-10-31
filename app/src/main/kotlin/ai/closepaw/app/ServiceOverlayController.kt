@@ -19,7 +19,10 @@ import ai.closepaw.ui.overlay.compose.GlowOverlayHost
 import ai.closepaw.ui.overlay.compose.IslandOverlayHost
 import ai.closepaw.ui.overlay.model.CapsuleMode
 import ai.closepaw.platform.OverlayTouchGate
+import ai.closepaw.voice.LiveVoiceRuntime
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -65,7 +68,15 @@ class ServiceOverlayController(
 
     /** Touch gate for gesture injection pass-through. */
     val overlayTouchGate: OverlayTouchGate
-        get() = capsuleManager.touchGate
+        get() = object : OverlayTouchGate {
+            override fun beginGesturePassThrough(): AutoCloseable {
+                val capsule = capsuleManager.touchGate.beginGesturePassThrough()
+                val island = statusIslandManager?.touchGate?.beginGesturePassThrough()
+                return AutoCloseable {
+                    try { island?.close() } finally { capsule.close() }
+                }
+            }
+        }
 
     // ── Overlay managers ──
 
@@ -110,7 +121,7 @@ class ServiceOverlayController(
         this.onDismissError = { dismissError() }
         // Navigation callbacks
         this.onMinimize = {
-            showPreference = ShowPreference.ISLAND
+            showPreference = ShowPreference.SUMMARY
             applyVisibility()
         }
         this.onOpenViewer = { this@ServiceOverlayController.onOpenViewer?.invoke() }
@@ -130,11 +141,25 @@ class ServiceOverlayController(
      */
     private var isMainAppResumed = false
 
-    /** User preference: capsule or island while overlays are visible (A11y/VD). */
-    private var showPreference = ShowPreference.ISLAND
+    /** Detail controls, a floating summary, or a collapsed status pill. */
+    private var showPreference = ShowPreference.SUMMARY
 
     init {
         statusIslandManager?.startObserving(stateHolder, scope)
+        statusIslandManager?.onMinimizeSummary = {
+            showPreference = ShowPreference.ISLAND
+            applyVisibility()
+        }
+        statusIslandManager?.onOpenApp = { openMainAppAndHideOverlays() }
+        statusIslandManager?.onOpenControls = {
+            showPreference = ShowPreference.CAPSULE
+            applyVisibility()
+        }
+        scope.launch {
+            LiveVoiceRuntime.state.map { it.showInOverlay }.distinctUntilChanged().collect {
+                applyVisibility()
+            }
+        }
 
         // Observe mode for terminal transitions (Done→Hidden auto-hide) that affect visibility
         scope.launch {
@@ -168,6 +193,7 @@ class ServiceOverlayController(
             mode = mode,
             hasActiveTask = stateHolder.hasActiveTask,
             showPreference = showPreference,
+            hasLiveVoice = LiveVoiceRuntime.state.value.showInOverlay,
         )
         Log.i(
             logTag,
@@ -192,6 +218,7 @@ class ServiceOverlayController(
         }
 
         if (decision.showIsland) {
+            statusIslandManager?.setExpanded(showPreference == ShowPreference.SUMMARY)
             if (statusIslandManager?.isShowing() != true) statusIslandManager?.show()
         } else {
             statusIslandManager?.hide()
@@ -225,25 +252,12 @@ class ServiceOverlayController(
 
     fun onIslandTapped() {
         val mode = stateHolder.mode.value
-        if (shouldOpenAppWhenIslandTapped(stateHolder.hasActiveTask, mode)) {
+        if (!LiveVoiceRuntime.state.value.showInOverlay && shouldOpenAppWhenIslandTapped(stateHolder.hasActiveTask, mode)) {
             openMainAppAndHideOverlays()
             return
         }
-        when (platformMode) {
-            PlatformMode.ACCESSIBILITY -> {
-                showPreference = ShowPreference.CAPSULE
-                applyVisibility()
-            }
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                if (userLocation == OverlayUserLocation.VD_VIEWER) {
-                    showPreference = ShowPreference.CAPSULE
-                    applyVisibility()
-                } else {
-                    // Open VD viewer — onViewerOpened() handles capsule + island swap
-                    onOpenViewer?.invoke() ?: openMainAppAndHideOverlays()
-                }
-            }
-        }
+        showPreference = ShowPreference.SUMMARY
+        applyVisibility()
     }
 
     fun onViewerOpened() {
@@ -257,7 +271,7 @@ class ServiceOverlayController(
         if (userLocation == OverlayUserLocation.VD_VIEWER) {
             userLocation = OverlayUserLocation.OTHER_APP
         }
-        showPreference = ShowPreference.ISLAND
+        showPreference = ShowPreference.SUMMARY
         updateContext()
         applyVisibility()
     }
@@ -333,7 +347,7 @@ class ServiceOverlayController(
 
     fun onTaskStarted(taskId: String, input: String) {
         stateHolder.onTaskStarted(taskId, input)
-        showPreference = ShowPreference.CAPSULE
+        showPreference = ShowPreference.SUMMARY
         applyVisibility()
     }
 

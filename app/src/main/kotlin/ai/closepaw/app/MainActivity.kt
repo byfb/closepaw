@@ -93,6 +93,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_OTHER_MODEL_ID = "other_model_id"
         const val EXTRA_EVAL_TURN_BUDGET = "eval_turn_budget"
         const val EXTRA_REQUEST_VOICE_PERMISSION = "request_voice_permission"
+        const val EXTRA_OPEN_CHAT = "open_chat"
     }
 
     private val sessionScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -344,6 +345,12 @@ class MainActivity : ComponentActivity() {
             intent.hasExtra(EXTRA_GOAL)
 
     private fun consumeLiveSettingsRequest(intent: Intent) {
+        if (intent.getBooleanExtra(EXTRA_OPEN_CHAT, false)) {
+            intent.removeExtra(EXTRA_OPEN_CHAT)
+            pendingSettingsDeepLink = null
+            showSettings = false
+            return
+        }
         if (!intent.getBooleanExtra(ai.closepaw.voice.GptLiveWidget.EXTRA_OPEN_SETTINGS, false)) return
         intent.removeExtra(ai.closepaw.voice.GptLiveWidget.EXTRA_OPEN_SETTINGS)
         pendingSettingsDeepLink = ai.closepaw.ui.chat.SettingsDeepLink(page = ai.closepaw.ui.chat.SettingsPage.GPT_LIVE)

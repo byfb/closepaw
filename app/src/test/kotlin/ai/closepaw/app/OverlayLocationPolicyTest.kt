@@ -10,6 +10,51 @@ import org.junit.Test
 class OverlayLocationPolicyTest {
 
     @Test
+    fun `floating summary appears over other apps in either execution mode`() {
+        PlatformMode.entries.forEach { platform ->
+            val result = deriveOverlayVisibility(platform, OverlayUserLocation.OTHER_APP,
+                CapsuleMode.Running("Reading the page"), true, ShowPreference.SUMMARY)
+            assertThat(result.showIsland).isTrue()
+            assertThat(result.showCapsule).isFalse()
+            assertThat(result.normalizedShowPreference).isEqualTo(ShowPreference.SUMMARY)
+        }
+    }
+
+    @Test
+    fun `voice remains visible outside the app without an active worker`() {
+        for (platform in PlatformMode.entries) {
+            val result = deriveOverlayVisibility(platform, OverlayUserLocation.OTHER_APP,
+                CapsuleMode.Hidden, false, ShowPreference.CAPSULE, hasLiveVoice = true)
+            assertThat(result.showIsland).isTrue()
+            assertThat(result.showCapsule).isFalse()
+            assertThat(result.showGlow).isFalse()
+            assertThat(result.normalizedShowPreference).isEqualTo(ShowPreference.SUMMARY)
+            val inApp = deriveOverlayVisibility(platform, OverlayUserLocation.MAIN_APP,
+                CapsuleMode.Hidden, false, ShowPreference.SUMMARY, hasLiveVoice = true)
+            assertThat(inApp.showIsland || inApp.showCapsule).isFalse()
+        }
+    }
+
+    @Test
+    fun `ending voice hides the idle floating window`() {
+        val result = deriveOverlayVisibility(PlatformMode.ACCESSIBILITY, OverlayUserLocation.OTHER_APP,
+            CapsuleMode.Hidden, false, ShowPreference.SUMMARY, hasLiveVoice = false)
+        assertThat(result.showIsland || result.showCapsule || result.showGlow).isFalse()
+    }
+
+    @Test
+    fun `required responses expand the summary into existing controls`() {
+        val modes = listOf(CapsuleMode.WaitingForInput("Which page?", "ask"),
+            CapsuleMode.WaitingForApproval("approve", "Open Chrome", "Chrome", "com.android.chrome", "ask"))
+        for (platform in PlatformMode.entries) for (mode in modes) {
+            val result = deriveOverlayVisibility(platform, OverlayUserLocation.OTHER_APP,
+                mode, true, ShowPreference.SUMMARY, hasLiveVoice = true)
+            assertThat(result.showCapsule).isTrue()
+            assertThat(result.showIsland).isFalse()
+        }
+    }
+
+    @Test
     fun `resolve user location detects vd viewer`() {
         val location = resolveUserLocation(
             appPackage = "ai.closepaw",

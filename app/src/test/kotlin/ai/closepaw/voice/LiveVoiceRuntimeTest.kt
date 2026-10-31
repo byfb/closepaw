@@ -7,6 +7,18 @@ import org.junit.Test
 class LiveVoiceRuntimeTest {
     private val session = SessionId("test")
 
+    @Test fun `connecting status identifies the current stage`() {
+        assertThat(voiceStatus(LiveVoiceState(phase = LiveVoicePhase.Connecting,
+            connectionStage = "Connecting audio…"), LiveTaskStatus.NONE)).isEqualTo("Connecting audio…")
+    }
+
+    @Test fun `preview and idle voice do not create a floating window`() {
+        assertThat(LiveVoiceState().showInOverlay).isFalse()
+        assertThat(LiveVoiceState(phase = LiveVoicePhase.Active, preview = true).showInOverlay).isFalse()
+        assertThat(LiveVoiceState(phase = LiveVoicePhase.Connecting).showInOverlay).isTrue()
+        assertThat(LiveVoiceState(phase = LiveVoicePhase.Error).showInOverlay).isTrue()
+    }
+
     @Test fun `widget retains actual task outcome after voice ends and session closes`() {
         for ((outcome, expected) in listOf(TaskOutcome.GOAL_ACHIEVED to LiveTaskStatus.DONE,
             TaskOutcome.TASK_IMPOSSIBLE to LiveTaskStatus.FAILED, TaskOutcome.ERROR to LiveTaskStatus.FAILED,

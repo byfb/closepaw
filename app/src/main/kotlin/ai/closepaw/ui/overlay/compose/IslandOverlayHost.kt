@@ -2,6 +2,7 @@ package ai.closepaw.ui.overlay.compose
 
 import android.accessibilityservice.AccessibilityService
 import android.graphics.PixelFormat
+import android.content.Intent
 import android.os.Build
 import android.util.Log
 import android.util.TypedValue
@@ -12,12 +13,16 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.LifecycleOwner
 import androidx.savedstate.SavedStateRegistryOwner
-import ai.closepaw.protocol.TurnPhase
+import ai.closepaw.platform.OverlayTouchGate
+import ai.closepaw.voice.GptLiveService
+import ai.closepaw.voice.LiveVoiceRuntime
+import ai.closepaw.voice.voiceStatus
 import ai.closepaw.ui.capsule.surface.toStatusColor
 import ai.closepaw.ui.overlay.CapsuleStateHolder
 import ai.closepaw.ui.overlay.model.CapsuleMode
 import ai.closepaw.ui.overlay.model.deriveGlowState
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 
 class IslandOverlayHost(
     private val service: AccessibilityService,
@@ -39,6 +44,35 @@ class IslandOverlayHost(
     )
 
     private var stateHolder: CapsuleStateHolder? = null
+    private val expanded = MutableStateFlow(true)
+    var onMinimizeSummary: (() -> Unit)? = null
+    var onOpenApp: (() -> Unit)? = null
+    var onOpenControls: (() -> Unit)? = null
+    private var passThroughDepth = 0
+
+    val touchGate: OverlayTouchGate = object : OverlayTouchGate {
+        override fun beginGesturePassThrough(): AutoCloseable {
+            passThroughDepth++
+            updateTouchability()
+            var closed = false
+            return AutoCloseable {
+                if (!closed) {
+                    closed = true
+                    passThroughDepth = (passThroughDepth - 1).coerceAtLeast(0)
+                    updateTouchability()
+                }
+            }
+        }
+    }
+
+    fun setExpanded(value: Boolean) {
+        if (expanded.value == value) return
+        expanded.value = value
+        composeHost.updateLayoutParams { params ->
+            params.gravity = Gravity.TOP or if (value) Gravity.END else Gravity.CENTER_HORIZONTAL
+            params.x = if (value) dp(12) else 0
+        }
+    }
 
     fun show() {
         if (composeHost.isShowing()) return
@@ -54,9 +88,21 @@ class IslandOverlayHost(
             } else {
                 val mode by holder.mode.collectAsState(initial = CapsuleMode.Hidden)
                 val turnPhase by holder.turnPhase.collectAsState(initial = null)
-                val text = modeText(mode)
+                val isExpanded by expanded.collectAsState()
+                val voice by LiveVoiceRuntime.state.collectAsState()
+                val task by LiveVoiceRuntime.task.collectAsState()
+                val text = if (mode is CapsuleMode.Hidden) voiceStatus(voice, task) else modeText(mode)
                 val glowState = deriveGlowState(mode, turnPhase)
-                StatusIslandCompose(
+                if (isExpanded) FloatingSummaryCompose(
+                    mode = mode,
+                    voice = voice,
+                    task = task,
+                    onMinimize = { onMinimizeSummary?.invoke() },
+                    onOpenChat = { onOpenApp?.invoke() },
+                    onOpenControls = { onOpenControls?.invoke() },
+                    onMute = { voiceControl(GptLiveService.ACTION_MUTE) },
+                    onEndVoice = { voiceControl(GptLiveService.ACTION_STOP) },
+                ) else StatusIslandCompose(
                     text = if (text.isBlank()) "Working..." else text,
                     dotColor = glowState.toStatusColor(),
                     pulsing = mode is CapsuleMode.Running,
@@ -80,6 +126,18 @@ class IslandOverlayHost(
     fun dispose() {
         hide()
         composeHost.dispose()
+    }
+
+    private fun voiceControl(action: String) {
+        if (!LiveVoiceRuntime.state.value.running) return
+        runCatching { service.startService(Intent(service, GptLiveService::class.java).setAction(action)) }
+    }
+
+    private fun updateTouchability() {
+        composeHost.updateLayoutParams { params ->
+            params.flags = if (passThroughDepth > 0) params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            else params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        }
     }
 
     private fun modeText(mode: CapsuleMode): String = when (mode) {
@@ -106,10 +164,12 @@ class IslandOverlayHost(
                 WindowManager.LayoutParams.TYPE_PHONE
             },
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                (if (passThroughDepth > 0) WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE else 0),
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            gravity = Gravity.TOP or if (expanded.value) Gravity.END else Gravity.CENTER_HORIZONTAL
+            x = if (expanded.value) dp(12) else 0
             y = statusBarHeight + dp(4)
         }
     }

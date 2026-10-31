@@ -13,6 +13,7 @@ internal enum class OverlayUserLocation {
 
 internal enum class ShowPreference {
     CAPSULE,
+    SUMMARY,
     ISLAND
 }
 
@@ -128,14 +129,16 @@ internal fun deriveOverlayVisibility(
     mode: CapsuleMode,
     hasActiveTask: Boolean,
     showPreference: ShowPreference,
+    hasLiveVoice: Boolean = false,
 ): OverlayVisibilityDecision {
-    val isActive = hasActiveTask || mode is CapsuleMode.Done || mode is CapsuleMode.Error
+    val isActive = hasActiveTask || hasLiveVoice || mode is CapsuleMode.Done || mode is CapsuleMode.Error
     val normalizedShowPreference = when {
         location == OverlayUserLocation.MAIN_APP || !isActive -> showPreference
         mode is CapsuleMode.WaitingForInput ||
             mode is CapsuleMode.WaitingForAction ||
             mode is CapsuleMode.WaitingForApproval ||
             mode is CapsuleMode.Error -> ShowPreference.CAPSULE
+        mode is CapsuleMode.Hidden && hasLiveVoice && showPreference == ShowPreference.CAPSULE -> ShowPreference.SUMMARY
         else -> showPreference
     }
 
@@ -145,8 +148,8 @@ internal fun deriveOverlayVisibility(
             val showCapsule = isOverlayContext && normalizedShowPreference == ShowPreference.CAPSULE
             OverlayVisibilityDecision(
                 showCapsule = showCapsule,
-                showIsland = isOverlayContext && normalizedShowPreference == ShowPreference.ISLAND,
-                showGlow = location != OverlayUserLocation.MAIN_APP && isActive,
+                showIsland = isOverlayContext && normalizedShowPreference != ShowPreference.CAPSULE,
+                showGlow = location != OverlayUserLocation.MAIN_APP && mode !is CapsuleMode.Hidden && isActive,
                 normalizedShowPreference = normalizedShowPreference,
             )
         }
@@ -178,7 +181,7 @@ internal fun deriveOverlayVisibility(
                 val forceCapsule = needsUserAttention
                 OverlayVisibilityDecision(
                     showCapsule = forceCapsule || normalizedShowPreference == ShowPreference.CAPSULE,
-                    showIsland = !forceCapsule && normalizedShowPreference == ShowPreference.ISLAND,
+                    showIsland = !forceCapsule && normalizedShowPreference != ShowPreference.CAPSULE,
                     showGlow = (location == OverlayUserLocation.VD_VIEWER || needsUserAttention) && hasActiveTask,
                     normalizedShowPreference = normalizedShowPreference,
                 )

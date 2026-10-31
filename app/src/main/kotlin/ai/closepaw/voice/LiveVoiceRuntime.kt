@@ -13,8 +13,10 @@ data class LiveVoiceState(
     val error: String? = null,
     val preview: Boolean = false,
     val speaking: Boolean = false,
+    val connectionStage: String? = null,
 ) {
     val running: Boolean get() = phase == LiveVoicePhase.Connecting || phase == LiveVoicePhase.Active
+    internal val showInOverlay: Boolean get() = !preview && (running || phase == LiveVoicePhase.Error)
 }
 
 enum class LiveTaskStatus(val label: String) {
@@ -58,7 +60,7 @@ object LiveVoiceRuntime {
 }
 
 internal fun voiceStatus(voice: LiveVoiceState, task: LiveTaskStatus): String = when {
-    voice.phase == LiveVoicePhase.Connecting -> "Connecting…"
+    voice.phase == LiveVoicePhase.Connecting -> voice.connectionStage ?: "Connecting…"
     voice.preview && voice.running -> "Previewing"
     voice.speaking && voice.running -> "Replying"
     voice.muted && voice.running -> "Microphone muted"

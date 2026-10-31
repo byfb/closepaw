@@ -78,6 +78,23 @@ class LiveCallClientTest {
         assertThat(error.message).doesNotContain("backend trace")
     }
 
+    @Test fun `unexpected successful response does not masquerade as a valid voice answer`() = runBlocking {
+        server.enqueue(MockResponse().setBody("<html>private backend response</html>"))
+        val error = runCatching { client().create("v=0", "voice") }.exceptionOrNull()!!
+        assertThat(error.message).contains("invalid audio connection")
+        assertThat(error.message).doesNotContain("private backend")
+    }
+
+    @Test fun `DNS failure identifies network setup without disclosing the exception`() = runBlocking {
+        val dnsClient = http.newBuilder().dns { throw java.net.UnknownHostException("private network details") }.build()
+        val calls = LiveCallClient(dnsClient, { CodexHeaders("token", "account", null) }, "https://unresolvable.example/calls")
+        try {
+            val error = runCatching { calls.create("v=0", "voice") }.exceptionOrNull()!!
+            assertThat(error.message).contains("DNS")
+            assertThat(error.message).doesNotContain("private network")
+        } finally { dnsClient.dispatcher.cancelAll() }
+    }
+
     @Test fun `missing account rejects before sending a request`() = runBlocking {
         val error = runCatching { client { CodexHeaders("token", null, null) }.create("v=0", "voice") }.exceptionOrNull()!!
         assertThat(error).isInstanceOf(LiveVoiceException::class.java)

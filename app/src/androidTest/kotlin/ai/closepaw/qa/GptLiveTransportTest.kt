@@ -85,6 +85,7 @@ class GptLiveTransportTest {
                 RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.SEND_ONLY))
         }
         val transport = WebRtcLiveTransport(context, createCall = { offer, _ ->
+            assertTrue("The one-shot offer must include ICE candidates", offer.contains("a=candidate:"))
             if (!captureMicrophone) {
                 assertTrue(offer.contains("a=recvonly"))
                 assertFalse(offer.contains("a=sendrecv"))

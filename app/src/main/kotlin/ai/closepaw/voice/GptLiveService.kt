@@ -81,7 +81,7 @@ class GptLiveService : Service() {
             ACTION_START -> startCall(preview = false)
             ACTION_PREVIEW -> startCall(preview = true)
             ACTION_STOP_PREVIEW -> if (state.value.preview || callJob == null) stopCall()
-            ACTION_MUTE -> toggleMute()
+            ACTION_MUTE -> if (state.value.running) toggleMute() else stopSelf()
             else -> stopCall()
         }
         return START_NOT_STICKY
@@ -143,17 +143,22 @@ class GptLiveService : Service() {
                     onEvent = { raw -> scope.launch {
                         if (run == generation && state.value.running) receive(raw, delegations)
                     } },
-                    onDisconnected = { scope.launch {
-                        if (run == generation && state.value.running) fail("GPT-Live disconnected. Tap to reconnect.")
+                    onDisconnected = { message -> scope.launch {
+                        if (run == generation && state.value.running) fail(message)
                     } },
                     captureMicrophone = !preview,
                     onPlaybackChanged = { speaking -> scope.launch {
                         if (run == generation && state.value.running) mutableState.value = state.value.copy(speaking = speaking)
                     } },
+                    onConnecting = { stage -> scope.launch {
+                        if (run == generation && state.value.phase == LiveVoicePhase.Connecting) {
+                            mutableState.value = state.value.copy(connectionStage = stage)
+                        }
+                    } },
                 )
                 transport = connection
                 connection.connect(UUID.randomUUID().toString())
-                mutableState.value = state.value.copy(phase = LiveVoicePhase.Active)
+                mutableState.value = state.value.copy(phase = LiveVoicePhase.Active, connectionStage = null)
                 updateNotification()
                 if (preview) {
                     append(null, "Say this sample once: ${preferences.language.sample}", spoken = true)
@@ -225,7 +230,7 @@ class GptLiveService : Service() {
 
     private fun fail(message: String) {
         pendingStart = null
-        mutableState.value = LiveVoiceState(phase = LiveVoicePhase.Error, error = message)
+        mutableState.value = LiveVoiceState(phase = LiveVoicePhase.Error, error = message, preview = state.value.preview)
         GptLiveWidget.requestUpdate(applicationContext)
         transport?.mute(true)
         callJob?.cancel()

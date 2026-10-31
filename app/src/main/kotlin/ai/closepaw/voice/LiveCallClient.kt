@@ -1,7 +1,12 @@
 package ai.closepaw.voice
 
 import ai.closepaw.auth.CodexHeaders
+import ai.closepaw.BuildConfig
+import android.util.Log
 import java.io.IOException
+import java.io.InterruptedIOException
+import java.net.UnknownHostException
+import javax.net.ssl.SSLException
 import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -67,8 +72,14 @@ internal class LiveCallClient(
             continuation.invokeOnCancellation { call.cancel() }
             call.enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) {
+                    if (BuildConfig.DEBUG) Log.d("GptLiveCall", "Call request failed: ${e.javaClass.simpleName}")
                     if (continuation.isActive) continuation.resumeWithException(
-                        LiveVoiceException("Could not connect to GPT-Live. Check your connection.")
+                        LiveVoiceException(when (e) {
+                            is UnknownHostException -> "Could not find the GPT-Live server. Check your DNS or VPN settings."
+                            is InterruptedIOException -> "GPT-Live's server request timed out. Check your network or VPN and reconnect."
+                            is SSLException -> "Could not establish a secure GPT-Live connection. Check your network or VPN settings."
+                            else -> "Could not reach the GPT-Live server. Check your network or VPN and reconnect."
+                        })
                     )
                 }
                 override fun onResponse(call: Call, response: Response) {
@@ -78,6 +89,7 @@ internal class LiveCallClient(
                             if (!continuation.isActive) return
                             if (answer != null && answer.startsWith("v=")) continuation.resume(answer)
                             else continuation.resumeWithException(LiveVoiceException(when (it.code) {
+                                in 200..299 -> "GPT-Live returned an invalid audio connection. Reconnect to try again."
                                 400 -> "GPT-Live rejected these voice settings. Try Marin and reconnect."
                                 401 -> "ChatGPT sign-in expired. Sign in again."
                                 403, 404 -> "GPT-Live is not available for this ChatGPT account or sign-in route."
