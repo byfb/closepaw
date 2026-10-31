@@ -377,6 +377,7 @@ class AgentService : AccessibilityService() {
                 val sessionConfig =
                         SessionConfig(
                                 mainModel = settings.selectedModel,
+                                reasoningEffort = settings.reasoningEfforts[settings.selectedModel],
                                 debugMode = true,
                                 traceEnabled = settings.traceEnabled,
                                 platformMode = platformMode

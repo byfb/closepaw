@@ -109,9 +109,11 @@ The settings UI is a full-screen page overlay with sub-page navigation (system b
 
 The HOME page subtitle for Agent Behavior reflects the active approval mode label ("Per-App" or "Auto-Approve"), perception mode, and display mode. The navigation drawer uses `Lucide.SlidersHorizontal` for the Settings icon.
 
-### Model selection
+### Model selection and reasoning effort
 
 **LLM & Authentication** provides a searchable model list and **Refresh models** for OpenAI API, ChatGPT sign-in, and Other. Configure the API key or sign in, then refresh and select a model. Failed refreshes preserve the existing list. Other also supports manually entering a model ID.
+
+**Reasoning effort** appears when the selected model has supported effort choices. Choices follow discovered capabilities where available, with documented OpenAI fallbacks. Each model remembers its own setting; **Default** lets the provider decide. The setting applies when a new session starts, and resumed sessions retain their checkpointed effort.
 
 ### Memory Page
 

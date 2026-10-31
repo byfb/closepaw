@@ -24,7 +24,8 @@ internal object CodexRequestBuilder {
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String
+        model: String,
+        reasoningEffort: String? = null,
     ): String {
         val body = JSONObject().apply {
             put("model", model)
@@ -35,6 +36,7 @@ internal object CodexRequestBuilder {
             put("tool_choice", "auto")
             put("parallel_tool_calls", true)
             put("tools", convertTools(tools))
+            reasoningEffort?.let { put("reasoning", JSONObject().put("effort", it)) }
         }
         return body.toString()
     }

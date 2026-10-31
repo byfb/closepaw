@@ -86,6 +86,7 @@ internal class SessionCheckpointCoordinator(
 
 internal fun SessionConfig.toConfigSnapshot() = ConversationConfigSnapshot(
     mainModel = mainModel,
+    reasoningEffort = reasoningEffort,
     perceptionMode = perceptionConfig.toModeString(),
     platformMode = platformMode.name,
     llmBackendType = llm.backendType.name,
@@ -107,6 +108,7 @@ private fun PerceptionConfig.toModeString(): String = when (this) {
 
 internal fun ConversationConfigSnapshot.toSessionConfig(): SessionConfig = SessionConfig(
     mainModel = ModelCatalog.migrateRetiredModel(mainModel),
+    reasoningEffort = reasoningEffort.takeIf { ModelCatalog.migrateRetiredModel(mainModel) == mainModel },
     perceptionConfig = when (perceptionMode) {
         "screenshot_only" -> PerceptionConfig.ScreenshotOnly()
         "hybrid" -> PerceptionConfig.Hybrid()

@@ -165,6 +165,8 @@ internal fun MainActivityContent(
                     onBackendChange = modelLoadingStatusHolder::updateBackend,
                     selectedModel = settingsState.selectedModel,
                     onModelChange = settingsState::updateModel,
+                    reasoningEffort = settingsState.reasoningEffort,
+                    onReasoningEffortChange = settingsState::updateReasoningEffort,
                     modelCatalog = modelCatalog,
                     selectedLocalModel = settingsState.localModel.id,
                     onLocalModelChange = modelLoadingStatusHolder::updateLocalModel,

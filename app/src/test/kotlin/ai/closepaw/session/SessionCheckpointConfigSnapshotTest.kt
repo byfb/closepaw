@@ -13,10 +13,11 @@ import org.junit.Test
 class SessionCheckpointConfigSnapshotTest {
 
     @Test
-    fun `retired provider checkpoint migrates model`() {
-        val restored = SessionConfig(mainModel = "openrouter:vendor/model")
+    fun `retired provider checkpoint migrates model and drops incompatible effort`() {
+        val restored = SessionConfig(mainModel = "openrouter:vendor/model", reasoningEffort = "high")
             .toConfigSnapshot().toSessionConfig()
         assertThat(restored.mainModel).isEqualTo(ai.closepaw.llm.ModelCatalog.DEFAULT_MODEL)
+        assertThat(restored.reasoningEffort).isNull()
     }
 
     @Test
@@ -57,6 +58,7 @@ class SessionCheckpointConfigSnapshotTest {
                 debugMode = true,
                 traceEnabled = true,
                 traceRunId = "run-xyz",
+                reasoningEffort = "xhigh",
                 excludedTools = setOf("open_app", "shell")
             )
 
@@ -68,6 +70,7 @@ class SessionCheckpointConfigSnapshotTest {
         assertThat(restored.debugMode).isTrue()
         assertThat(restored.traceEnabled).isTrue()
         assertThat(restored.traceRunId).isEqualTo("run-xyz")
+        assertThat(restored.reasoningEffort).isEqualTo("xhigh")
         assertThat(restored.excludedTools).containsExactly("open_app", "shell")
     }
 }

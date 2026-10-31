@@ -712,6 +712,7 @@ class MainActivity : ComponentActivity() {
                 SessionConfig(
                         approvalMode = pendingApprovalMode ?: settingsState.approvalMode,
                         mainModel = settingsState.selectedModel,
+                        reasoningEffort = settingsState.reasoningEffort,
                         debugMode = settingsState.debugMode,
                         traceEnabled = pendingTraceEnabled ?: settingsState.traceEnabled,
                         traceRunId = pendingTraceRunId,

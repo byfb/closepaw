@@ -38,12 +38,33 @@ class AppSettingsStoreTest {
         val store = AppSettingsStore(context)
         for (retired in listOf("glm-5", "openrouter:vendor/model")) {
             store.saveModel(retired)
+            store.saveReasoningEffort(retired, "high")
             val loaded = store.load()
             assertThat(loaded.selectedModel).isEqualTo(ai.closepaw.llm.ModelCatalog.DEFAULT_MODEL)
+            assertThat(loaded.reasoningEfforts).doesNotContainKey(retired)
             assertThat(store.load().selectedModel).isEqualTo(loaded.selectedModel)
         }
         store.saveModel("other:vendor/glm-5")
         assertThat(store.load().selectedModel).isEqualTo("other:vendor/glm-5")
+    }
+
+    @Test
+    fun `reasoning effort persists per model and default removes the override`() {
+        val state = AppSettingsState(AppSettingsStore(context))
+        state.load()
+        state.updateModel("model-a")
+        state.updateReasoningEffort("low")
+        state.updateModel("model-b")
+        assertThat(state.reasoningEffort).isNull()
+        state.updateReasoningEffort("xhigh")
+
+        val restored = AppSettingsState(AppSettingsStore(context))
+        restored.load()
+        assertThat(restored.reasoningEffort).isEqualTo("xhigh")
+        restored.updateModel("model-a")
+        assertThat(restored.reasoningEffort).isEqualTo("low")
+        restored.updateReasoningEffort(null)
+        assertThat(AppSettingsStore(context).load().reasoningEfforts).containsExactly("model-b", "xhigh")
     }
 
     @Test

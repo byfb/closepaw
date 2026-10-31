@@ -27,6 +27,7 @@ class LLMClientFactory(
         private val authStore: AuthStore?,
         private val baseUrlOverrides: Map<LLMProvider, String> = emptyMap(),
         private val clientOverride: LLMClient? = null,
+        private val reasoningEffort: String? = null,
 ) {
     companion object {
         private const val TAG = "LLMClientFactory"
@@ -93,17 +94,19 @@ class LLMClientFactory(
                         "LLMClientFactory has no AuthStore — test-only factory cannot build clients for model '${entry.name}'."
                 )
         val baseUrl = baseUrlOverrides[entry.provider] ?: entry.effectiveBaseUrl
+        val effort = ModelReasoning.effectiveEffort(entry, reasoningEffort)
         return when (entry.provider) {
             LLMProvider.OPENAI_API ->
                     when (entry.api) {
                         ApiType.RESPONSE ->
-                                OpenAIResponseClient(store.requireApiKey(LLMProvider.OPENAI_API), baseUrl)
+                                OpenAIResponseClient(store.requireApiKey(LLMProvider.OPENAI_API), baseUrl, effort)
                         ApiType.CHAT ->
-                                ChatCompletionClient(store.requireApiKey(LLMProvider.OPENAI_API), baseUrl)
+                                ChatCompletionClient(store.requireApiKey(LLMProvider.OPENAI_API), baseUrl, effort)
                     }
             LLMProvider.OPENAI_CODEX ->
                     CodexResponseClient(
-                            headerSupplier = { store.codexHeaders(LLMProvider.OPENAI_CODEX) }
+                            headerSupplier = { store.codexHeaders(LLMProvider.OPENAI_CODEX) },
+                            reasoningEffort = effort,
                     )
             LLMProvider.OTHER -> {
                 // Hard-require a non-blank baseUrl at this boundary. If anything upstream
@@ -115,7 +118,7 @@ class LLMClientFactory(
                 if (otherBaseUrl.isNullOrBlank()) {
                     throw MissingCredential(LLMProvider.OTHER)
                 }
-                ChatCompletionClient(store.requireApiKey(LLMProvider.OTHER), otherBaseUrl)
+                ChatCompletionClient(store.requireApiKey(LLMProvider.OTHER), otherBaseUrl, effort)
             }
             LLMProvider.LOCAL_LFM ->
                     throw IllegalStateException(

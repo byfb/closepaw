@@ -100,6 +100,7 @@ class ModelDiscoveryCache(context: Context) {
             supportsVision = d.entry.supportsVision.takeIf { it },
             created = d.created.takeIf { it != 0L },
             api = d.entry.api,
+            reasoningEfforts = d.entry.supportedReasoningEfforts,
         )
 
         private const val DEFAULT_CONTEXT = 128_000
@@ -131,6 +132,7 @@ class ModelDiscoveryCache(context: Context) {
                     apiKeyEnv = null,
                     supportsVision = slim.supportsVision == true,
                     created = created,
+                    supportedReasoningEfforts = slim.reasoningEfforts,
                 ),
                 created = created,
             )
@@ -145,5 +147,6 @@ class ModelDiscoveryCache(context: Context) {
         @SerialName("v") val supportsVision: Boolean? = null,
         @SerialName("k") val created: Long? = null,
         @SerialName("a") val api: ApiType = ApiType.CHAT,
+        @SerialName("r") val reasoningEfforts: List<String>? = null,
     )
 }

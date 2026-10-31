@@ -1,6 +1,7 @@
 package ai.closepaw.app
 
 import android.content.Context
+import ai.closepaw.llm.ModelReasoning
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.protocol.ApprovalMode
 import ai.closepaw.protocol.AppTier
@@ -32,6 +33,7 @@ data class AppSettings(
         val otherBaseUrl: String,
         val otherModelId: String,
         val approvalMode: ApprovalMode,
+        val reasoningEfforts: Map<String, String> = emptyMap(),
 )
 
 class AppSettingsStore(private val context: Context) {
@@ -39,6 +41,7 @@ class AppSettingsStore(private val context: Context) {
         private const val PREFS_NAME = "agent_prefs"
 
         private const val KEY_MODEL = "model"
+        private const val KEY_REASONING_EFFORT_PREFIX = "reasoning_effort:"
         private const val KEY_DEBUG_MODE = "debug_mode"
         private const val KEY_SCREENSHOT_INPUT = "screenshot_input"
         private const val KEY_PERCEPTION_MODE = "perception_mode"
@@ -89,7 +92,8 @@ class AppSettingsStore(private val context: Context) {
         val storedModel = prefs.getString(KEY_MODEL, DEFAULT_MODEL) ?: DEFAULT_MODEL
         val selectedModel = ModelCatalog.migrateRetiredModel(storedModel)
         if (selectedModel != storedModel) {
-            prefs.edit().putString(KEY_MODEL, selectedModel).apply()
+            prefs.edit().putString(KEY_MODEL, selectedModel)
+                .remove(KEY_REASONING_EFFORT_PREFIX + storedModel).apply()
         }
         val debugMode = prefs.getBoolean(KEY_DEBUG_MODE, DEFAULT_DEBUG_MODE)
         val perceptionMode =
@@ -151,6 +155,11 @@ class AppSettingsStore(private val context: Context) {
                 otherBaseUrl = otherBaseUrl,
                 otherModelId = otherModelId,
                 approvalMode = approvalMode,
+                reasoningEfforts = prefs.all.mapNotNull { (key, value) ->
+                    if (key.startsWith(KEY_REASONING_EFFORT_PREFIX) && value is String && ModelReasoning.isValid(value)) {
+                        key.removePrefix(KEY_REASONING_EFFORT_PREFIX) to value
+                    } else null
+                }.toMap(),
         )
     }
 
@@ -176,6 +185,14 @@ class AppSettingsStore(private val context: Context) {
 
     fun saveModel(value: String) {
         prefs().edit().putString(KEY_MODEL, value).apply()
+    }
+
+    fun saveReasoningEffort(model: String, value: String?) {
+        require(value == null || ModelReasoning.isValid(value)) { "Invalid reasoning effort" }
+        val editor = prefs().edit()
+        val key = KEY_REASONING_EFFORT_PREFIX + model
+        if (value == null) editor.remove(key) else editor.putString(key, value)
+        editor.apply()
     }
 
     fun saveDebugMode(value: Boolean) {

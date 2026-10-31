@@ -29,7 +29,8 @@ import java.util.concurrent.atomic.AtomicReference
  * responses from `chatgpt.com/backend-api/codex/responses`.
  */
 class CodexResponseClient(
-    private val headerSupplier: suspend () -> CodexHeaders
+    private val headerSupplier: suspend () -> CodexHeaders,
+    private val reasoningEffort: String? = null,
 ) : LLMClient() {
 
     companion object {
@@ -54,7 +55,7 @@ class CodexResponseClient(
         LlmLogger.logInput(TAG, systemPrompt, inputItems, tools)
 
         CloudLlmRetry.executeWithRetry(tag = TAG, operationName = "codex chatWithTools") {
-            val body = CodexRequestBuilder.buildRequestBody(systemPrompt, inputItems, tools, model)
+            val body = CodexRequestBuilder.buildRequestBody(systemPrompt, inputItems, tools, model, reasoningEffort)
             val request = buildRequest(body, headerSupplier())
 
             httpClient.newCall(request).execute().use { response ->
@@ -145,7 +146,7 @@ class CodexResponseClient(
                 tag = TAG,
                 emitToFlow = { event -> trySend(event) }
             ) { attempt, emitter ->
-                val body = CodexRequestBuilder.buildRequestBody(systemPrompt, inputItems, tools, model)
+                val body = CodexRequestBuilder.buildRequestBody(systemPrompt, inputItems, tools, model, reasoningEffort)
                 val request = buildRequest(body, headerSupplier())
 
                 withContext(Dispatchers.IO) {

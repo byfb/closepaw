@@ -45,6 +45,9 @@ class AppSettingsState(
 
     var selectedModel by mutableStateOf(AppSettingsStore.DEFAULT_MODEL)
         private set
+    var reasoningEfforts by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
+    val reasoningEffort: String? get() = reasoningEfforts[selectedModel]
     var debugMode by mutableStateOf(AppSettingsStore.DEFAULT_DEBUG_MODE)
         private set
     var perceptionMode by mutableStateOf(AppSettingsStore.DEFAULT_PERCEPTION_MODE)
@@ -77,6 +80,7 @@ class AppSettingsState(
     fun load() {
         val settings = store.load()
         selectedModel = settings.selectedModel
+        reasoningEfforts = settings.reasoningEfforts
         debugMode = settings.debugMode
         perceptionMode = settings.perceptionMode
         llmBackend = settings.llmBackend
@@ -103,6 +107,12 @@ class AppSettingsState(
     fun updateModel(model: String) {
         selectedModel = ModelCatalog.migrateRetiredModel(model)
         store.saveModel(selectedModel)
+    }
+
+    fun updateReasoningEffort(value: String?) {
+        store.saveReasoningEffort(selectedModel, value)
+        reasoningEfforts = if (value == null) reasoningEfforts - selectedModel
+            else reasoningEfforts + (selectedModel to value)
     }
 
     fun updateLocalModel(model: LocalModelOption) {

@@ -69,7 +69,8 @@ data class ConversationConfigSnapshot(
     val debugMode: Boolean = false,
     val traceEnabled: Boolean = false,
     val traceRunId: String? = null,
-    val excludedTools: List<String> = emptyList()
+    val excludedTools: List<String> = emptyList(),
+    val reasoningEffort: String? = null,
 )
 
 @Serializable

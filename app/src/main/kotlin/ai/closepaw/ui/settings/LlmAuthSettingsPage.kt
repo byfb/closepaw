@@ -131,6 +131,8 @@ internal fun LlmAuthSettingsPage(
     otherModelId: String = "",
     onOtherBaseUrlChange: (String) -> Unit = {},
     onOtherModelIdChange: (String) -> Unit = {},
+    reasoningEffort: String? = null,
+    onReasoningEffortChange: (String?) -> Unit = {},
 ) {
     // Initial tab: explicit caller request wins; else derive from selected model's provider mode.
     // When the Local tab is hidden, any LOCAL landing target falls back to API_KEY.
@@ -208,6 +210,8 @@ internal fun LlmAuthSettingsPage(
                     selectedModel = selectedModel,
                     onModelChange = { commitSignIn { onModelChange(it) } },
                     modelCatalog = modelCatalog,
+                    reasoningEffort = reasoningEffort,
+                    onReasoningEffortChange = onReasoningEffortChange,
                     openAiAuthUiState = openAiAuthUiState,
                     onStartOAuth = { commitSignIn { onStartOAuth() } },
                     onCancelOAuth = onCancelOAuth,
@@ -220,6 +224,8 @@ internal fun LlmAuthSettingsPage(
                     selectedModel = selectedModel,
                     onModelChange = { commitApiKey { onModelChange(it) } },
                     modelCatalog = modelCatalog,
+                    reasoningEffort = reasoningEffort,
+                    onReasoningEffortChange = onReasoningEffortChange,
                     authStore = authStore,
                     initialProvider = initialProvider,
                     otherBaseUrl = otherBaseUrl,
@@ -329,6 +335,8 @@ private fun SignInTabContent(
     selectedModel: String,
     onModelChange: (String) -> Unit,
     modelCatalog: ModelCatalog,
+    reasoningEffort: String?,
+    onReasoningEffortChange: (String?) -> Unit,
     openAiAuthUiState: OpenAiAuthUiState,
     onStartOAuth: () -> Unit,
     onCancelOAuth: () -> Unit,
@@ -359,6 +367,11 @@ private fun SignInTabContent(
         )
     }
     Spacer(modifier = Modifier.height(20.dp))
+    ReasoningEffortDropdown(
+        entry = modelCatalog.resolveOrNull(selectedModel)?.takeIf { it.provider == provider },
+        selectedEffort = reasoningEffort,
+        onSelect = onReasoningEffortChange,
+    )
     SettingsSection(title = "Authentication") {
         OpenAiAuthCard(
             state = openAiAuthUiState,
@@ -375,6 +388,8 @@ private fun ApiKeyTabContent(
     selectedModel: String,
     onModelChange: (String) -> Unit,
     modelCatalog: ModelCatalog,
+    reasoningEffort: String?,
+    onReasoningEffortChange: (String?) -> Unit,
     authStore: AuthStore,
     onApiKeyPersist: (LLMProvider, String) -> Unit,
     onOtherBaseUrlPersist: (String) -> Unit,
@@ -491,6 +506,11 @@ private fun ApiKeyTabContent(
     }
     Spacer(modifier = Modifier.height(20.dp))
 
+    ReasoningEffortDropdown(
+        entry = modelCatalog.resolveOrNull(selectedModel)?.takeIf { it.provider == selectedProvider },
+        selectedEffort = reasoningEffort,
+        onSelect = onReasoningEffortChange,
+    )
 
     // Provider-linked API key field — value backed by AuthStore.
     SettingsSection(title = "API Key") {

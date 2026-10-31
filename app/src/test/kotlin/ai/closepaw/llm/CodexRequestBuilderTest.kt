@@ -24,6 +24,14 @@ class CodexRequestBuilderTest {
     // ── buildRequestBody ──────────────────────────────────────────────────
 
     @Test
+    fun `selected reasoning effort is sent and default is omitted`() {
+        val explicit = parse(CodexRequestBuilder.buildRequestBody("s", emptyList(), emptyList(), "gpt-test", "xhigh"))
+        assertThat(explicit["reasoning"]!!.jsonObject["effort"]!!.jsonPrimitive.content).isEqualTo("xhigh")
+        val default = parse(CodexRequestBuilder.buildRequestBody("s", emptyList(), emptyList(), "gpt-test"))
+        assertThat(default.containsKey("reasoning")).isFalse()
+    }
+
+    @Test
     fun `buildRequestBody sets required Codex fields`() {
         val body = CodexRequestBuilder.buildRequestBody(
             systemPrompt = "You are a test agent.",

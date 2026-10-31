@@ -102,9 +102,15 @@ App-singleton (`ModelCatalogRepositoryHolder`) exposing `StateFlow<ModelCatalog>
 
 `refresh(provider, key, baseUrl)` supports OpenAI API and Other via `GET {baseUrl}/models`. Built-in providers use fixed URLs; Other passes the validated live URL to avoid a settings-debounce race. `refreshCodex()` obtains current OAuth headers from `AuthStore.codexHeaders` and queries `https://chatgpt.com/backend-api/codex/models?client_version=0.154.0`, including the account header when present. The Codex response uses `models[].slug`, `visibility`, `context_window`, and `input_modalities`; hidden entries are excluded. This is a Codex backend interface, separate from the public [OpenAI Models API](https://developers.openai.com/api/reference/resources/models/methods/list).
 
-Discovery filters explicitly unsupported tool-calling and non-chat models. Entries use `"{provider.name.lowercase()}:{modelId}"` catalog keys. The compact disk cache preserves API routing across restarts. Refresh is single-flight per provider, runs network/cache work on IO, propagates cancellation, and preserves the previous list on network errors or empty/unrecognized responses. Results for a superseded Other URL are ignored.
+Discovery filters explicitly unsupported tool-calling and non-chat models. Entries use `"{provider.name.lowercase()}:{modelId}"` catalog keys. The compact disk cache preserves API routing and reasoning capabilities across restarts. Refresh is single-flight per provider, runs network/cache work on IO, propagates cancellation, and preserves the previous list on network errors or empty/unrecognized responses. Results for a superseded Other URL are ignored.
 
 All cloud providers share `SearchableGroupedModelPicker`: searchable choices, vendor grouping for multiple groups, and no extra header for a single group. Seed/discovered aliases produce one visible choice while preserving the selected catalog key. A refresh button shows progress and an inline failure; API providers require a key, Other also requires a valid URL, and Codex requires sign-in. Selecting a discovered Other model is not overwritten by the custom-model auto-selection rule.
+
+### Reasoning effort
+
+`ModelReasoning` uses discovered capability metadata: Codex `supported_reasoning_levels[].effort` and compatible endpoints' `supported_reasoning_efforts`. Explicit metadata overrides fallback choices, including an empty list. OpenAI's public model list does not advertise efforts, so documented OpenAI reasoning families have fallback options. The model picker overlays refreshed capabilities onto existing seed aliases.
+
+Settings store a separate effort per catalog key. **Default** removes the override and omits the API parameter. Unsupported saved values also fall back to the provider default. The selected value is copied into `SessionConfig` and checkpoint snapshots; subagents inherit the session's setting. Responses/Codex send `reasoning: {effort: ...}`; standard Chat Completions sends `reasoning_effort`. Both streaming and non-streaming requests share these builders. See [OpenAI reasoning](https://developers.openai.com/api/docs/guides/reasoning).
 
 ---
 

@@ -53,6 +53,7 @@ data class ModelEntry(
         val apiKeyEnv: String? = null,
         val supportsVision: Boolean = true,
         val created: Long = 0L,
+        val supportedReasoningEfforts: List<String>? = null,
 ) {
     /** Effective API key env var (entry override or provider default). */
     val effectiveApiKeyEnv: String
@@ -196,6 +197,7 @@ internal data class JsonModelEntry(
         val api: String,
         @SerialName("model_id") val modelId: String,
         @SerialName("base_url") val baseUrl: String? = null,
+        @SerialName("supported_reasoning_efforts") val supportedReasoningEfforts: List<String>? = null,
         @SerialName("api_key_env") val apiKeyEnv: String? = null,
         @SerialName("supports_vision") val supportsVision: Boolean = true,
         @SerialName("context_window") val contextWindow: Int? = null
@@ -240,6 +242,7 @@ internal data class JsonModelEntry(
                 modelId = modelId,
                 contextWindow = resolvedContextWindow,
                 baseUrl = baseUrl,
+                supportedReasoningEfforts = supportedReasoningEfforts,
                 apiKeyEnv = apiKeyEnv,
                 supportsVision = supportsVision
         )

@@ -44,6 +44,8 @@ data class SessionConfig(
          * Production leaves this null; eval bridge sets it from yaml `max_turns:`.
          */
         val evalTurnBudget: Int? = null,
+        /** Null lets the provider choose its default effort. */
+        val reasoningEffort: String? = null,
 )
 
 /** Canonical LLM routing config used at runtime. */

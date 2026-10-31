@@ -75,7 +75,8 @@ class SettingsModelRefreshTest {
                 result.await()
                 ModelDiscovery.parse(LLMProvider.OPENAI_CODEX, ModelDiscovery.CODEX_BASE_URL,
                     """{"models":[{"slug":"gpt-refresh-test","display_name":"Refresh Test Model",
-                        "visibility":"list","input_modalities":["text","image"]}]}""")
+                        "visibility":"list","input_modalities":["text","image"],
+                        "supported_reasoning_levels":[{"effort":"low"},{"effort":"high"}]}]}""")
             })
         ModelCatalogRepositoryHolder.setForTest(repo)
         var pageOpen by mutableStateOf(true)
@@ -90,6 +91,8 @@ class SettingsModelRefreshTest {
                         onBackendChange = {},
                         selectedModel = settings.selectedModel,
                         onModelChange = settings::updateModel,
+                        reasoningEffort = settings.reasoningEffort,
+                        onReasoningEffortChange = settings::updateReasoningEffort,
                         modelCatalog = catalog,
                         selectedLocalModel = "LFM2.5-1.2B-Instruct",
                         onLocalModelChange = {},
@@ -107,13 +110,18 @@ class SettingsModelRefreshTest {
         compose.waitUntil(5_000) { repo.discoveryState.value.lastFetchedAt.containsKey(LLMProvider.OPENAI_CODEX) }
         compose.onNodeWithText("Search models").performScrollTo().performTextInput("Refresh Test")
         compose.onNodeWithText("Refresh Test Model").performClick().assertIsSelected()
+        compose.onNodeWithText("Reasoning effort").performScrollTo().performClick()
+        compose.onNodeWithText("High").performClick()
         compose.runOnIdle {
             assertEquals("openai_codex:gpt-refresh-test", settings.selectedModel)
+            assertEquals("high", settings.reasoningEffort)
+            assertEquals("high", AppSettingsStore(context).load().reasoningEfforts[settings.selectedModel])
             pageOpen = false
         }
         compose.waitForIdle()
         compose.runOnIdle { pageOpen = true }
         compose.onNodeWithText("Refresh Test Model").assertIsSelected()
+        compose.onNodeWithText("High").assertExists()
     }
 
     private fun showPage(signedIn: Boolean) {

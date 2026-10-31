@@ -26,6 +26,16 @@ class OpenAIResponseClientTest {
         )
 
     @Test
+    fun `selected reasoning effort is sent and default is omitted`() {
+        val client = OpenAIResponseClient(apiKey, reasoningEffort = "high")
+        val params = invokeBuildResponseParams(client, "s", emptyList(), emptyList(), "gpt-5.4", null)
+        assertThat(params._additionalBodyProperties()["reasoning"])
+            .isEqualTo(com.openai.core.JsonValue.from(mapOf("effort" to "high")))
+        val default = invokeBuildResponseParams(OpenAIResponseClient(apiKey), "s", emptyList(), emptyList(), "gpt-5.4", null)
+        assertThat(default._additionalBodyProperties()).doesNotContainKey("reasoning")
+    }
+
+    @Test
     fun `buildResponseParams forwards maxOutputTokens to Responses API`() {
         val client = OpenAIResponseClient(apiKey)
         val params = invokeBuildResponseParams(

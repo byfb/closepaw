@@ -33,12 +33,13 @@ class ModelDiscoveryCacheTest {
         val base = ModelDiscovery.CODEX_BASE_URL
         val key = ModelDiscoveryCache.cacheKey(provider, base)
         val models = ModelDiscovery.parse(provider, base,
-            """{"models":[{"slug":"gpt-codex-test"}]}""")
+            """{"models":[{"slug":"gpt-codex-test","supported_reasoning_levels":[{"effort":"low"},{"effort":"high"}]}]}""")
         ModelDiscoveryCache(context).write(key, 100L, models)
 
         val entry = ModelDiscoveryCache(context).read(key)!!.toDiscovered(provider).single().entry
         assertThat(entry.api).isEqualTo(ApiType.RESPONSE)
         assertThat(entry.modelId).isEqualTo("gpt-codex-test")
+        assertThat(entry.supportedReasoningEfforts).containsExactly("low", "high").inOrder()
     }
 
     @Test

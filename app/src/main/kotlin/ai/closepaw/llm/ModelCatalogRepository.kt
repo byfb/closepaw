@@ -188,7 +188,11 @@ class ModelCatalogRepository(
             synthOtherEntry()?.let { add(it) }
             addAll(discoveredEntriesScopedByCurrentBaseUrl())
         }
-        return if (extras.isEmpty()) seed else seed.withExtraEntries(extras)
+        val refreshedSeeds = seed.all().mapNotNull { entry ->
+            extras.firstOrNull { it.provider == entry.provider && it.modelId == entry.modelId }
+                ?.supportedReasoningEfforts?.let { entry.copy(supportedReasoningEfforts = it) }
+        }
+        return seed.withExtraEntries(extras + refreshedSeeds)
     }
 
     /**

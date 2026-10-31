@@ -46,6 +46,7 @@ internal object SessionLlmBootstrapper {
                 LLMClientFactory(
                         catalog = modelCatalog,
                         authStore = authStore,
+                        reasoningEffort = config.reasoningEffort,
                         baseUrlOverrides = baseUrlOverrides
                 )
 

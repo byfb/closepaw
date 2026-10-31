@@ -186,9 +186,22 @@ object ModelDiscovery {
                 apiKeyEnv = null,
                 supportsVision = supportsVision,
                 created = created,
+                supportedReasoningEfforts = readReasoningEfforts(obj),
             ),
             created = created,
         )
+    }
+
+    private fun readReasoningEfforts(obj: JsonObject): List<String>? {
+        (obj["supported_reasoning_levels"] as? JsonArray)?.let { levels ->
+            return levels.mapNotNull { (it as? JsonObject)?.stringOrNull("effort") }
+                .filter(ModelReasoning::isValid).distinct()
+        }
+        (obj["supported_reasoning_efforts"] as? JsonArray)?.let { levels ->
+            return levels.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+                .filter(ModelReasoning::isValid).distinct()
+        }
+        return null
     }
 
     /**

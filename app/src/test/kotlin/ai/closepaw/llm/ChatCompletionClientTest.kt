@@ -58,6 +58,17 @@ class ChatCompletionClientTest {
     // ── Request construction ──────────────────────────────────────────────
 
     @Test
+    fun `reasoning uses provider wire format and default omits it`() {
+        val standard = ChatCompletionClient(apiKey, reasoningEffort = "low")
+        val params = invokeBuildParams(standard, "s", emptyList(), emptyList(), "test")
+        assertThat(params._additionalBodyProperties()["reasoning_effort"])
+            .isEqualTo(com.openai.core.JsonValue.from("low"))
+        val default = invokeBuildParams(ChatCompletionClient(apiKey), "s", emptyList(), emptyList(), "test")
+        assertThat(default._additionalBodyProperties()).doesNotContainKey("reasoning_effort")
+        assertThat(default._additionalBodyProperties()).doesNotContainKey("reasoning")
+    }
+
+    @Test
     fun `buildParams produces ChatCompletionCreateParams with system plus user messages and tools`() {
         val client = ChatCompletionClient(apiKey)
         val params = invokeBuildParams(

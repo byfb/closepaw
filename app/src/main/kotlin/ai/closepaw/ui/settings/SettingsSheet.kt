@@ -91,6 +91,8 @@ fun SettingsSheet(
     memoryEditGate: MemoryEditGate,
     approvalMode: ApprovalMode = ApprovalMode.SMART,
     onApprovalModeChange: (ApprovalMode) -> Unit = {},
+    reasoningEffort: String? = null,
+    onReasoningEffortChange: (String?) -> Unit = {},
 ) {
     var settingsPage by rememberSaveable(initialPage) { mutableStateOf(initialPage) }
     val reducedMotion = ClosePawMotion.reducedMotion()
@@ -160,6 +162,8 @@ fun SettingsSheet(
                         onBackendChange = onBackendChange,
                         selectedModel = selectedModel,
                         onModelChange = onModelChange,
+                        reasoningEffort = reasoningEffort,
+                        onReasoningEffortChange = onReasoningEffortChange,
                         modelCatalog = modelCatalog,
                         selectedLocalModel = selectedLocalModel,
                         onLocalModelChange = onLocalModelChange,

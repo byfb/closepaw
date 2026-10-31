@@ -3,6 +3,7 @@ package ai.closepaw.llm
 import android.util.Log
 import com.openai.client.OpenAIClient
 import com.openai.client.okhttp.OpenAIOkHttpClient
+import com.openai.core.JsonValue
 import com.openai.models.ChatModel
 import com.openai.models.responses.ResponseCreateParams
 import com.openai.models.responses.ResponseInputItem
@@ -28,7 +29,8 @@ import java.util.concurrent.atomic.AtomicReference
  */
 class OpenAIResponseClient(
     apiKey: String,
-    baseUrl: String? = null
+    baseUrl: String? = null,
+    private val reasoningEffort: String? = null,
 ) : LLMClient() {
 
     companion object {
@@ -258,6 +260,9 @@ class OpenAIResponseClient(
             .input(ResponseCreateParams.Input.ofResponse(inputItems))
 
         maxOutputTokens?.let { builder.maxOutputTokens(it) }
+        reasoningEffort?.let {
+            builder.putAdditionalBodyProperty("reasoning", JsonValue.from(mapOf("effort" to it)))
+        }
 
         tools.forEach { tool ->
             builder.addTool(tool)
