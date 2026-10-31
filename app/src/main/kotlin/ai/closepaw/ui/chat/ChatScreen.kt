@@ -124,6 +124,7 @@ fun ChatScreen(
     val scope = rememberCoroutineScope()
 
     val ctx = LocalContext.current
+    var liveVoiceRunning by remember { mutableStateOf(false) }
     val voiceDeps = remember(ctx) {
         val activity = ctx as? android.app.Activity
         object : VoiceMicDeps {
@@ -253,6 +254,7 @@ fun ChatScreen(
                             )
                         }
                         CompositionLocalProvider(LocalVoiceFeedback provides reportVoiceFeedback) {
+                            ai.closepaw.voice.GptLiveControls(onRunningChanged = { liveVoiceRunning = it })
                             SmartCapsuleSurface(
                                 mode = capsuleMode,
                                 isStopPending = isStopPending,
@@ -291,7 +293,7 @@ fun ChatScreen(
                                 onStartupErrorClick = {
                                     onOpenSettings(viewModel.startupErrorDeepLink.value)
                                 },
-                                voice = voiceDeps,
+                                voice = if (liveVoiceRunning) null else voiceDeps,
                             )
                         }
                     }

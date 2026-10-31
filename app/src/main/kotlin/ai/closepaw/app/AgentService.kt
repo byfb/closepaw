@@ -83,7 +83,14 @@ class AgentService : AccessibilityService() {
      */
     internal val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val serviceLifecycleOwner = ServiceLifecycleOwner()
+    private val _activeSession = MutableStateFlow<AgentSession?>(null)
+    val activeSession: StateFlow<AgentSession?> = _activeSession.asStateFlow()
+    private val _liveVoiceActive = MutableStateFlow(false)
+    val liveVoiceActive: StateFlow<Boolean> = _liveVoiceActive.asStateFlow()
+    internal fun setLiveVoiceActive(active: Boolean) { _liveVoiceActive.value = active }
     private var session: AgentSession? = null
+        set(value) { field = value; _activeSession.value = value }
+    private val liveSessionMutex = kotlinx.coroutines.sync.Mutex()
     private var overlayController: ServiceOverlayController? = null
     private var actionVisualizer: ActionVisualizerManager? = null
     private var currentPlatformMode: PlatformMode = PlatformMode.ACCESSIBILITY
@@ -111,6 +118,65 @@ class AgentService : AccessibilityService() {
     val capsuleStateHolder get() = overlayController?.stateHolder
 
     fun getActiveSession(): AgentSession? = session
+
+    /** Voice uses only the phone's ChatGPT credential and the ordinary session/approval pipeline. */
+    internal suspend fun getOrCreateLiveSession(): AgentSession {
+        liveSessionMutex.lock()
+        try {
+            check(isServiceActive) { "Accessibility is disconnected" }
+            val catalog = withContext(Dispatchers.IO) {
+                ai.closepaw.llm.ModelCatalogRepositoryHolder.get(applicationContext).catalog.value
+            }
+            fun requireChatGpt(candidate: AgentSession): AgentSession {
+                val config = candidate.getServices().config
+                if (config.llm.backendType != ai.closepaw.protocol.LLMBackendType.OPENAI ||
+                    catalog.resolveOrNull(config.mainModel)?.provider != ai.closepaw.llm.LLMProvider.OPENAI_CODEX) {
+                    throw ai.closepaw.voice.LiveVoiceException("Start a new chat with a ChatGPT model before delegating voice tasks.")
+                }
+                return candidate
+            }
+            session?.takeUnless { it.state.value == ai.closepaw.protocol.SessionState.Shutdown }?.let {
+                return requireChatGpt(it)
+            }
+            val settings = withContext(Dispatchers.IO) { AppSettingsStore(this@AgentService).load() }
+            val model = catalog.resolveOrNull(settings.selectedModel)
+                ?.takeIf { it.provider == ai.closepaw.llm.LLMProvider.OPENAI_CODEX }?.name
+                ?: catalog.defaultModel(ai.closepaw.llm.LLMProvider.OPENAI_CODEX)
+            val config = SessionConfig(
+                mainModel = model,
+                reasoningEffort = settings.reasoningEfforts[model],
+                approvalMode = settings.approvalMode,
+                debugMode = settings.debugMode,
+                traceEnabled = settings.traceEnabled,
+                platformMode = settings.platformMode,
+                perceptionConfig = when (settings.perceptionMode) {
+                    "screenshot_only" -> ai.closepaw.perception.PerceptionConfig.ScreenshotOnly()
+                    "hybrid" -> ai.closepaw.perception.PerceptionConfig.Hybrid()
+                    else -> ai.closepaw.perception.PerceptionConfig.AccessibilityOnly
+                },
+            )
+            var created: AgentSession? = null
+            try {
+                withContext(Dispatchers.Default) {
+                    created = AgentSession.create(config, this@AgentService, serviceScope,
+                        authStore = AuthStoreHolder.get(applicationContext),
+                        visualizer = actionVisualizer, overlayTouchGate = getOverlayTouchGate())
+                }
+                val candidate = created!!
+                val competing = session?.takeUnless { it.state.value == ai.closepaw.protocol.SessionState.Shutdown }
+                if (competing != null) {
+                    candidate.submit(Op.Shutdown)
+                    return requireChatGpt(competing)
+                }
+                check(isServiceActive)
+                observeExternalSession(candidate, candidate.getServices().platform.mode)
+                return candidate
+            } catch (e: Exception) {
+                withContext(kotlinx.coroutines.NonCancellable) { created?.submit(Op.Shutdown) }
+                throw e
+            }
+        } finally { liveSessionMutex.unlock() }
+    }
 
     internal fun getActionVisualizer(): ActionVisualizerManager? = actionVisualizer
 
@@ -250,6 +316,7 @@ class AgentService : AccessibilityService() {
 
     override fun onDestroy() {
         isServiceActive = false
+        _liveVoiceActive.value = false
         instance = null
 
         eventCollectorJob?.cancel()

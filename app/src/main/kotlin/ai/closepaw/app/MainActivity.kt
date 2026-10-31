@@ -341,10 +341,16 @@ class MainActivity : ComponentActivity() {
             intent.getBooleanExtra(EXTRA_FRESH_SESSION, false) &&
             intent.hasExtra(EXTRA_GOAL)
 
+    private var activeSessionObserver: kotlinx.coroutines.Job? = null
+
     override fun onStart() {
         super.onStart()
         AgentService.instance?.onMainAppVisible()
         rebindActiveServiceSessionIfNeeded()
+        activeSessionObserver?.cancel()
+        activeSessionObserver = lifecycleScope.launch {
+            AgentService.instance?.activeSession?.collect { rebindActiveServiceSessionIfNeeded() }
+        }
         retryPendingAutoStartGoalIfReady()
     }
 
@@ -356,6 +362,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        activeSessionObserver?.cancel()
+        activeSessionObserver = null
         super.onStop()
         // Use onStop, NOT onPause: between onPause and onStop the activity is
         // still drawn on screen (e.g. when launching another app, the new app's

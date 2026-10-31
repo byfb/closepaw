@@ -202,6 +202,8 @@ dependencies {
 
     // OkHttp — used by CodexResponseClient for raw SSE streaming to chatgpt.com
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // Native microphone/playback and WebRTC data channel for ChatGPT GPT-Live.
+    implementation("io.github.webrtc-sdk:android:150.7871.01")
     
     // LiquidAI Leap SDK for local LLM inference
     // Version 0.9.2 includes manifest.LeapDownloader with loadModel(modelSlug, quantizationSlug) API

@@ -122,6 +122,7 @@ class CapsuleOverlayHost(
             val islandEnabled by stateHolder.hasIsland.collectAsState()
             val flashThought by transientThought.collectAsState(initial = null)
             val lockTouches by interactionLocked.collectAsState(initial = false)
+            val liveVoiceActive = (service as? AgentService)?.liveVoiceActive?.collectAsState()?.value == true
 
             val capsuleContent: @androidx.compose.runtime.Composable () -> Unit = {
                 val overlayContext = LocalContext.current
@@ -200,7 +201,7 @@ class CapsuleOverlayHost(
                             setOverlayFocusable(false)
                         },
                         autoFocusInput = mode is CapsuleMode.WaitingForInput,
-                        voice = voiceDeps,
+                        voice = if (liveVoiceActive) null else voiceDeps,
                     )
                 }
             }

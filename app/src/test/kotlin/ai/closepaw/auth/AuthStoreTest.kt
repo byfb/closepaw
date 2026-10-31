@@ -51,6 +51,17 @@ class AuthStoreTest {
     }
 
     @Test
+    fun `codex headers preserve account identity when refresh omits id token`() = runBlocking {
+        val payload = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+            """{"https://api.openai.com/auth":{"chatgpt_account_id":"phone-account"}}""".toByteArray()
+        )
+        val store = newStore()
+        store.set(LLMProvider.OPENAI_CODEX,
+            AuthCredential.OAuth("header.$payload.signature", "refresh", Long.MAX_VALUE, null, null))
+        assertThat(store.codexHeaders(LLMProvider.OPENAI_CODEX).chatgptAccountId).isEqualTo("phone-account")
+    }
+
+    @Test
     fun `api key set get has clear`() = runBlocking {
         val store = newStore()
         val provider = LLMProvider.OPENAI_API

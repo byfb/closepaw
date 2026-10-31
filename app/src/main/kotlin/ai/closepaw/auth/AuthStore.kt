@@ -149,7 +149,7 @@ class AuthStore(
 
     private fun AuthCredential.OAuth.toHeaders(): CodexHeaders = CodexHeaders(
         accessToken = accessToken,
-        chatgptAccountId = idToken?.let(::parseChatgptAccountId),
+        chatgptAccountId = idToken?.let(::parseChatgptAccountId) ?: parseChatgptAccountId(accessToken),
         email = email,
     )
 
