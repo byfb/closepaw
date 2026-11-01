@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicReference
 class CodexResponseClient(
     private val headerSupplier: suspend () -> CodexHeaders,
     private val reasoningEffort: String? = null,
+    private val logContent: Boolean = true,
 ) : LLMClient() {
 
     companion object {
@@ -52,7 +53,7 @@ class CodexResponseClient(
         // Codex backend forbids `max_output_tokens` (see CodexRequestBuilder).
         // Accept the parameter to satisfy the LLMClient contract, but cannot
         // forward it to the wire format.
-        LlmLogger.logInput(TAG, systemPrompt, inputItems, tools)
+        if (logContent) LlmLogger.logInput(TAG, systemPrompt, inputItems, tools)
 
         CloudLlmRetry.executeWithRetry(tag = TAG, operationName = "codex chatWithTools") {
             val body = CodexRequestBuilder.buildRequestBody(systemPrompt, inputItems, tools, model, reasoningEffort)
@@ -122,7 +123,7 @@ class CodexResponseClient(
                     toolCalls = toolCalls,
                     responseId = responseId
                 )
-                LlmLogger.logOutput(TAG, result)
+                if (logContent) LlmLogger.logOutput(TAG, result)
                 result
             }
         }
@@ -137,7 +138,7 @@ class CodexResponseClient(
         model: String
     ): Flow<LLMStreamEvent> = callbackFlow {
         Log.d(TAG, "Starting Codex streaming chat with ${inputItems.size} input items")
-        LlmLogger.logInput(TAG, systemPrompt, inputItems, tools)
+        if (logContent) LlmLogger.logInput(TAG, systemPrompt, inputItems, tools)
 
         val activeCall = AtomicReference<okhttp3.Call?>(null)
 
@@ -160,7 +161,7 @@ class CodexResponseClient(
                             val accumulator = CodexSseParser.ToolCallAccumulator()
                             var sawCompletion = false
                             var responseId: String? = null
-                            val verbose = LlmLogger.isVerboseEnabled
+                            val verbose = logContent && LlmLogger.isVerboseEnabled
                             val textAccumulator = if (verbose) StringBuilder() else null
                             val toolCalls = if (verbose) mutableListOf<LLMToolCall>() else null
 

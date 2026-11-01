@@ -8,6 +8,7 @@ import ai.closepaw.app.MainActivity
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.protocol.*
 import ai.closepaw.session.AgentSession
+import ai.closepaw.tool.impl.EndGptLiveCallTool
 import android.Manifest
 import android.app.*
 import android.content.Intent
@@ -49,6 +50,10 @@ class GptLiveService : Service() {
     private var callJob: Job? = null
     private var pendingStart: Boolean? = null
     private var transport: WebRtcLiveTransport? = null
+    private var callControl: LiveCallControl? = null
+    private data class PendingDelegation(
+        val generation: Int, val request: LiveConversation.Delegation, val allowed: Deferred<Boolean>,
+    )
     private var agentObserver: Job? = null
     private var observedSession: AgentSession? = null
     private var delegationId: String? = null
@@ -78,7 +83,7 @@ class GptLiveService : Service() {
         super.onCreate()
         scope.launch {
             combine(state, LiveVoiceRuntime.task) { voice, task ->
-                // Captions never leave the app or trigger widget redraws.
+                // Captions never enter the notification or trigger widget redraws.
                 voice.copy(transcript = "") to task
             }.distinctUntilChanged().collect { (voice, _) ->
                 runCatching { GptLiveWidget.updateAll(applicationContext) }
@@ -122,8 +127,10 @@ class GptLiveService : Service() {
         pendingUpdates.clear()
         contextEpoch = null
         contextUpdates = if (preview) null else Channel(Channel.CONFLATED)
-        val delegations = Channel<Pair<Int, LiveConversation.Delegation>>(16)
+        val delegations = Channel<PendingDelegation>(16)
         callJob = scope.launch {
+            val owner = coroutineContext.job
+            var selector: LiveCallToolSelector? = null
             var contextWriter: Job? = null
             var resumeContext = false
             try {
@@ -131,6 +138,20 @@ class GptLiveService : Service() {
                 if (!withContext(Dispatchers.IO) { auth.has(LLMProvider.OPENAI_CODEX) })
                     throw LiveVoiceException(strings.getString(R.string.ui_sign_in_to_chatgpt_in_settings_to_use_gpt_live))
                 if (!preview) {
+                    val tool = EndGptLiveCallTool { endVoiceFromTool(owner) }
+                    callControl = LiveCallControl(scope,
+                        selectEndCall = { utterance ->
+                            val activeSelector = selector ?: LiveCallToolSelector.create(applicationContext, auth, tool)
+                                .also { selector = it }
+                            activeSelector.select(utterance)
+                        },
+                        executeEndCall = { arguments -> tool.invoke(arguments) },
+                        unavailable = {
+                            android.util.Log.w("GptLiveService", "Voice call control unavailable for this turn")
+                            append(null, "Voice call control is unavailable for this turn. If the user asked to disconnect, " +
+                                "tell them the call is still open and offer the End voice notification action.", false)
+                        },
+                    )
                     val ready = withTimeoutOrNull(3000) {
                         while (AgentService.instance == null) delay(100)
                         true
@@ -163,7 +184,12 @@ class GptLiveService : Service() {
                     }.also { audioManager.registerAudioRecordingCallback(it, android.os.Handler(mainLooper)) }
                 }
                 coroutineScope {
-                    if (!preview) launch { for ((origin, request) in delegations) delegate(request, origin) }
+                    if (!preview) launch {
+                        for ((origin, request, allowed) in delegations) {
+                            val proceed = withTimeoutOrNull(LiveCallControl.HANDOFF_TIMEOUT_MS) { allowed.await() }
+                            if (proceed != false && origin == generation && state.value.running) delegate(request, origin)
+                        }
+                    }
                     launch {
                         while (isActive) {
                             delay(2000)
@@ -266,6 +292,7 @@ class GptLiveService : Service() {
                         } finally {
                             connectionReady = false
                             generation++
+                            callControl?.reset()
                             transport = null
                             connectionFailure = null
                             responseWatchdog = null
@@ -289,10 +316,12 @@ class GptLiveService : Service() {
                 fail((e as? LiveVoiceException)?.message ?: strings.getString(R.string.ui_gpt_live_could_not_connect_check_chatgpt_sign_in_and_try_again))
             } finally {
                 generation++
+                callControl?.reset(); callControl = null
                 delegations.cancel()
                 agentObserver?.cancel(); agentObserver = null
                 observedSession = null; delegationId = null
                 withContext(NonCancellable) {
+                    selector?.close()
                     contextWriter?.cancelAndJoin()
                     if (!preview) contextEpoch?.let { epoch ->
                         val memory = ConversationMemory(conversation.initialBrief, conversation.historySnapshot())
@@ -326,6 +355,14 @@ class GptLiveService : Service() {
         updateNotification()
     }
 
+    private suspend fun endVoiceFromTool(owner: Job): Boolean = withContext(Dispatchers.Main.immediate) {
+        if (callJob !== owner || !state.value.running || state.value.preview) return@withContext false
+        android.util.Log.i("GptLiveService", "Executing end_gpt_live_call")
+        stopCall()
+        owner.join() // Peer, recorder and foreground service cleanup precede tool success.
+        true
+    }
+
     fun stopCall() {
         pendingStart = null
         mutableState.value = LiveVoiceState()
@@ -344,13 +381,12 @@ class GptLiveService : Service() {
         if (callJob == null) { stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
     }
 
-    private fun receive(raw: String, requests: Channel<Pair<Int, LiveConversation.Delegation>>) {
+    private fun receive(raw: String, requests: Channel<PendingDelegation>) {
         val event = runCatching { Json.parseToJsonElement(raw) as? JsonObject }.getOrNull() ?: return
         when (event.string("type")) {
             "error" -> { fail(strings.getString(R.string.ui_gpt_live_reported_a_session_error_end_the_call_and_try_again)); return }
             "session.closed", "session.ended" -> { connectionFailure?.complete(strings.getString(R.string.ui_gpt_live_session_ended)); return }
         }
-        if (!state.value.preview && LiveVoiceCommands.isHangup(event)) { stopCall(); return }
         val request = conversation.receive(raw)
         if (!state.value.preview && event.string("type") == "turn.done") {
             contextUpdates?.trySend(ConversationMemory(conversation.initialBrief, conversation.historySnapshot()))
@@ -358,7 +394,9 @@ class GptLiveService : Service() {
         mutableState.value = state.value.copy(transcript = conversation.transcript)
         // Preview never reaches the worker, even if the server emits a delegation.
         if (state.value.preview) return
-        if (request != null && !requests.trySend(generation to request).isSuccess)
+        val control = callControl ?: return
+        control.receive(event)
+        if (request != null && !requests.trySend(PendingDelegation(generation, request, control.handoffAllowed)).isSuccess)
             append(request.id, "The phone agent is busy. Please wait and repeat the request.", spoken = true)
     }
 
@@ -488,7 +526,7 @@ class GptLiveService : Service() {
         return NotificationCompat.Builder(this, CHANNEL).setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentTitle("GPT-Live").setContentText(voiceStatus(ai.closepaw.ui.theme.appResources(this), state.value, LiveVoiceRuntime.task.value))
             .setContentIntent(open).setOngoing(true).setSilent(true)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "End voice", stop).build()
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, strings.getString(R.string.ui_end_voice), stop).build()
     }
 
     private fun updateNotification() { getSystemService(NotificationManager::class.java).notify(NOTIFICATION, notification()) }

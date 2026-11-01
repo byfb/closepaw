@@ -64,7 +64,8 @@ internal class LiveConversation {
                 if (request.isBlank()) return Delegation(id, "")
                 return Delegation(id, buildString {
                     append(request)
-                    if (context.isNotBlank()) append("\n\nVoice conversation context:\n$context")
+                    if (context.isNotBlank()) append("\n\nVoice conversation context:\nUse earlier turns only to resolve references in the current request. " +
+                        "GPT-Live handles its own call controls.\n$context")
                 })
             }
         }

@@ -156,11 +156,23 @@ receiver work and event-driven RemoteViews updates, with no periodic polling.
 
 `LiveConversation` handles transcripts, explicit `delegation.created` events,
 duplicate delegation suppression, and UTF-8-safe feedback chunks. Transcription
-alone never starts a phone task. A completed user turn with an exact hang-up
-command, such as **結束語音**, **掛斷 GPT-Live**, **收線**, or **hang up**, ends
-voice locally. Partial transcripts, assistant speech, negations, and questions do
-not trigger hang-up. These controls still depend on server transcription; use the
-tile, widget, or foreground notification if the connection is unresponsive. A bounded text handoff is saved locally: the initial user brief, up to 12 recent
+alone never starts a phone task or ends voice. For each completed user utterance,
+Android sends just that turn to the selected ChatGPT model (or an available
+account model when the selection uses another provider). The request offers one
+function, `end_gpt_live_call`. A completed function call carrying the active call ID
+ends this GPT-Live conversation. Assistant speech, partial transcripts and
+historical context cannot execute the function. Selection runs alongside voice
+playback. A phone handoff for the same utterance waits for the decision, with a
+bounded timeout. New speech and disconnects invalidate pending decisions.
+
+Only the phone-side voice controller receives the tool. The task agent can see
+earlier turns when it carries out a delegation, so giving it the tool would let
+an old hang-up request end a new conversation. Executing the tool releases the
+peer, microphone and foreground notification and leaves the running phone task
+intact. The notification, widget and Quick Settings tile also work when a model
+request is unavailable.
+
+A bounded text handoff is saved locally: the initial user brief, up to 12 recent
 turns (8,000 characters total), the latest phone request, progress/result, and
 pending question. Automatic and manual reconnects restore this context. Worker
 updates continue to refresh it after voice ends. No raw audio, screenshots, or
@@ -203,7 +215,7 @@ emulator snapshot before testing and use replacement installs to retain app data
 JVM tests cover request headers, fresh credentials on reconnect, authentication
 failure, cancellation, malformed events, duplicate handoffs, transcript assembly,
 Unicode feedback, preference persistence, request configuration, playback activity,
-task outcome presentation, hang-up command matching, response deadlines, and
+task outcome presentation, structured hang-up calls, response deadlines, and
 reconnect delegation suppression. `GptLiveTransportTest` establishes two successive native
 WebRTC loopback calls, exchanges events in both directions, toggles mute, and
 closes the transport. It also negotiates a preview with recording disabled and checks that
@@ -240,6 +252,17 @@ absence of Android recording streams during preview. Run it with the direct
 instrumentation command above, replacing the class with
 `ai.closepaw.qa.GptLiveRemoteTest` and adding `-e live_remote true`. The test also
 works with microphone permission denied; it is skipped by the normal device suite.
+
+With the same `live_remote=true` instrumentation argument,
+`GptLiveCallControlTest` checks native tool selection against the signed-in
+account. Cases include Mandarin and Cantonese hang-up requests, a correction
+about which conversation to end, negation, status questions, quoted commands,
+and a request to end a WhatsApp call. In the signed release on the Android 16
+emulator, two spoken turns in one call exercised both outcomes. “不要掛斷”
+kept the recorder active. “我要掛斷的是跟你的對話” invoked the tool once,
+released the recorder and stopped the foreground service without starting a
+phone task. With earlier hang-up requests in context, a separate spoken request
+to open Android Settings reached the task agent and kept voice connected.
 
 For a real account test, sign in inside ClosePaw, start GPT-Live, ask it to open
 Android Settings, and confirm both task execution and spoken completion. Also
