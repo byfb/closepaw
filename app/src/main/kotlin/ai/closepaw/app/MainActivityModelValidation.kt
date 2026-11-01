@@ -54,6 +54,10 @@ internal fun findMissingCloudKeys(
         )
     }
 
+    if (ModelCatalog.isCodexSelection(modelName) && modelCatalog.resolveOrNull(modelName) == null) {
+        return listOf(MissingCredentialTarget(LLMProvider.OPENAI_CODEX, "Sign in and refresh the ChatGPT model list"))
+    }
+
     val entry = modelCatalog.resolveOrNull(modelName)
         ?: return listOf(MissingCredentialTarget(LLMProvider.OPENAI_API, "Unknown model: $modelName"))
     val provider = entry.provider

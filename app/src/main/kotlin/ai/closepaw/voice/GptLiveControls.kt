@@ -1,5 +1,9 @@
 package ai.closepaw.voice
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import ai.closepaw.ui.capsule.voice.VoicePermissionDisposition
 import ai.closepaw.ui.capsule.voice.rememberVoicePermissionGate
 import android.app.Activity
@@ -35,6 +39,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 /** Binding is Activity-scoped; the started microphone service survives app switches. */
 @Composable
 fun GptLiveControls(onRunningChanged: (Boolean) -> Unit, modifier: Modifier = Modifier, onOpenSettings: (() -> Unit)? = null) {
+    val strings = uiResources()
     val context = LocalContext.current
     val activity = context as? Activity ?: return
     var service by remember { mutableStateOf<GptLiveService?>(null) }
@@ -50,11 +55,11 @@ fun GptLiveControls(onRunningChanged: (Boolean) -> Unit, modifier: Modifier = Mo
             ContextCompat.startForegroundService(context,
                 Intent(context, GptLiveService::class.java).setAction(GptLiveService.ACTION_START))
         } catch (_: Exception) {
-            permissionError = "Open ClosePaw again to start voice."
+            permissionError = strings.getString(R.string.ui_open_closepaw_again_to_start_voice)
         }
     }
     val gate = rememberVoicePermissionGate(activity) { granted ->
-        if (granted) start() else permissionError = "Microphone permission is required."
+        if (granted) start() else permissionError = strings.getString(R.string.ui_voice_permission_required)
     }
     DisposableEffect(context) {
         val connection = object : ServiceConnection {
@@ -83,17 +88,17 @@ fun GptLiveControls(onRunningChanged: (Boolean) -> Unit, modifier: Modifier = Mo
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.End) {
             if (state.running) {
-                Text(voiceStatus(state, task),
+                Text(voiceStatus(strings, state, task),
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.weight(1f).padding(start = 12.dp).testTag("qa-live-status"))
                 if (state.phase == LiveVoicePhase.Active && !state.preview) {
                     IconButton(onClick = { service?.toggleMute() }, modifier = Modifier.size(48.dp).testTag("qa-live-mute")) {
                         Icon(if (state.muted) Icons.Rounded.MicOff else Icons.Rounded.Mic,
-                            contentDescription = if (state.muted) "Unmute GPT-Live" else "Mute GPT-Live")
+                            contentDescription = if (state.muted) strings.getString(R.string.ui_unmute_gpt_live) else strings.getString(R.string.ui_mute_gpt_live))
                     }
                 } else if (state.phase == LiveVoicePhase.Connecting) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                 IconButton(onClick = { service?.stopCall() }, modifier = Modifier.size(48.dp).testTag("qa-live-end")) {
-                    Icon(Icons.Rounded.CallEnd, contentDescription = "End GPT-Live", tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Rounded.CallEnd, contentDescription = strings.getString(R.string.ui_end_gpt_live), tint = MaterialTheme.colorScheme.error)
                 }
             } else {
                 TextButton(onClick = {
@@ -101,7 +106,7 @@ fun GptLiveControls(onRunningChanged: (Boolean) -> Unit, modifier: Modifier = Mo
                         VoicePermissionDisposition.Granted -> start()
                         VoicePermissionDisposition.Request -> gate.requestPermission()
                         VoicePermissionDisposition.OpenAppSettings -> {
-                            permissionError = "Enable microphone access in Android Settings."
+                            permissionError = strings.getString(R.string.ui_enable_microphone_access_in_android_settings)
                             gate.openAppSettings()
                         }
                     }
@@ -113,7 +118,7 @@ fun GptLiveControls(onRunningChanged: (Boolean) -> Unit, modifier: Modifier = Mo
             }
             onOpenSettings?.let { open ->
                 IconButton(onClick = open, modifier = Modifier.size(48.dp)) {
-                    Icon(Icons.Rounded.Settings, contentDescription = "GPT-Live settings")
+                    Icon(Icons.Rounded.Settings, contentDescription = strings.getString(R.string.ui_gpt_live_settings))
                 }
             }
         }

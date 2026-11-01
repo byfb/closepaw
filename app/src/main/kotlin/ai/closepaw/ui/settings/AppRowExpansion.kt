@@ -1,5 +1,9 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import ai.closepaw.app.MemoryEditGate
 import ai.closepaw.memory.MemoryScope
 import ai.closepaw.memory.MemoryStore
@@ -38,9 +42,7 @@ internal const val APP_EXPANSION_SKILL_BODY_TAG = "app-expansion-skill-body"
 internal const val APP_EXPANSION_BLOCKED_WARNING_TAG = "app-expansion-blocked-warning"
 internal const val APP_EXPANSION_ADD_MEMORY_TAG = "app-expansion-add-memory"
 
-internal const val APP_BLOCKED_MEMORY_WARNING =
-    "This app is set to Reject. Reject only blocks the agent from writing this memory; " +
-        "saved entries are still recalled when this app is foreground."
+internal val APP_BLOCKED_MEMORY_WARNING = R.string.ui_app_memory_blocked_warning
 
 /**
  * Inline expanded area under an App Access row. Composed of:
@@ -74,6 +76,7 @@ internal fun AppRowExpansion(
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     modifier: Modifier = Modifier,
 ) {
+    val strings = uiResources()
     val skillBodyState = produceState<SkillLoad>(initialValue = SkillLoad.Loading, packageName) {
         value = SkillLoad.Loaded(withContext(ioDispatcher) { skillLoader(packageName) })
     }
@@ -90,7 +93,7 @@ internal fun AppRowExpansion(
         }
 
         if (showMemoryEditor) {
-            SectionLabel(text = "App Memory")
+            SectionLabel(text = strings.getString(R.string.ui_app_memory))
             if (isBlocked) {
                 BlockedAppWarning()
             }
@@ -118,8 +121,9 @@ internal fun AppRowExpansion(
 
 @Composable
 private fun AppSkillViewer(body: String) {
+    val strings = uiResources()
     Column(modifier = Modifier.fillMaxWidth()) {
-        SectionLabel(text = "App Skill")
+        SectionLabel(text = strings.getString(R.string.ui_app_skill))
         Spacer(modifier = Modifier.height(4.dp))
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -149,7 +153,7 @@ private fun AppSkillViewer(body: String) {
 @Composable
 private fun BlockedAppWarning() {
     SettingsAlertCard(
-        message = APP_BLOCKED_MEMORY_WARNING,
+        message = uiResources().getString(APP_BLOCKED_MEMORY_WARNING),
         tone = AlertTone.Warning,
         icon = Icons.Outlined.Warning,
         modifier = Modifier.testTag(APP_EXPANSION_BLOCKED_WARNING_TAG),
@@ -167,6 +171,7 @@ private fun SectionLabel(text: String) {
 
 @Composable
 private fun AddMemoryChip(onAddMemory: () -> Unit, enabled: Boolean) {
+    val strings = uiResources()
     Surface(
         onClick = onAddMemory,
         enabled = enabled,
@@ -188,7 +193,7 @@ private fun AddMemoryChip(onAddMemory: () -> Unit, enabled: Boolean) {
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "Memory",
+                text = strings.getString(R.string.ui_memory),
                 style = MaterialTheme.typography.labelMedium,
                 color = if (enabled) MaterialTheme.colorScheme.onPrimaryContainer
                 else MaterialTheme.closePaw.inkFaint,

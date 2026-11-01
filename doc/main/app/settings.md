@@ -15,6 +15,8 @@ The app manages user preferences through `AppSettingsState` + `AppSettingsStore`
 
 ### Appearance
 
+**Settings → Appearance → App language** offers Follow system (default), English, 繁體中文 and 简体中文. Android 13 and newer synchronize the selection with the system app-language settings. On Android 12, ClosePaw saves the preference locally. The display language is independent of the GPT-Live reply language.
+
 **Settings → Appearance** selects Follow system (default), Light, or Dark.
 Font size defaults to the Android size, with Large (115%) and Extra large (130%)
 multipliers. Changes apply immediately to Compose pages and floating overlays.
@@ -123,7 +125,7 @@ The settings UI is a full-screen page overlay with sub-page navigation (system b
 
 | Section | Entry | Destination |
 |---------|-------|-------------|
-| **Personalization** | Appearance | Theme and font size |
+| **Personalization** | Appearance | Language, theme and font size |
 | | Custom instructions | GPT-Live and Core Agent instruction editors |
 | **Behavior** | LLM & Authentication | `LlmAuthSettingsPage` — provider → model hierarchy, Sign In / API Key tabs (Local tab gated by `LOCAL_TAB_ENABLED`) |
 | | Agent Behavior | `AgentBehaviorSettingsPage` — Approval (Per-App / Auto-Approve selector + App Access Rules link), Perception, Display Mode, Tools |

@@ -43,7 +43,8 @@ object ModelDiscovery {
     const val OPENAI_BASE_URL = "https://api.openai.com/v1"
     const val CODEX_BASE_URL = "https://chatgpt.com/backend-api/codex"
     // Codex's catalog endpoint requires the client protocol version in the query.
-    internal const val CODEX_CLIENT_VERSION = "0.154.0"
+    // The account catalog is filtered by client version (GPT-6 Luna requires at least 0.155.0).
+    internal const val CODEX_CLIENT_VERSION = "0.159.0"
 
     private const val TAG = "ModelDiscovery"
     private const val MAX_DISPLAY_NAME_LEN = 80
@@ -115,9 +116,12 @@ object ModelDiscovery {
             json.parseToJsonElement(body)
         } catch (e: Exception) {
             Log.w(TAG, "Failed to parse /models JSON: ${e.message}")
+            if (provider == LLMProvider.OPENAI_CODEX) throw java.io.IOException("Invalid ChatGPT model list", e)
             return emptyList()
         }
-        val items = extractItems(root) ?: return emptyList()
+        val items = extractItems(root) ?: if (provider == LLMProvider.OPENAI_CODEX) {
+            throw java.io.IOException("Invalid ChatGPT model list")
+        } else return emptyList()
         return items.mapNotNull { itemToDiscoveredModel(it, provider, sourceBaseUrl) }
             .distinctBy { it.entry.modelId }
     }

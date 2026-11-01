@@ -1,5 +1,9 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,8 +41,9 @@ internal fun AgentBehaviorSettingsPage(
     onClose: () -> Unit,
     isSessionRunning: Boolean = false,
 ) {
+    val strings = uiResources()
     Column(modifier = Modifier.fillMaxWidth()) {
-        PageMastheadDrillDown(title = "Agent Behavior", onBack = onBack, onClose = onClose)
+        PageMastheadDrillDown(title = strings.getString(R.string.ui_agent_behavior), onBack = onBack, onClose = onClose)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -51,7 +56,7 @@ internal fun AgentBehaviorSettingsPage(
                 onNavigateToAppAccess = onNavigateToAppAccess,
             )
             Spacer(modifier = Modifier.height(20.dp))
-            SettingsSection(title = "Perception") {
+            SettingsSection(title = strings.getString(R.string.ui_perception)) {
                 PerceptionModeSelector(selectedMode = perceptionMode, onModeChange = onPerceptionModeChange)
             }
             Spacer(modifier = Modifier.height(20.dp))
@@ -74,20 +79,20 @@ internal fun AgentBehaviorSettingsPage(
 
 private data class ApprovalModeOption(
     val mode: ApprovalMode,
-    val label: String,
-    val description: String,
+    @androidx.annotation.StringRes val label: Int,
+    @androidx.annotation.StringRes val description: Int,
 )
 
 private val APPROVAL_MODE_OPTIONS = listOf(
     ApprovalModeOption(
         mode = ApprovalMode.SMART,
-        label = "Per-App",
-        description = "Ask before risky actions, based on each app's access rules",
+        label = R.string.ui_per_app,
+        description = R.string.ui_ask_before_risky_actions_based_on_each_app_s_access_rules,
     ),
     ApprovalModeOption(
         mode = ApprovalMode.AUTO_APPROVE,
-        label = "Auto-Approve",
-        description = "Run allowed actions without asking. Rejected apps stay blocked.",
+        label = R.string.ui_auto_approve,
+        description = R.string.ui_run_allowed_actions_without_asking_rejected_apps_stay_blocked,
     ),
 )
 
@@ -97,7 +102,8 @@ private fun ApprovalSection(
     onApprovalModeChange: (ApprovalMode) -> Unit,
     onNavigateToAppAccess: () -> Unit,
 ) {
-    SettingsSection(title = "Approval") {
+    val strings = uiResources()
+    SettingsSection(title = strings.getString(R.string.ui_approval)) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = MaterialTheme.colorScheme.surfaceVariant,
@@ -110,7 +116,7 @@ private fun ApprovalSection(
                 ) {
                     APPROVAL_MODE_OPTIONS.forEach { option ->
                         SegmentChip(
-                            label = option.label,
+                            label = strings.getString(option.label),
                             isSelected = approvalMode == option.mode,
                             onClick = { onApprovalModeChange(option.mode) },
                             modifier = Modifier.weight(1f),
@@ -118,7 +124,7 @@ private fun ApprovalSection(
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                val desc = APPROVAL_MODE_OPTIONS.find { it.mode == approvalMode }?.description ?: ""
+                val desc = APPROVAL_MODE_OPTIONS.find { it.mode == approvalMode }?.description?.let(strings::getString).orEmpty()
                 Text(
                     text = desc,
                     style = MaterialTheme.typography.bodySmall,
@@ -127,8 +133,8 @@ private fun ApprovalSection(
                 if (approvalMode == ApprovalMode.SMART) {
                     Spacer(modifier = Modifier.height(MaterialTheme.closePaw.spacing.md))
                     SettingsNavigationRow(
-                        title = "App Access Rules",
-                        subtitle = "Set allow, ask, or reject for each app",
+                        title = strings.getString(R.string.ui_app_access_rules),
+                        subtitle = strings.getString(R.string.ui_set_allow_ask_or_reject_for_each_app),
                         onClick = onNavigateToAppAccess,
                     )
                 }

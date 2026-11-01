@@ -1,5 +1,9 @@
 package ai.closepaw.ui.navigation
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -80,6 +84,7 @@ fun NavigationDrawerContent(
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = uiResources()
     // Use ModalDrawerSheet's built-in windowInsets parameter for proper system bar handling
     // This ensures consistent inset behavior at the component level
     // Width: 85% of screen width, max 320dp (responsive design)
@@ -106,7 +111,7 @@ fun NavigationDrawerContent(
             // Recent sessions header
             if (sessions.isNotEmpty()) {
                 Text(
-                    text = "Recent",
+                    text = strings.getString(R.string.ui_recent),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -164,8 +169,9 @@ fun NavigationDrawerContent(
 private fun DrawerHeader(
     onClose: () -> Unit
 ) {
+    val strings = uiResources()
     PageMastheadIdentity(
-        title = "Sessions",
+        title = strings.getString(R.string.ui_sessions),
         onClose = onClose,
         modifier = Modifier.padding(top = 12.dp, bottom = 12.dp),
     )
@@ -179,6 +185,7 @@ private fun NewSessionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = uiResources()
     OutlinedButton(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
@@ -198,7 +205,7 @@ private fun NewSessionButton(
             tint = MaterialTheme.colorScheme.primary
         )
         Spacer(modifier = Modifier.width(8.dp))
-        Text("New Conversation")
+        Text(strings.getString(R.string.ui_drawer_new_conversation))
     }
 }
 
@@ -212,6 +219,7 @@ private fun DrawerSessionItem(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = uiResources()
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val rowShape = MaterialTheme.shapes.small
     val isCorrupted = session.isCorrupted
@@ -226,13 +234,13 @@ private fun DrawerSessionItem(
         else -> null
     }
     val rowStateDescription = when {
-        isCorrupted -> "Unreadable session file. Cannot open."
-        session.isActive -> "Active session"
+        isCorrupted -> strings.getString(R.string.ui_unreadable_session_file_cannot_open)
+        session.isActive -> strings.getString(R.string.ui_active_session)
         else -> null
     }
     val statusText = when {
-        isCorrupted -> "Unreadable session file"
-        session.isActive -> "Active session"
+        isCorrupted -> strings.getString(R.string.ui_unreadable_session_file)
+        session.isActive -> strings.getString(R.string.ui_active_session)
         else -> null
     }
     val statusColor = when {
@@ -244,8 +252,8 @@ private fun DrawerSessionItem(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete Session") },
-            text = { Text("This session and its messages will be permanently deleted.") },
+            title = { Text(strings.getString(R.string.ui_delete_session)) },
+            text = { Text(strings.getString(R.string.ui_this_session_and_its_messages_will_be_permanently_deleted)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -255,10 +263,10 @@ private fun DrawerSessionItem(
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
                     )
-                ) { Text("Delete") }
+                ) { Text(strings.getString(R.string.ui_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showDeleteConfirm = false }) { Text(strings.getString(R.string.ui_cancel)) }
             }
         )
     }
@@ -272,7 +280,7 @@ private fun DrawerSessionItem(
                     Modifier
                 } else {
                     Modifier.clickable(
-                        onClickLabel = "Open session",
+                        onClickLabel = strings.getString(R.string.ui_open_session),
                         role = Role.Button,
                         onClick = onClick
                     )
@@ -322,7 +330,7 @@ private fun DrawerSessionItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = TimeUtils.formatMessageCount(session.messageCount),
+                        text = TimeUtils.formatMessageCount(uiResources(), session.messageCount),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -337,7 +345,7 @@ private fun DrawerSessionItem(
 
                     // D1 §6.6: ledger treatment — mono dates.
                     Text(
-                        text = TimeUtils.formatRelativeTime(session.lastUpdated),
+                        text = TimeUtils.formatRelativeTime(uiResources(), session.lastUpdated),
                         style = MaterialTheme.closePaw.monoSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -356,7 +364,7 @@ private fun DrawerSessionItem(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Delete,
-                        contentDescription = "Delete session",
+                        contentDescription = strings.getString(R.string.ui_drawer_delete_session),
                         modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.closePaw.inkFaint
                     )
@@ -373,18 +381,19 @@ private fun DrawerSessionItem(
 private fun EmptySessionsMessage(
     modifier: Modifier = Modifier
 ) {
+    val strings = uiResources()
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "No saved sessions",
+            text = strings.getString(R.string.ui_no_saved_sessions),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "Your chat history will appear here",
+            text = strings.getString(R.string.ui_your_chat_history_will_appear_here),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -401,6 +410,7 @@ private fun SettingsEntry(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = uiResources()
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -419,7 +429,7 @@ private fun SettingsEntry(
         
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Settings",
+                text = strings.getString(R.string.ui_settings),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface

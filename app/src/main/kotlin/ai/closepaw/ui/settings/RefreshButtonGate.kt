@@ -1,5 +1,7 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.R
+
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.OtherBaseUrlValidator
 
@@ -16,7 +18,7 @@ object RefreshButtonGate {
 
     sealed interface State {
         data object Enabled : State
-        data class Disabled(val reason: String) : State
+        data class Disabled(val reason: Int, val detail: String? = null) : State
     }
 
     fun evaluate(
@@ -28,22 +30,22 @@ object RefreshButtonGate {
     ): State {
         return when (provider) {
             LLMProvider.OPENAI_CODEX -> {
-                if (signedIn) State.Enabled else State.Disabled("Sign in to refresh models")
+                if (signedIn) State.Enabled else State.Disabled(R.string.ui_sign_in_to_refresh_models)
             }
             LLMProvider.OPENAI_API -> {
-                if (apiKey.isBlank()) State.Disabled("Enter your OpenAI API key first")
+                if (apiKey.isBlank()) State.Disabled(R.string.ui_enter_your_openai_api_key_first)
                 else State.Enabled
             }
             LLMProvider.OTHER -> {
-                if (apiKey.isBlank()) State.Disabled("Enter your API key first")
+                if (apiKey.isBlank()) State.Disabled(R.string.ui_enter_your_api_key_first)
                 else {
                     val urlResult = OtherBaseUrlValidator.validate(otherBaseUrl, allowDebugHttp)
                     if (urlResult.isFailure) State.Disabled(
-                        urlResult.exceptionOrNull()?.message ?: "Base URL is invalid"
+                        R.string.ui_base_url_is_invalid, urlResult.exceptionOrNull()?.message
                     ) else State.Enabled
                 }
             }
-            LLMProvider.LOCAL_LFM -> State.Disabled("Local models do not need refreshing")
+            LLMProvider.LOCAL_LFM -> State.Disabled(R.string.ui_local_models_do_not_need_refreshing)
         }
     }
 }

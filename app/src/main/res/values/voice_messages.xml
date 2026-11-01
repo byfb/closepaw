@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="live_error_signin">Sign in to ChatGPT again to start GPT-Live.</string>
+    <string name="live_error_dns">Could not find the GPT-Live server. Check your DNS or VPN settings.</string>
+    <string name="live_error_timeout">GPT-Live\'s server request timed out. Check your network or VPN and reconnect.</string>
+    <string name="live_error_tls">Could not establish a secure GPT-Live connection. Check your network or VPN settings.</string>
+    <string name="live_error_unreachable">Could not reach the GPT-Live server. Check your network or VPN and reconnect.</string>
+    <string name="live_error_invalid_answer">GPT-Live returned an invalid audio connection. Reconnect to try again.</string>
+    <string name="live_error_rejected">GPT-Live rejected the voice setup. Check the voice settings and reconnect.</string>
+    <string name="live_error_expired">ChatGPT sign-in expired. Sign in again.</string>
+    <string name="live_error_unavailable">GPT-Live is not available for this ChatGPT account or sign-in route.</string>
+    <string name="live_error_limit">GPT-Live usage limit reached. Try again later.</string>
+    <string name="live_error_http">GPT-Live could not start (HTTP %1$d).</string>
+    <string name="live_error_interrupted">GPT-Live connection was interrupted. Try again.</string>
+</resources>

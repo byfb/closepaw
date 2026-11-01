@@ -1,16 +1,18 @@
 package ai.closepaw.ui.theme
 
+import ai.closepaw.R
+
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 
-enum class ThemeMode(val label: String) {
-    SYSTEM("Follow system"), LIGHT("Light"), DARK("Dark")
+enum class ThemeMode(@androidx.annotation.StringRes val label: Int) {
+    SYSTEM(R.string.ui_follow_system), LIGHT(R.string.ui_light), DARK(R.string.ui_dark)
 }
 
-enum class AppFontSize(val label: String, val scale: Float) {
-    SYSTEM("System size", 1f), LARGE("Large · 115%", 1.15f), EXTRA_LARGE("Extra large · 130%", 1.3f)
+enum class AppFontSize(@androidx.annotation.StringRes val label: Int, val scale: Float) {
+    SYSTEM(R.string.ui_system_size, 1f), LARGE(R.string.ui_large_115, 1.15f), EXTRA_LARGE(R.string.ui_extra_large_130, 1.3f)
 }
 
 data class AppearancePreferences(

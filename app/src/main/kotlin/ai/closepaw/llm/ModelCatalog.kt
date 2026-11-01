@@ -77,13 +77,21 @@ class ModelCatalog private constructor(private val entries: Map<String, ModelEnt
      * @throws IllegalArgumentException if the name is not in the catalog.
      */
     fun resolve(name: String): ModelEntry =
-            entries[name]
+            resolveOrNull(name)
                     ?: throw IllegalArgumentException(
                             "Unknown model '$name'. Available: ${entries.keys.sorted()}"
                     )
 
     /** Resolve a model by name, returning null if not found. */
-    fun resolveOrNull(name: String): ModelEntry? = entries[name]
+    fun resolveOrNull(name: String): ModelEntry? = entries[name] ?: replacementCodexModel(name)
+
+    /** Old settings and conversation snapshots keep using ChatGPT when their model is withdrawn. */
+    fun replacementCodexModel(name: String): ModelEntry? {
+        if (name in entries || !isCodexSelection(name)) return null
+        val oldId = name.removePrefix("openai_codex:").removeSuffix("-codex")
+        val available = modelsFor(LLMProvider.OPENAI_CODEX)
+        return available.find { it.modelId == oldId } ?: available.firstOrNull()
+    }
 
     /** All entries, in insertion order. */
     fun all(): List<ModelEntry> = entries.values.toList()
@@ -153,6 +161,11 @@ class ModelCatalog private constructor(private val entries: Map<String, ModelEnt
 
     companion object {
         const val DEFAULT_MODEL = "gpt-5.5"
+        // A signed-in user waiting for the first catalog must stay on the ChatGPT provider.
+        const val PENDING_CODEX_MODEL = "openai_codex:auto"
+        fun isCodexSelection(name: String): Boolean = name.startsWith("openai_codex:") ||
+            name in setOf("gpt-5.2-codex", "gpt-5.4-codex", "gpt-5.5-codex")
+
         private val retiredModelNames = setOf(
             "glm-5", "glm-4.7", "minimax-m2.5", "kimi-k2.5", "qwen3.5", "qwen3-vl-235b-a22b-instruct",
         )

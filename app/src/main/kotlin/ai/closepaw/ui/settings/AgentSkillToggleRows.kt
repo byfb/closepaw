@@ -1,5 +1,9 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import ai.closepaw.agent.cognition.skills.AgentSkillCatalog
 import ai.closepaw.agent.cognition.skills.AgentSkillEntry
 import ai.closepaw.app.AppSettingsStore
@@ -40,7 +44,6 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 private const val TAG = "AgentSkillToggleRows"
-private const val NEXT_SESSION_SUBTITLE = "Takes effect next session"
 
 /**
  * Per-skill toggle rows inside the Agent Behavior → Tools section.
@@ -63,6 +66,7 @@ internal fun AgentSkillToggleRows(
     isSessionRunning: Boolean = false,
     skillsLoader: (suspend () -> List<AgentSkillLoaderResult>)? = null,
 ) {
+    val strings = uiResources()
     val context = LocalContext.current
     val appContext = context.applicationContext
     val settingsStore = remember(appContext) { AppSettingsStore(appContext) }
@@ -77,7 +81,7 @@ internal fun AgentSkillToggleRows(
         loadState = try {
             SkillsLoadState.Loaded(effectiveLoader.invoke())
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to load agent skill catalog", e)
+            Log.w(TAG, strings.getString(R.string.ui_failed_to_load_agent_skill_catalog), e)
             SkillsLoadState.Loaded(emptyList())
         }
     }
@@ -90,21 +94,18 @@ internal fun AgentSkillToggleRows(
     // Top padding lives here (not in ToolsSection) so an empty/loading catalog leaves zero
     // gap under the preceding Tools rows. Only paid once the section actually renders.
     Spacer(modifier = Modifier.height(20.dp))
-    SettingsSection(title = "Agent Skills") {
+    SettingsSection(title = strings.getString(R.string.ui_agent_skills)) {
         Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.md)) {
             skills.forEach { result ->
                 val skill = result.entry
                 val isDisabled = skill.name in disabledSkills
                 val isEnabled = !isDisabled
-                val subtitle = when {
-                    isDisabled && isSessionRunning -> NEXT_SESSION_SUBTITLE
-                    else -> skill.description
-                }
                 ToolSettingsCard(
                     title = skill.name,
                     status = ToolStatusUi(
-                        label = if (isEnabled) "Enabled" else "Disabled",
-                        subtitle = subtitle,
+                        label = if (isEnabled) R.string.ui_enabled else R.string.ui_disabled,
+                        subtitle = R.string.ui_takes_effect_next_session.takeIf { isDisabled && isSessionRunning },
+                        description = skill.description,
                         tone = if (isEnabled) ToolStatusTone.Positive else ToolStatusTone.Neutral,
                     ),
                     switchChecked = isEnabled,
@@ -114,7 +115,7 @@ internal fun AgentSkillToggleRows(
                         }
                     },
                     trailingInfoIcon = { viewerSkill = result },
-                    trailingInfoIconLabel = "View ${skill.name} prompt",
+                    trailingInfoIconLabel = strings.getString(R.string.ui_view_prompt, skill.name),
                 )
             }
         }
@@ -130,6 +131,7 @@ private fun SkillContentDialog(
     result: AgentSkillLoaderResult,
     onDismiss: () -> Unit,
 ) {
+    val strings = uiResources()
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -168,7 +170,7 @@ private fun SkillContentDialog(
                 }
                 Spacer(modifier = Modifier.padding(top = MaterialTheme.closePaw.spacing.md))
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                    TextButton(onClick = onDismiss) { Text("Close") }
+                    TextButton(onClick = onDismiss) { Text(strings.getString(R.string.ui_close)) }
                 }
             }
         }

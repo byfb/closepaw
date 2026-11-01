@@ -1,5 +1,7 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.R
+
 import ai.closepaw.browser.setup.CommandLineWriter
 import ai.closepaw.platform.virtualdisplay.PermissionRequestResult
 import ai.closepaw.platform.virtualdisplay.ShizukuClient
@@ -44,13 +46,13 @@ internal sealed interface BrowserScriptToggleError {
     data object WriteFailed : BrowserScriptToggleError
 }
 
-internal fun BrowserScriptToggleError.message(): String = when (this) {
+internal fun BrowserScriptToggleError.message(): Int = when (this) {
     BrowserScriptToggleError.ShizukuUnavailable ->
-        "Shizuku is not running. Start Shizuku first, then enable browser_script."
+        R.string.ui_browser_script_needs_shizuku
     BrowserScriptToggleError.ShizukuPermissionDenied ->
-        "Permission denied. Tap to retry, or re-grant in Shizuku Manager."
+        R.string.ui_permission_denied_tap_to_retry_or_re_grant_in_shizuku_manager
     BrowserScriptToggleError.WriteFailed ->
-        "Could not write Chrome's command-line file. Check Shizuku and try again."
+        R.string.ui_chrome_command_file_error
 }
 
 /**

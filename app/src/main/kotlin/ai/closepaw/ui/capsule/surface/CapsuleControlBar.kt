@@ -1,5 +1,9 @@
 package ai.closepaw.ui.capsule.surface
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -237,25 +241,26 @@ private fun NavButtonCluster(
     navSpec: NavSpec,
     onNavigate: (NavAction) -> Unit,
 ) {
+    val strings = uiResources()
     Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.xs)) {
         if (navSpec.showMinimize) {
             NavIconButton(
                 icon = Icons.Rounded.RemoveCircleOutline,
-                contentDescription = "Minimize",
+                contentDescription = strings.getString(R.string.ui_minimize),
                 onClick = { onNavigate(NavAction.MINIMIZE) },
             )
         }
         if (navSpec.showApp) {
             NavIconButton(
                 icon = Icons.Rounded.PhoneAndroid,
-                contentDescription = "Open app",
+                contentDescription = strings.getString(R.string.ui_open_app),
                 onClick = { onNavigate(NavAction.OPEN_APP) },
             )
         }
         if (navSpec.showWatch) {
             NavIconButton(
                 icon = Icons.Rounded.Visibility,
-                contentDescription = "Open viewer",
+                contentDescription = strings.getString(R.string.ui_open_viewer),
                 onClick = { onNavigate(NavAction.OPEN_VIEWER) },
             )
         }

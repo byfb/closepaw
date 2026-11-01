@@ -48,7 +48,7 @@ class GptLiveRemoteTest {
                 for (voice in listOf(LiveVoice.COVE, LiveVoice.JUNIPER)) withTimeout(45_000) {
                     val events = Channel<JsonObject>(128)
                     val audioPlayed = CompletableDeferred<Unit>()
-                    val call = LiveCallClient(http, headers = {
+                    val call = LiveCallClient(ai.closepaw.ui.theme.appResources(context), http, headers = {
                         withContext(Dispatchers.IO) { auth.codexHeaders(LLMProvider.OPENAI_CODEX) }
                     }, preferences = LiveVoicePreferences(voice, LiveLanguage.ENGLISH), preview = true)
                     val transport = WebRtcLiveTransport(context, call::create,

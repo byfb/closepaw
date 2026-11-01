@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="suggested_request">%1$s %2$s</string>
+    <string name="live_cantonese">香港粵語</string>
+    <string name="live_mandarin">普通話</string>
+    <string name="live_english">English</string>
+</resources>

@@ -1,5 +1,7 @@
 package ai.closepaw.ui.onboarding
 
+import ai.closepaw.ui.theme.uiResources
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,6 +48,7 @@ fun OnboardingShell(
     onBack: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
+    val strings = uiResources()
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -67,14 +70,14 @@ fun OnboardingShell(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = strings.getString(R.string.ui_back),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     Spacer(modifier = Modifier.width(spacing.xs))
                 }
                 Text(
-                    text = "Step $stepIndex of $totalSteps",
+                    text = strings.getString(R.string.ui_step_of, stepIndex, totalSteps),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

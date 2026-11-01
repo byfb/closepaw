@@ -1,5 +1,9 @@
 package ai.closepaw.ui.capsule.surface
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import android.app.Activity
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -104,6 +108,7 @@ internal fun CapsuleInputBar(
     onSubmit: (String) -> Unit,
     voice: VoiceMicDeps? = null,
 ) {
+    val strings = uiResources()
     var inputText by remember { mutableStateOf("") }
 
     // Restore preserved input after a session bootstrap failure. Seeds once per
@@ -155,7 +160,7 @@ internal fun CapsuleInputBar(
             if (granted) {
                 voiceController?.start(baseText = inputText)
             } else {
-                reportVoiceFeedback("Microphone permission denied")
+                reportVoiceFeedback(strings.getString(R.string.ui_microphone_permission_denied))
             }
         }
     } else {
@@ -163,9 +168,9 @@ internal fun CapsuleInputBar(
     }
 
     val hint = when {
-        voiceState == VoiceState.Listening -> "Listening…"
+        voiceState == VoiceState.Listening -> strings.getString(R.string.ui_listening)
         inputEnabled -> spec.hint
-        else -> "Take over to type note"
+        else -> strings.getString(R.string.ui_take_over_to_type_note)
     }
     val autoFocus = autoFocusInput && mode is CapsuleMode.WaitingForInput
 
@@ -221,7 +226,7 @@ internal fun CapsuleInputBar(
                 VoicePermissionDisposition.Request ->
                     gate.requestPermission()
                 VoicePermissionDisposition.OpenAppSettings -> {
-                    reportVoiceFeedback("Microphone permission is disabled. Re-enable it in Android Settings.")
+                    reportVoiceFeedback(strings.getString(R.string.ui_mic_permission_disabled))
                     gate.openAppSettings()
                 }
             }
@@ -229,7 +234,7 @@ internal fun CapsuleInputBar(
             if (v.isPermissionGranted()) {
                 voiceController?.start(baseText = inputText)
             } else {
-                reportVoiceFeedback("Microphone permission is required")
+                reportVoiceFeedback(strings.getString(R.string.ui_microphone_permission_is_required))
                 v.requestOverlayPermission()
             }
         }
@@ -249,7 +254,7 @@ internal fun CapsuleInputBar(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Mic,
-                            contentDescription = "Start voice input",
+                            contentDescription = strings.getString(R.string.ui_start_voice_input),
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -268,7 +273,7 @@ internal fun CapsuleInputBar(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.StopCircle,
-                            contentDescription = "Stop voice input",
+                            contentDescription = strings.getString(R.string.ui_stop_voice_input),
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp),
                         )
@@ -289,7 +294,7 @@ internal fun CapsuleInputBar(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.StopCircle,
-                            contentDescription = "Stopping voice input",
+                            contentDescription = strings.getString(R.string.ui_stopping_voice_input),
                             modifier = Modifier.size(18.dp),
                         )
                     }

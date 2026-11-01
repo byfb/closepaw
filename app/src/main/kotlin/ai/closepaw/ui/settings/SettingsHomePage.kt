@@ -1,5 +1,9 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -52,8 +56,9 @@ internal fun SettingsHomePage(
     onNavigate: (SettingsPage) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val strings = uiResources()
     Column(modifier = Modifier.fillMaxWidth()) {
-        PageMastheadIdentity(title = "Settings", onClose = onDismiss)
+        PageMastheadIdentity(title = strings.getString(R.string.ui_settings), onClose = onDismiss)
 
         Column(
             modifier = Modifier
@@ -62,13 +67,13 @@ internal fun SettingsHomePage(
                 .padding(horizontal = MaterialTheme.closePaw.spacing.lg),
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm)
         ) {
-            SectionHeader("Personalization")
-            SettingsNavigationRow(title = "Appearance", subtitle = "", onClick = { onNavigate(SettingsPage.APPEARANCE) })
-            SettingsNavigationRow(title = "Custom instructions", subtitle = "", onClick = { onNavigate(SettingsPage.CUSTOM_INSTRUCTIONS) })
-            SectionHeader("Behavior")
+            SectionHeader(strings.getString(R.string.ui_personalization))
+            SettingsNavigationRow(title = strings.getString(R.string.ui_appearance), subtitle = "", onClick = { onNavigate(SettingsPage.APPEARANCE) })
+            SettingsNavigationRow(title = strings.getString(R.string.ui_custom_instructions), subtitle = "", onClick = { onNavigate(SettingsPage.CUSTOM_INSTRUCTIONS) })
+            SectionHeader(strings.getString(R.string.ui_behavior))
             SettingsNavigationRow(
-                title = "LLM & Authentication",
-                subtitle = llmSubtitle(llmBackend, selectedModel, modelOptions, selectedLocalModel, modelCatalog),
+                title = strings.getString(R.string.ui_llm_authentication),
+                subtitle = llmSubtitle(strings, llmBackend, selectedModel, modelOptions, selectedLocalModel, modelCatalog),
                 onClick = { onNavigate(SettingsPage.LLM_AUTH) }
             )
             SettingsNavigationRow(
@@ -77,39 +82,39 @@ internal fun SettingsHomePage(
                 onClick = { onNavigate(SettingsPage.GPT_LIVE) }
             )
             SettingsNavigationRow(
-                title = "Agent Behavior",
-                subtitle = agentBehaviorSubtitle(perceptionMode, platformMode, effectivePlatformMode, approvalMode),
+                title = strings.getString(R.string.ui_agent_behavior),
+                subtitle = agentBehaviorSubtitle(strings, perceptionMode, platformMode, effectivePlatformMode, approvalMode),
                 onClick = { onNavigate(SettingsPage.AGENT_BEHAVIOR) }
             )
             SettingsNavigationRow(
-                title = "Memory",
-                subtitle = "User and device knowledge",
+                title = strings.getString(R.string.ui_memory),
+                subtitle = strings.getString(R.string.ui_user_and_device_knowledge),
                 onClick = { onNavigate(SettingsPage.MEMORY) }
             )
 
-            SectionHeader("Access")
+            SectionHeader(strings.getString(R.string.ui_access))
             SettingsNavigationRow(
-                title = "App Access",
+                title = strings.getString(R.string.ui_app_access),
                 subtitle = appAccessSubtitle(appClassifier, approvalMode),
                 onClick = { onNavigate(SettingsPage.APP_ACCESS) }
             )
             SettingsNavigationRow(
-                title = "System & Debug",
-                subtitle = permissionsSubtitle(isAccessibilityEnabled, isOverlayEnabled, debugMode),
+                title = strings.getString(R.string.ui_system_debug),
+                subtitle = permissionsSubtitle(strings, isAccessibilityEnabled, isOverlayEnabled, debugMode),
                 onClick = { onNavigate(SettingsPage.PERMISSIONS_ADVANCED) }
             )
 
-            SectionHeader("About")
+            SectionHeader(strings.getString(R.string.ui_about))
             SettingsNavigationRow(
-                title = "Open Source Licenses",
-                subtitle = "ClosePaw is Apache 2.0 · view third-party notices",
+                title = strings.getString(R.string.ui_open_source_licenses),
+                subtitle = strings.getString(R.string.ui_closepaw_is_apache_2_0_view_third_party_notices),
                 onClick = { onNavigate(SettingsPage.OPEN_SOURCE_LICENSES) }
             )
 
             Fleuron()
 
             Text(
-                text = "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                text = strings.getString(R.string.ui_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
                 style = MaterialTheme.closePaw.monoSmall,
                 color = MaterialTheme.closePaw.inkFaint,
                 textAlign = TextAlign.Center,
@@ -122,6 +127,7 @@ internal fun SettingsHomePage(
 }
 
 private fun llmSubtitle(
+    strings: android.content.res.Resources,
     llmBackend: LLMBackendType,
     selectedModel: String,
     modelOptions: List<Pair<String, String>>,
@@ -134,53 +140,56 @@ private fun llmSubtitle(
     val mode = modelCatalog.resolveOrNull(selectedModel)?.provider?.mode
     val authLabel = when (mode) {
         AuthMode.OAuth -> "OAuth"
-        AuthMode.ApiKey -> "API key"
-        AuthMode.Local, null -> "API key"
+        AuthMode.ApiKey -> strings.getString(R.string.ui_api_key_subtitle)
+        AuthMode.Local, null -> strings.getString(R.string.ui_api_key_subtitle)
     }
     "$modelName · $authLabel"
 }
 
 private fun agentBehaviorSubtitle(
+    strings: android.content.res.Resources,
     perceptionMode: String,
     platformMode: PlatformMode,
     effectivePlatformMode: PlatformMode?,
     approvalMode: ApprovalMode,
 ): String {
     val approvalChip = when (approvalMode) {
-        ApprovalMode.SMART -> "Per-App"
-        ApprovalMode.AUTO_APPROVE -> "Auto-Approve"
-        ApprovalMode.ALWAYS_ASK -> "Always Ask"
+        ApprovalMode.SMART -> strings.getString(R.string.ui_per_app)
+        ApprovalMode.AUTO_APPROVE -> strings.getString(R.string.ui_auto_approve)
+        ApprovalMode.ALWAYS_ASK -> strings.getString(R.string.ui_always_ask)
     }
     val perceptionChip = when (perceptionMode) {
-        "hybrid" -> "Transcript + Image"
-        "screenshot_only" -> "Image"
-        else -> "Transcript"
+        "hybrid" -> strings.getString(R.string.ui_transcript_image)
+        "screenshot_only" -> strings.getString(R.string.ui_image)
+        else -> strings.getString(R.string.ui_transcript)
     }
     val displayChip = when (platformMode) {
         PlatformMode.ACCESSIBILITY -> when (effectivePlatformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> " · Virtual Display (this session)"
+            PlatformMode.VIRTUAL_DISPLAY -> strings.getString(R.string.ui_virtual_display_this_session)
             else -> ""
         }
         PlatformMode.VIRTUAL_DISPLAY -> when (effectivePlatformMode) {
-            PlatformMode.ACCESSIBILITY -> " · Virtual Display (next session)"
-            else -> " · Virtual Display"
+            PlatformMode.ACCESSIBILITY -> strings.getString(R.string.ui_virtual_display_next_session)
+            else -> strings.getString(R.string.ui_virtual_display_suffix)
         }
     }
     return "$approvalChip · $perceptionChip$displayChip"
 }
 
 private fun permissionsSubtitle(
+    strings: android.content.res.Resources,
     isAccessibilityEnabled: Boolean,
     isOverlayEnabled: Boolean,
     debugMode: Boolean,
 ): String {
     val grantedCount = listOf(isAccessibilityEnabled, isOverlayEnabled).count { it }
     val permSummary = when (grantedCount) {
-        2 -> "All granted"
-        1 -> "1 of 2 granted"
-        else -> "Setup required"
+        2 -> strings.getString(R.string.ui_all_granted)
+        1 -> strings.getString(R.string.ui_1_of_2_granted)
+        else -> strings.getString(R.string.ui_setup_required)
     }
-    return "$permSummary · Debug ${if (debugMode) "on" else "off"}"
+    val debug = if (debugMode) strings.getString(R.string.ui_debug_on) else strings.getString(R.string.ui_debug_off)
+    return "$permSummary · $debug"
 }
 
 /**
@@ -193,6 +202,7 @@ private fun permissionsSubtitle(
  */
 @Composable
 private fun appAccessSubtitle(classifier: AppClassifier, approvalMode: ApprovalMode): String {
+    val strings = uiResources()
     val context = LocalContext.current
     val overrides by classifier.userOverrides.collectAsState()
     val counts by produceState<Triple<Int, Int, Int>?>(
@@ -213,10 +223,10 @@ private fun appAccessSubtitle(classifier: AppClassifier, approvalMode: ApprovalM
         }
     }
     val modeLabel = when (approvalMode) {
-        ApprovalMode.SMART -> "Per-App"
-        ApprovalMode.AUTO_APPROVE -> "Auto-Approve"
-        ApprovalMode.ALWAYS_ASK -> "Always Ask"
+        ApprovalMode.SMART -> strings.getString(R.string.ui_per_app)
+        ApprovalMode.AUTO_APPROVE -> strings.getString(R.string.ui_auto_approve)
+        ApprovalMode.ALWAYS_ASK -> strings.getString(R.string.ui_always_ask)
     }
-    return counts?.let { (a, k, r) -> "$modeLabel · $a Allow · $k Ask · $r Reject" }
+    return counts?.let { (a, k, r) -> strings.getString(R.string.ui_allow_ask_reject, modeLabel, a, k, r) }
         ?: "$modeLabel · …"
 }

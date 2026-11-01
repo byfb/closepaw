@@ -227,6 +227,7 @@ class ModelCatalogRepositoryTest {
         val repo = ModelCatalogRepository(
             contextReturningAsset(seedBytes()), fakeSettingsStore("", ""),
             ModelDiscoveryCache(realContextForCache()),
+            codexAccountScope = { "test-account" },
             codexHeaderSupplier = { CodexHeaders(token, "account", null) },
             discoverCodexFn = { headers ->
                 seenTokens.add(headers.accessToken)
@@ -239,6 +240,36 @@ class ModelCatalogRepositoryTest {
         repo.refreshCodex()
         assertThat(seenTokens).containsExactly("first-token", "rotated-token").inOrder()
         assertThat(repo.catalog.value.resolve("openai_codex:codex-test").api).isEqualTo(ApiType.RESPONSE)
+    }
+
+    @Test
+    fun `ChatGPT picker and old selections follow the current account response`() = runTest {
+        var owner: String? = "A"
+        var body = """{"models":[{"slug":"available","visibility":"list"},{"slug":"hidden","visibility":"hide"}]}"""
+        val repo = ModelCatalogRepository(contextReturningAsset(seedBytes()), fakeSettingsStore("", ""),
+            ModelDiscoveryCache(realContextForCache()),
+            codexAccountScope = { owner }, codexHeaderSupplier = { CodexHeaders("token", owner, null) },
+            discoverCodexFn = { ModelDiscovery.parse(LLMProvider.OPENAI_CODEX, ModelDiscovery.CODEX_BASE_URL, body) },
+        )
+        fun ids() = repo.catalog.value.modelsFor(LLMProvider.OPENAI_CODEX).map { it.modelId }
+        assertThat(ids()).isEmpty()
+        repo.refreshCodex()
+        assertThat(ids()).containsExactly("available")
+        assertThat(repo.catalog.value.resolve("gpt-5.5-codex").modelId).isEqualTo("available")
+        assertThat(repo.catalog.value.resolve("gpt-5.5").provider).isEqualTo(LLMProvider.OPENAI_API)
+
+        body = "invalid"
+        repo.refreshCodex()
+        assertThat(ids()).containsExactly("available")
+        owner = "B"
+        repo.refreshCodex()
+        assertThat(ids()).isEmpty() // A failed first refresh cannot show A's cache.
+        owner = "A"
+        repo.refreshCodex(force = false)
+        assertThat(ids()).containsExactly("available")
+        body = """{"models":[]}"""
+        repo.refreshCodex()
+        assertThat(ids()).isEmpty() // A valid empty list withdraws the last model.
     }
 
     @Test

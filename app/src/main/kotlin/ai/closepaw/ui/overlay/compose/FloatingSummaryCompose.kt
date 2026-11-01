@@ -1,5 +1,9 @@
 package ai.closepaw.ui.overlay.compose
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import ai.closepaw.ui.capsule.surface.StatusPawGlyph
 import ai.closepaw.ui.overlay.model.CapsuleMode
 import ai.closepaw.voice.LiveTaskStatus
@@ -36,20 +40,21 @@ internal fun FloatingSummaryCompose(
     onMute: () -> Unit,
     onEndVoice: () -> Unit,
 ) {
+    val strings = uiResources()
     val hasTask = mode !is CapsuleMode.Hidden
     val voiceVisible = voice.showInOverlay
     val title = when (mode) {
-        is CapsuleMode.Running -> "Working"
-        is CapsuleMode.TakeoverPending -> "Handing over…"
-        is CapsuleMode.Takeover -> "Paused"
+        is CapsuleMode.Running -> strings.getString(R.string.ui_working)
+        is CapsuleMode.TakeoverPending -> strings.getString(R.string.ui_handing_over)
+        is CapsuleMode.Takeover -> strings.getString(R.string.ui_paused)
         is CapsuleMode.Done -> when (task) {
-            LiveTaskStatus.FAILED, LiveTaskStatus.STOPPED -> task.label
-            else -> "Task complete"
+            LiveTaskStatus.FAILED, LiveTaskStatus.STOPPED -> strings.getString(task.label)
+            else -> strings.getString(R.string.ui_task_complete)
         }
-        is CapsuleMode.Error -> "Task failed"
+        is CapsuleMode.Error -> strings.getString(R.string.ui_task_failed)
         is CapsuleMode.WaitingForInput, is CapsuleMode.WaitingForAction,
-        is CapsuleMode.WaitingForApproval -> "Needs your input"
-        is CapsuleMode.Hidden -> if (voice.running) "GPT-Live" else voiceStatus(voice, task)
+        is CapsuleMode.WaitingForApproval -> strings.getString(R.string.ui_needs_your_input)
+        is CapsuleMode.Hidden -> if (voice.running) "GPT-Live" else voiceStatus(strings, voice, task)
     }
     val summary = when (mode) {
         is CapsuleMode.Running -> mode.thought
@@ -59,7 +64,7 @@ internal fun FloatingSummaryCompose(
         is CapsuleMode.Error -> mode.message
         is CapsuleMode.WaitingForInput -> mode.question
         is CapsuleMode.WaitingForAction -> mode.instruction
-        is CapsuleMode.WaitingForApproval -> "Allow ClosePaw to operate ${mode.appLabel}?"
+        is CapsuleMode.WaitingForApproval -> strings.getString(R.string.ui_allow_closepaw_to_operate, mode.appLabel)
         is CapsuleMode.Hidden -> ""
     }
     Surface(
@@ -77,7 +82,7 @@ internal fun FloatingSummaryCompose(
                     modifier = Modifier.weight(1f).padding(start = 8.dp),
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
                 IconButton(onClick = onMinimize, modifier = Modifier.size(48.dp)) {
-                    Icon(Icons.Rounded.KeyboardArrowUp, "Minimize summary")
+                    Icon(Icons.Rounded.KeyboardArrowUp, strings.getString(R.string.ui_minimize_summary))
                 }
             }
             // Keep controls reachable in landscape and with enlarged system text.
@@ -92,20 +97,20 @@ internal fun FloatingSummaryCompose(
                     maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
             if (voiceVisible && voice.running) Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(voiceStatus(voice, task), style = MaterialTheme.typography.labelMedium,
+                Text(voiceStatus(strings, voice, task), style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (voice.phase == LiveVoicePhase.Active) IconButton(onClick = onMute, modifier = Modifier.size(48.dp)) {
                     Icon(if (voice.muted) Icons.Rounded.MicOff else Icons.Rounded.Mic,
-                        if (voice.muted) "Unmute GPT-Live" else "Mute GPT-Live")
+                        if (voice.muted) strings.getString(R.string.ui_unmute_gpt_live) else strings.getString(R.string.ui_mute_gpt_live))
                 }
                 IconButton(onClick = onEndVoice, modifier = Modifier.size(48.dp)) {
-                    Icon(Icons.Rounded.CallEnd, "End GPT-Live", tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Rounded.CallEnd, strings.getString(R.string.ui_end_gpt_live), tint = MaterialTheme.colorScheme.error)
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 if (hasTask && mode !is CapsuleMode.Done) TextButton(onClick = onOpenControls,
-                    modifier = Modifier.heightIn(min = 48.dp)) { Text("Controls") }
-                TextButton(onClick = onOpenChat, modifier = Modifier.heightIn(min = 48.dp)) { Text("Open chat") }
+                    modifier = Modifier.heightIn(min = 48.dp)) { Text(strings.getString(R.string.ui_controls)) }
+                TextButton(onClick = onOpenChat, modifier = Modifier.heightIn(min = 48.dp)) { Text(strings.getString(R.string.ui_open_chat)) }
             }
         }
     }

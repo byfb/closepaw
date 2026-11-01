@@ -1,5 +1,7 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.R
+
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
@@ -13,7 +15,7 @@ import org.junit.Test
  */
 class BrowserScriptStatusMapperTest {
 
-    // Row 1: Off, no error → "Disabled"
+    // Row 1: Off, no error → R.string.ui_disabled
     @Test
     fun `pref off with no error and no pending maps to Disabled`() {
         val result = browserScriptStatusUi(
@@ -22,14 +24,14 @@ class BrowserScriptStatusMapperTest {
             gateError = null,
             probeResult = BrowserScriptProbeState.Unknown,
         )
-        assertThat(result.status.label).isEqualTo("Disabled")
-        assertThat(result.status.subtitle).isEqualTo("Toggle to enable")
+        assertThat(result.status.label).isEqualTo(R.string.ui_disabled)
+        assertThat(result.status.subtitle).isEqualTo(R.string.ui_toggle_to_enable)
         assertThat(result.status.tone).isEqualTo(ToolStatusTone.Neutral)
         assertThat(result.status.showSpinner).isFalse()
         assertThat(result.rowAction).isNull()
     }
 
-    // Row 2: Pending (gate running) → "Setting up…"
+    // Row 2: Pending (gate running) → R.string.ui_setting_up
     @Test
     fun `gate pending wins over pref off and probe state — Setting up with spinner`() {
         val result = browserScriptStatusUi(
@@ -38,14 +40,14 @@ class BrowserScriptStatusMapperTest {
             gateError = null,
             probeResult = BrowserScriptProbeState.Bound,
         )
-        assertThat(result.status.label).isEqualTo("Setting up…")
-        assertThat(result.status.subtitle).isEqualTo("Checking Shizuku…")
+        assertThat(result.status.label).isEqualTo(R.string.ui_setting_up)
+        assertThat(result.status.subtitle).isEqualTo(R.string.ui_checking_shizuku)
         assertThat(result.status.tone).isEqualTo(ToolStatusTone.Neutral)
         assertThat(result.status.showSpinner).isTrue()
         assertThat(result.rowAction).isNull()
     }
 
-    // Row 3: Gate error (any variant) → "Needs Setup" + ClearErrorAndRetry row action
+    // Row 3: Gate error (any variant) → R.string.ui_needs_setup + ClearErrorAndRetry row action
     @Test
     fun `gate error ShizukuUnavailable maps to Needs Setup with verbatim message subtitle`() {
         val result = browserScriptStatusUi(
@@ -54,9 +56,9 @@ class BrowserScriptStatusMapperTest {
             gateError = BrowserScriptToggleError.ShizukuUnavailable,
             probeResult = BrowserScriptProbeState.Bound,
         )
-        assertThat(result.status.label).isEqualTo("Needs Setup")
+        assertThat(result.status.label).isEqualTo(R.string.ui_needs_setup)
         assertThat(result.status.subtitle).isEqualTo(
-            "Shizuku is not running. Start Shizuku first, then enable browser_script."
+            R.string.ui_browser_script_needs_shizuku
         )
         assertThat(result.status.tone).isEqualTo(ToolStatusTone.Warning)
         assertThat(result.status.showSpinner).isFalse()
@@ -71,9 +73,9 @@ class BrowserScriptStatusMapperTest {
             gateError = BrowserScriptToggleError.ShizukuPermissionDenied,
             probeResult = BrowserScriptProbeState.Unknown,
         )
-        assertThat(result.status.label).isEqualTo("Needs Setup")
+        assertThat(result.status.label).isEqualTo(R.string.ui_needs_setup)
         assertThat(result.status.subtitle).isEqualTo(
-            "Permission denied. Tap to retry, or re-grant in Shizuku Manager."
+            R.string.ui_permission_denied_tap_to_retry_or_re_grant_in_shizuku_manager
         )
         assertThat(result.status.tone).isEqualTo(ToolStatusTone.Warning)
         assertThat(result.rowAction).isEqualTo(RowAction.ClearErrorAndRetry)
@@ -87,15 +89,15 @@ class BrowserScriptStatusMapperTest {
             gateError = BrowserScriptToggleError.WriteFailed,
             probeResult = BrowserScriptProbeState.Unknown,
         )
-        assertThat(result.status.label).isEqualTo("Needs Setup")
+        assertThat(result.status.label).isEqualTo(R.string.ui_needs_setup)
         assertThat(result.status.subtitle).isEqualTo(
-            "Could not write Chrome's command-line file. Check Shizuku and try again."
+            R.string.ui_chrome_command_file_error
         )
         assertThat(result.status.tone).isEqualTo(ToolStatusTone.Warning)
         assertThat(result.rowAction).isEqualTo(RowAction.ClearErrorAndRetry)
     }
 
-    // Row 4: On, probe Probing → "Checking…"
+    // Row 4: On, probe Probing → R.string.ui_status_checking
     @Test
     fun `pref on with probe Probing maps to Checking with spinner`() {
         val result = browserScriptStatusUi(
@@ -104,14 +106,14 @@ class BrowserScriptStatusMapperTest {
             gateError = null,
             probeResult = BrowserScriptProbeState.Probing,
         )
-        assertThat(result.status.label).isEqualTo("Checking…")
-        assertThat(result.status.subtitle).isEqualTo("Checking Chrome devtools socket…")
+        assertThat(result.status.label).isEqualTo(R.string.ui_status_checking)
+        assertThat(result.status.subtitle).isEqualTo(R.string.ui_checking_chrome_devtools_socket)
         assertThat(result.status.tone).isEqualTo(ToolStatusTone.Neutral)
         assertThat(result.status.showSpinner).isTrue()
         assertThat(result.rowAction).isNull()
     }
 
-    // Row 5: On, probe Bound → "Ready"
+    // Row 5: On, probe Bound → R.string.ui_ready
     @Test
     fun `pref on with probe Bound maps to Ready Positive`() {
         val result = browserScriptStatusUi(
@@ -120,14 +122,14 @@ class BrowserScriptStatusMapperTest {
             gateError = null,
             probeResult = BrowserScriptProbeState.Bound,
         )
-        assertThat(result.status.label).isEqualTo("Ready")
-        assertThat(result.status.subtitle).isEqualTo("browser_script active")
+        assertThat(result.status.label).isEqualTo(R.string.ui_ready)
+        assertThat(result.status.subtitle).isEqualTo(R.string.ui_browser_script_active)
         assertThat(result.status.tone).isEqualTo(ToolStatusTone.Positive)
         assertThat(result.status.showSpinner).isFalse()
         assertThat(result.rowAction).isNull()
     }
 
-    // Row 6: On, probe NotBound → "Needs Setup" (expanded slot owns the CTA, NOT row tap)
+    // Row 6: On, probe NotBound → R.string.ui_needs_setup (expanded slot owns the CTA, NOT row tap)
     @Test
     fun `pref on with probe NotBound maps to Needs Setup with no row action`() {
         val result = browserScriptStatusUi(
@@ -136,9 +138,9 @@ class BrowserScriptStatusMapperTest {
             gateError = null,
             probeResult = BrowserScriptProbeState.NotBound,
         )
-        assertThat(result.status.label).isEqualTo("Needs Setup")
+        assertThat(result.status.label).isEqualTo(R.string.ui_needs_setup)
         assertThat(result.status.subtitle).isEqualTo(
-            "Chrome devtools socket not exposed. Enable the flag and restart Chrome."
+            R.string.ui_chrome_enable_flag
         )
         assertThat(result.status.tone).isEqualTo(ToolStatusTone.Warning)
         assertThat(result.status.showSpinner).isFalse()
@@ -146,7 +148,7 @@ class BrowserScriptStatusMapperTest {
         assertThat(result.rowAction).isNull()
     }
 
-    // Row 7: On, probe Unknown → "Not available"
+    // Row 7: On, probe Unknown → R.string.ui_not_available
     @Test
     fun `pref on with probe Unknown maps to Not available Warning`() {
         val result = browserScriptStatusUi(
@@ -155,9 +157,9 @@ class BrowserScriptStatusMapperTest {
             gateError = null,
             probeResult = BrowserScriptProbeState.Unknown,
         )
-        assertThat(result.status.label).isEqualTo("Not available")
+        assertThat(result.status.label).isEqualTo(R.string.ui_not_available)
         assertThat(result.status.subtitle).isEqualTo(
-            "Cannot probe socket on this device — the agent will still try to connect when needed."
+            R.string.ui_chrome_probe_unavailable
         )
         assertThat(result.status.tone).isEqualTo(ToolStatusTone.Warning)
         assertThat(result.status.showSpinner).isFalse()
@@ -176,7 +178,7 @@ class BrowserScriptStatusMapperTest {
             gateError = BrowserScriptToggleError.WriteFailed,
             probeResult = BrowserScriptProbeState.Bound,
         )
-        assertThat(result.status.label).isEqualTo("Setting up…")
+        assertThat(result.status.label).isEqualTo(R.string.ui_setting_up)
         assertThat(result.rowAction).isNull()
     }
 
@@ -188,7 +190,7 @@ class BrowserScriptStatusMapperTest {
             gateError = BrowserScriptToggleError.ShizukuUnavailable,
             probeResult = BrowserScriptProbeState.Bound,
         )
-        assertThat(result.status.label).isEqualTo("Needs Setup")
+        assertThat(result.status.label).isEqualTo(R.string.ui_needs_setup)
         assertThat(result.rowAction).isEqualTo(RowAction.ClearErrorAndRetry)
     }
 }

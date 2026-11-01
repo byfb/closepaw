@@ -1,7 +1,7 @@
 # LLM Integration
 
 > LLM clients, model catalog, streaming, and retry infrastructure.
-> Last updated: 2026-05-26 (added OPENAI_CODEX seed alias for gpt-5.5)
+> Last updated: 2026-11-01 (account-scoped ChatGPT catalog)
 
 ## Overview
 
@@ -76,7 +76,7 @@ Catalog-driven model resolution from `assets/llm_models.json`.
 
 **ModelEntry**: `name` (stable ID), `displayName`, `provider: LLMProvider`, `api: ApiType`, `modelId` (sent to API), optional `baseUrl`/`apiKeyEnv` overrides, `supportsVision`.
 
-Seed catalog note: OpenAI models are mirrored per auth mode (API key vs ChatGPT sign-in), e.g. `gpt-5.2`/`gpt-5.2-codex`, `gpt-5.4`/`gpt-5.4-codex`, `gpt-5.5`/`gpt-5.5-codex`.
+The bundled catalog provides API-key defaults. ChatGPT sign-in shows only the visible models returned by the signed-in account's Codex catalog. A retired ChatGPT selection resolves to the same wire model if still available, otherwise to the first available ChatGPT model.
 
 **LLMProvider** (flat enum, mode encoded per entry):
 - `OPENAI_API` (mode=ApiKey, default key: `OPENAI_API_KEY`)
@@ -100,7 +100,7 @@ App-singleton (`ModelCatalogRepositoryHolder`) exposing `StateFlow<ModelCatalog>
 2. Synthesized `other-custom` row (when `otherBaseUrl` + `otherModelId` both valid).
 3. Discovered entries from `ModelDiscoveryCache`, scoped by current effective baseUrl per provider — stale cache entries for the OLD `otherBaseUrl` are hidden so the user can't accidentally send a fresh key to the wrong endpoint.
 
-`refresh(provider, key, baseUrl)` supports OpenAI API and Other via `GET {baseUrl}/models`. Built-in providers use fixed URLs; Other passes the validated live URL to avoid a settings-debounce race. `refreshCodex()` obtains current OAuth headers from `AuthStore.codexHeaders` and queries `https://chatgpt.com/backend-api/codex/models?client_version=0.154.0`, including the account header when present. The Codex response uses `models[].slug`, `visibility`, `context_window`, and `input_modalities`; hidden entries are excluded. This is a Codex backend interface, separate from the public [OpenAI Models API](https://developers.openai.com/api/reference/resources/models/methods/list).
+`refresh(provider, key, baseUrl)` supports OpenAI API and Other via `GET {baseUrl}/models`. Built-in providers use fixed URLs; Other passes the validated live URL to avoid a settings-debounce race. `refreshCodex()` obtains current OAuth headers from `AuthStore.codexHeaders` and queries `https://chatgpt.com/backend-api/codex/models?client_version=0.159.0`, including the account header when present. For the same account, a 0.154.0 request omitted GPT-6 Luna while a 0.159.0 request returned it with a minimum client version of 0.155.0. Cached lists are scoped to the account and the catalog client version. An automatic refresh uses the last successful response for up to one hour. Manual refresh always queries the server. The Codex response uses `models[].slug`, `visibility`, `context_window`, and `input_modalities`; hidden entries are excluded. This is a Codex backend interface, separate from the public [OpenAI Models API](https://developers.openai.com/api/reference/resources/models/methods/list).
 
 Discovery filters explicitly unsupported tool-calling and non-chat models. Entries use `"{provider.name.lowercase()}:{modelId}"` catalog keys. The compact disk cache preserves API routing and reasoning capabilities across restarts. Refresh is single-flight per provider, runs network/cache work on IO, propagates cancellation, and preserves the previous list on network errors or empty/unrecognized responses. Results for a superseded Other URL are ignored.
 

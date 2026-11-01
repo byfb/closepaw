@@ -28,6 +28,11 @@ object OnboardingViewModelFactory {
         permissionMonitor = permissionMonitor,
         authStore = AuthStoreHolder.get(context.applicationContext),
         demoController = demoController,
-        scope = scope
+        scope = scope,
+        accountCatalog = {
+            val repo = ai.closepaw.llm.ModelCatalogRepositoryHolder.get(context.applicationContext)
+            repo.refreshCodex()
+            repo.catalog.value
+        },
     )
 }

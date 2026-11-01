@@ -1,5 +1,9 @@
 package ai.closepaw.ui.chat.components
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -45,6 +49,7 @@ internal fun AgentRow(
     onOpenApp: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = uiResources()
     val spacing = MaterialTheme.closePaw.spacing
     val traceBlocks = message.contentBlocks.filter { it !is ContentBlock.FinalText }
     val finalText = message.contentBlocks.filterIsInstance<ContentBlock.FinalText>().lastOrNull()
@@ -56,10 +61,10 @@ internal fun AgentRow(
     val expanded = !collapsed
 
     val rowDescription = when (message.rowState) {
-        RowState.Live -> "live"
-        RowState.Waiting -> "waiting"
-        RowState.Complete -> if (collapsed) "collapsed" else "expanded"
-        RowState.Error -> "error"
+        RowState.Live -> strings.getString(R.string.ui_live)
+        RowState.Waiting -> strings.getString(R.string.ui_waiting)
+        RowState.Complete -> if (collapsed) strings.getString(R.string.ui_collapsed) else strings.getString(R.string.ui_expanded)
+        RowState.Error -> strings.getString(R.string.ui_error)
     }
 
     Column(
@@ -86,7 +91,7 @@ internal fun AgentRow(
             }
             if (collapsible) {
                 CollapsePill(
-                    summary = outcomeFooter(message),
+                    summary = outcomeFooter(message, strings),
                     expanded = expanded,
                     onToggle = { userCollapsed = !collapsed },
                 )

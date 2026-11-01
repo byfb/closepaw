@@ -1,5 +1,9 @@
 package ai.closepaw.ui.chat.components
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -38,6 +42,7 @@ fun ChatHeader(
     showNewChatButton: Boolean = true,
     modifier: Modifier = Modifier
 ) {
+    val strings = uiResources()
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -52,7 +57,7 @@ fun ChatHeader(
         ) {
             Icon(
                 imageVector = Icons.Rounded.Menu,
-                contentDescription = "Open menu",
+                contentDescription = strings.getString(R.string.ui_open_menu),
                 modifier = Modifier.size(24.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -71,7 +76,7 @@ fun ChatHeader(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Add,
-                            contentDescription = "New conversation",
+                            contentDescription = strings.getString(R.string.ui_new_conversation),
                             modifier = Modifier.size(24.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )

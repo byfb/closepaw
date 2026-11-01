@@ -1,5 +1,9 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import ai.closepaw.app.AppSettingsStore
 import ai.closepaw.browser.setup.ChromeCdpProbe
 import ai.closepaw.browser.setup.ChromeFlagDeepLink
@@ -65,7 +69,8 @@ internal fun ToolsSection(
     onBrowserScriptEnabledChange: (Boolean) -> Unit,
     isSessionRunning: Boolean = false,
 ) {
-    SettingsSection(title = "Tools") {
+    val strings = uiResources()
+    SettingsSection(title = strings.getString(R.string.ui_tools)) {
         Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.md)) {
             TermuxShellSettingsRow()
             BrowserScriptToolRow(
@@ -81,6 +86,7 @@ internal fun ToolsSection(
 
 @Composable
 private fun TermuxShellSettingsRow() {
+    val strings = uiResources()
     val context = LocalContext.current
     val appContext = context.applicationContext
     val activity = remember(context) { context.findActivity() }
@@ -165,14 +171,14 @@ private fun TermuxShellSettingsRow() {
         }
 
     val rowClickLabel = when (displayedStatus) {
-        TermuxBridgeStatus.NotInstalled -> "Install Termux"
-        is TermuxBridgeStatus.NeedsSetup -> "Fix Termux setup"
-        TermuxBridgeStatus.Ready -> "Restart Termux bridge"
+        TermuxBridgeStatus.NotInstalled -> strings.getString(R.string.ui_install_termux)
+        is TermuxBridgeStatus.NeedsSetup -> strings.getString(R.string.ui_fix_termux_setup)
+        TermuxBridgeStatus.Ready -> strings.getString(R.string.ui_restart_termux_bridge)
         else -> null
     }
 
     ToolSettingsCard(
-        title = "Termux Shell",
+        title = strings.getString(R.string.ui_termux_shell),
         status = statusUi,
         switchChecked = termuxShellEnabled,
         onSwitchChange = { enabled ->
@@ -226,20 +232,20 @@ private fun android.content.Context.openTermuxInstallPage() {
     try {
         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TERMUX_INSTALL_URL)))
     } catch (_: ActivityNotFoundException) {
-        Toast.makeText(this, "Unable to open Termux install page", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, ai.closepaw.ui.theme.appResources(this).getString(R.string.ui_unable_to_open_termux_install_page), Toast.LENGTH_SHORT).show()
     }
 }
 
 private fun android.content.Context.launchTermux() {
     val intent = packageManager.getLaunchIntentForPackage(TERMUX_PACKAGE)
     if (intent == null) {
-        Toast.makeText(this, "Termux is not installed", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, ai.closepaw.ui.theme.appResources(this).getString(R.string.ui_termux_is_not_installed), Toast.LENGTH_SHORT).show()
         return
     }
     try {
         startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     } catch (_: ActivityNotFoundException) {
-        Toast.makeText(this, "Unable to launch Termux", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, ai.closepaw.ui.theme.appResources(this).getString(R.string.ui_unable_to_launch_termux), Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -248,6 +254,7 @@ private fun BrowserScriptToolRow(
     enabled: Boolean,
     onEnabledChange: (Boolean) -> Unit,
 ) {
+    val strings = uiResources()
     val context = LocalContext.current
     val appContext = context.applicationContext
     val scope = rememberCoroutineScope()
@@ -299,7 +306,7 @@ private fun BrowserScriptToolRow(
         RowAction.None, null -> null
     }
     val rowClickLabel = when (statusResult.rowAction) {
-        RowAction.ClearErrorAndRetry -> "Retry Shizuku setup"
+        RowAction.ClearErrorAndRetry -> strings.getString(R.string.ui_retry_shizuku_setup)
         RowAction.None, null -> null
     }
 
@@ -311,7 +318,7 @@ private fun BrowserScriptToolRow(
                 probeState is BrowserScriptProbeState.Unknown)
 
     ToolSettingsCard(
-        title = "Browser Script",
+        title = strings.getString(R.string.ui_browser_script),
         status = statusResult.status,
         switchChecked = enabled,
         switchEnabled = !gate.pending,
@@ -338,7 +345,7 @@ private fun BrowserScriptToolRow(
                             ),
                         ) {
                             Text(
-                                text = "Open chrome://flags →",
+                                text = strings.getString(R.string.ui_open_chrome_flags),
                                 style = MaterialTheme.typography.labelLarge,
                             )
                         }
@@ -353,7 +360,7 @@ private fun BrowserScriptToolRow(
                             val ok = deepLink.copyFlagUrlToClipboard()
                             Toast.makeText(
                                 context,
-                                if (ok) "URL copied to clipboard" else "Copy failed — try again",
+                                if (ok) strings.getString(R.string.ui_url_copied_to_clipboard) else strings.getString(R.string.ui_copy_failed_try_again),
                                 Toast.LENGTH_SHORT,
                             ).show()
                         },
@@ -363,7 +370,7 @@ private fun BrowserScriptToolRow(
                         modifier = Modifier.fillMaxWidth(),
                         shape = MaterialTheme.shapes.large,
                     ) {
-                        Text(text = "Re-check", style = MaterialTheme.typography.labelLarge)
+                        Text(text = strings.getString(R.string.ui_re_check), style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
@@ -378,6 +385,7 @@ private fun BrowserScriptToolRow(
  */
 @Composable
 private fun FlagUrlInlineHelp(onCopy: () -> Unit) {
+    val strings = uiResources()
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
@@ -385,7 +393,7 @@ private fun FlagUrlInlineHelp(onCopy: () -> Unit) {
     ) {
         Column(modifier = Modifier.padding(horizontal = MaterialTheme.closePaw.spacing.md, vertical = 10.dp)) {
             Text(
-                text = "Chrome didn't open the flags page? Paste this URL manually:",
+                text = strings.getString(R.string.ui_chrome_didn_t_open_the_flags_page_paste_this_url_manually),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
@@ -401,7 +409,7 @@ private fun FlagUrlInlineHelp(onCopy: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
             ) {
-                Text(text = "Copy URL", style = MaterialTheme.typography.labelLarge)
+                Text(text = strings.getString(R.string.ui_copy_url), style = MaterialTheme.typography.labelLarge)
             }
         }
     }

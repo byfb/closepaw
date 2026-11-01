@@ -1,5 +1,9 @@
 package ai.closepaw.ui.chat.components
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -42,6 +46,7 @@ internal fun CompletionHandoffCtaRow(
     onOpenApp: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = uiResources()
     val context = LocalContext.current
     val pkg = handoff.appPackage ?: return
     val canOpen = remember(pkg) {
@@ -66,7 +71,7 @@ internal fun CompletionHandoffCtaRow(
                 .testTag("qa-handoff-open-app"),
         ) {
             Text(
-                text = "Open $label",
+                text = strings.getString(R.string.ui_open, label),
                 style = MaterialTheme.typography.labelLarge,
             )
         }

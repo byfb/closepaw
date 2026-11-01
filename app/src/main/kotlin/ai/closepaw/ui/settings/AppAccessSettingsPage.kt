@@ -1,5 +1,9 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import ai.closepaw.agent.cognition.prompt.AssetAppSkillRepository
 import ai.closepaw.app.MemoryEditGate
 import ai.closepaw.memory.MemoryScope
@@ -87,11 +91,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class AppFilter(val label: String) {
-    All("All"),
-    Allow("Allow"),
-    Ask("Ask"),
-    Reject("Reject"),
+private enum class AppFilter(@androidx.annotation.StringRes val label: Int) {
+    All(R.string.ui_all),
+    Allow(R.string.ui_allow),
+    Ask(R.string.ui_ask),
+    Reject(R.string.ui_reject),
 }
 
 internal const val APP_ROW_TRAILING_CHEVRON_TAG = "app-row-trailing-chevron"
@@ -100,7 +104,6 @@ internal const val APP_ROW_MEMORY_CHIP_TAG = "app-row-memory-chip"
 internal const val APP_ROW_SKILL_CHIP_TAG = "app-row-skill-chip"
 internal const val APP_ROW_MEMORY_CREATE_ERROR_TAG = "app-row-memory-create-error"
 
-private const val APP_MEMORY_CREATE_FAILED_MESSAGE = "Could not create app memory. Try again."
 
 private enum class AddMemoryOutcome { Created, AlreadyExists, Aborted, WriteFailed }
 
@@ -123,6 +126,7 @@ internal fun AppAccessSettingsPage(
     rowsOverride: List<AppRow>? = null,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
+    val strings = uiResources()
     val context = LocalContext.current
     val overrides by appClassifier.userOverrides.collectAsState()
     val coroutineScope = rememberCoroutineScope()
@@ -160,9 +164,9 @@ internal fun AppAccessSettingsPage(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: SecurityException) {
-                AppRowsState.Error("ClosePaw does not have permission to read the installed app list.")
+                AppRowsState.Error(strings.getString(R.string.ui_closepaw_does_not_have_permission_to_read_the_installed_app_list))
             } catch (e: RuntimeException) {
-                AppRowsState.Error("Could not read the installed app list. Retry from Settings.")
+                AppRowsState.Error(strings.getString(R.string.ui_could_not_read_the_installed_app_list_retry_from_settings))
             }
         }
     }
@@ -201,7 +205,7 @@ internal fun AppAccessSettingsPage(
     }
     if (fullEditorPackage != null) {
         MemoryFileEditorPage(
-            title = "App Memory",
+            title = strings.getString(R.string.ui_app_memory),
             memoryStore = memoryStore,
             scope = MemoryScope.APP,
             packageName = fullEditorPackage,
@@ -271,7 +275,7 @@ internal fun AppAccessSettingsPage(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        PageMastheadDrillDown(title = "App Access", onBack = onBack, onClose = onClose)
+        PageMastheadDrillDown(title = strings.getString(R.string.ui_app_access), onBack = onBack, onClose = onClose)
 
         Column(
             modifier = Modifier
@@ -281,7 +285,7 @@ internal fun AppAccessSettingsPage(
         ) {
             if (approvalMode == ApprovalMode.AUTO_APPROVE) {
                 SettingsAlertCard(
-                    message = "Auto-Approve is on. Per-app rules below only apply in Per-App mode.",
+                    message = strings.getString(R.string.ui_app_rules_auto_approve),
                     tone = AlertTone.Warning,
                 )
             }
@@ -330,6 +334,7 @@ internal fun AppAccessSettingsPage(
 
 @Composable
 private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
+    val strings = uiResources()
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -349,7 +354,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
             Box(modifier = Modifier.weight(1f)) {
                 if (query.isEmpty()) {
                     Text(
-                        text = "Search apps or package name",
+                        text = strings.getString(R.string.ui_search_apps_or_package_name),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.closePaw.inkFaint,
                     )
@@ -383,7 +388,7 @@ private fun FilterChipsRow(selected: AppFilter, onSelect: (AppFilter) -> Unit) {
                 icon = {},
             ) {
                 Text(
-                    text = filter.label,
+                    text = uiResources().getString(filter.label),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -392,20 +397,21 @@ private fun FilterChipsRow(selected: AppFilter, onSelect: (AppFilter) -> Unit) {
     }
 }
 
-private fun appDetailsLabel(appLabel: String, isExpanded: Boolean): String {
+private fun appDetailsLabel(strings: android.content.res.Resources, appLabel: String, isExpanded: Boolean): String {
     return if (isExpanded) {
-        "Collapse $appLabel app details"
+        strings.getString(R.string.ui_collapse_named_app, appLabel)
     } else {
-        "Expand $appLabel app details"
+        strings.getString(R.string.ui_expand_named_app, appLabel)
     }
 }
 
-private fun appExpansionStateDescription(isExpanded: Boolean): String {
-    return if (isExpanded) "Expanded" else "Collapsed"
+private fun appExpansionStateDescription(strings: android.content.res.Resources, isExpanded: Boolean): String {
+    return if (isExpanded) strings.getString(R.string.ui_state_expanded) else strings.getString(R.string.ui_state_collapsed)
 }
 
 @Composable
 private fun LoadingState() {
+    val strings = uiResources()
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -413,8 +419,8 @@ private fun LoadingState() {
         contentAlignment = Alignment.TopCenter,
     ) {
         AppAccessNoticeCard(
-            title = "Loading apps",
-            message = "Reading installed apps and access rules.",
+            title = strings.getString(R.string.ui_loading_apps),
+            message = strings.getString(R.string.ui_reading_installed_apps_and_access_rules),
             loading = true,
         )
     }
@@ -422,6 +428,7 @@ private fun LoadingState() {
 
 @Composable
 private fun AppRowsErrorState(message: String, onRetry: () -> Unit) {
+    val strings = uiResources()
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -429,11 +436,11 @@ private fun AppRowsErrorState(message: String, onRetry: () -> Unit) {
         contentAlignment = Alignment.TopCenter,
     ) {
         AppAccessNoticeCard(
-            title = "Could not load apps",
+            title = strings.getString(R.string.ui_could_not_load_apps),
             message = message,
             action = {
                 TextButton(onClick = onRetry) {
-                    Text("Retry")
+                    Text(strings.getString(R.string.ui_retry))
                 }
             },
         )
@@ -503,6 +510,7 @@ private fun AppList(
     skillLoader: suspend (String) -> String?,
     ioDispatcher: CoroutineDispatcher,
 ) {
+    val strings = uiResources()
     val listState = rememberLazyListState()
     LazyColumn(
         state = listState,
@@ -513,8 +521,8 @@ private fun AppList(
         if (rows.isEmpty()) {
             item {
                 AppAccessNoticeCard(
-                    title = "No apps match",
-                    message = "Try a different search or filter.",
+                    title = strings.getString(R.string.ui_no_apps_match),
+                    message = strings.getString(R.string.ui_try_a_different_search_or_filter),
                     modifier = Modifier.padding(top = MaterialTheme.closePaw.spacing.sm),
                 )
             }
@@ -568,14 +576,15 @@ private fun AppRowItem(
     skillLoader: suspend (String) -> String?,
     ioDispatcher: CoroutineDispatcher,
 ) {
+    val strings = uiResources()
     val pkg = row.info.packageName
     val icon by produceState<ImageBitmap?>(initialValue = null, pkg) {
         value = row.iconLoader()
     }
     val hasContent = summary.hasMemory || summary.hasSkill
     val effectivelyBlocked = effectiveTier == AppTier.BLOCKED
-    val expansionLabel = appDetailsLabel(row.info.label, isExpanded)
-    val expansionStateDescription = appExpansionStateDescription(isExpanded)
+    val expansionLabel = appDetailsLabel(uiResources(), row.info.label, isExpanded)
+    val expansionStateDescription = appExpansionStateDescription(uiResources(), isExpanded)
 
     Surface(
         modifier = Modifier
@@ -625,18 +634,18 @@ private fun AppRowItem(
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(
                                 imageVector = Icons.Outlined.Lock,
-                                contentDescription = "Sensitive app",
+                                contentDescription = strings.getString(R.string.ui_sensitive_app),
                                 modifier = Modifier.size(14.dp),
                                 tint = MaterialTheme.closePaw.inkFaint,
                             )
                         }
                         if (summary.hasMemory) {
                             Spacer(modifier = Modifier.width(6.dp))
-                            SummaryChip(text = "Memory", testTag = APP_ROW_MEMORY_CHIP_TAG)
+                            SummaryChip(text = strings.getString(R.string.ui_memory), testTag = APP_ROW_MEMORY_CHIP_TAG)
                         }
                         if (summary.hasSkill) {
                             Spacer(modifier = Modifier.width(6.dp))
-                            SummaryChip(text = "Skill", testTag = APP_ROW_SKILL_CHIP_TAG)
+                            SummaryChip(text = strings.getString(R.string.ui_skill), testTag = APP_ROW_SKILL_CHIP_TAG)
                         }
                     }
                     Text(
@@ -648,7 +657,7 @@ private fun AppRowItem(
                     )
                     if (isBundledBlocked) {
                         Text(
-                            text = "Permanently restricted",
+                            text = strings.getString(R.string.ui_permanently_restricted),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.tertiary,
                         )
@@ -704,14 +713,15 @@ private fun MemoryCreateFailureCard(
     onRetry: () -> Unit,
     retryEnabled: Boolean,
 ) {
+    val strings = uiResources()
     SettingsAlertCard(
-        message = APP_MEMORY_CREATE_FAILED_MESSAGE,
+        message = uiResources().getString(R.string.ui_could_not_create_app_memory_try_again),
         tone = AlertTone.Error,
         icon = Icons.Outlined.Warning,
         modifier = Modifier.testTag(APP_ROW_MEMORY_CREATE_ERROR_TAG),
         action = {
             TextButton(onClick = onRetry, enabled = retryEnabled) {
-                Text("Retry")
+                Text(strings.getString(R.string.ui_retry))
             }
         },
     )
@@ -725,9 +735,10 @@ private fun TrailingSlot(
     onToggleExpand: () -> Unit,
     onAddMemory: () -> Unit,
 ) {
+    val strings = uiResources()
     if (hasContent) {
-        val expansionLabel = if (isExpanded) "Collapse app details" else "Expand app details"
-        val expansionStateDescription = appExpansionStateDescription(isExpanded)
+        val expansionLabel = if (isExpanded) strings.getString(R.string.ui_collapse_app_details) else strings.getString(R.string.ui_expand_app_details)
+        val expansionStateDescription = appExpansionStateDescription(uiResources(), isExpanded)
         Surface(
             onClick = onToggleExpand,
             shape = CircleShape,
@@ -766,9 +777,9 @@ private fun TrailingSlot(
                 .minimumInteractiveComponentSize()
                 .semantics {
                     role = Role.Button
-                    contentDescription = "Create app memory"
+                    contentDescription = strings.getString(R.string.ui_create_app_memory)
                     if (addMemoryLocked) {
-                        stateDescription = "Disabled while memory edits are locked"
+                        stateDescription = strings.getString(R.string.ui_disabled_while_memory_edits_are_locked)
                     }
                 }
                 .testTag(APP_ROW_ADD_MEMORY_TAG),
@@ -787,7 +798,7 @@ private fun TrailingSlot(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Memory",
+                    text = strings.getString(R.string.ui_memory),
                     style = MaterialTheme.typography.labelSmall,
                     color = tint,
                     fontWeight = FontWeight.SemiBold,
@@ -845,24 +856,25 @@ private fun TierSegmentedSelector(
     selected: AppTier,
     onPick: (AppTier) -> Unit,
 ) {
+    val strings = uiResources()
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         SegmentChip(
-            label = "Allow",
+            label = strings.getString(R.string.ui_allow),
             isSelected = selected == AppTier.NORMAL,
             onClick = { onPick(AppTier.NORMAL) },
             modifier = Modifier.weight(1f),
         )
         SegmentChip(
-            label = "Ask",
+            label = strings.getString(R.string.ui_ask),
             isSelected = selected == AppTier.CAUTIOUS,
             onClick = { onPick(AppTier.CAUTIOUS) },
             modifier = Modifier.weight(1f),
         )
         SegmentChip(
-            label = "Reject",
+            label = strings.getString(R.string.ui_reject),
             isSelected = selected == AppTier.BLOCKED,
             onClick = { onPick(AppTier.BLOCKED) },
             modifier = Modifier.weight(1f),
@@ -872,6 +884,7 @@ private fun TierSegmentedSelector(
 
 @Composable
 private fun RejectOnlyChip() {
+    val strings = uiResources()
     Row(modifier = Modifier.fillMaxWidth()) {
         Surface(
             modifier = Modifier.weight(1f),
@@ -892,7 +905,7 @@ private fun RejectOnlyChip() {
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Reject",
+                    text = strings.getString(R.string.ui_reject),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     fontWeight = FontWeight.SemiBold,
@@ -910,6 +923,7 @@ internal fun SegmentChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = uiResources()
     Surface(
         modifier = modifier
             .minimumInteractiveComponentSize()
@@ -921,7 +935,7 @@ internal fun SegmentChip(
             .semantics {
                 contentDescription = label
                 selected = isSelected
-                stateDescription = if (isSelected) "Selected" else "Not selected"
+                stateDescription = if (isSelected) strings.getString(R.string.ui_selected) else strings.getString(R.string.ui_not_selected)
             },
         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
         else MaterialTheme.colorScheme.surface,

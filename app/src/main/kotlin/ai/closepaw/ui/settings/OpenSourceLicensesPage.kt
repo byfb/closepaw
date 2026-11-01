@@ -1,5 +1,9 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -86,6 +90,7 @@ internal fun OpenSourceLicensesPage(
     onBack: () -> Unit,
     onClose: () -> Unit,
 ) {
+    val strings = uiResources()
     val context = LocalContext.current
     var reloadKey by remember { mutableStateOf(0) }
     var loadState by remember { mutableStateOf<LicenseLoadState>(LicenseLoadState.Loading) }
@@ -96,7 +101,7 @@ internal fun OpenSourceLicensesPage(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        PageMastheadDrillDown(title = "Open Source Licenses", onBack = onBack, onClose = onClose)
+        PageMastheadDrillDown(title = strings.getString(R.string.ui_open_source_licenses), onBack = onBack, onClose = onClose)
         when (val state = loadState) {
             LicenseLoadState.Loading -> LoadingNotice()
             is LicenseLoadState.Error -> ErrorNotice(
@@ -120,36 +125,39 @@ private suspend fun loadLicenseState(context: Context): LicenseLoadState =
             .sortedBy { (it.project ?: it.dependency ?: "").lowercase() }
         LicenseLoadState.Loaded(rows)
     } catch (e: IOException) {
-        LicenseLoadState.Error("Could not open the generated license asset. Retry from Settings.")
+        LicenseLoadState.Error(ai.closepaw.ui.theme.appResources(context).getString(R.string.ui_could_not_open_the_generated_license_asset_retry_from_settings))
     } catch (e: SerializationException) {
-        LicenseLoadState.Error("Could not read the generated license asset. Retry from Settings.")
+        LicenseLoadState.Error(ai.closepaw.ui.theme.appResources(context).getString(R.string.ui_could_not_read_the_generated_license_asset_retry_from_settings))
     }
 
 @Composable
 private fun LoadingNotice() {
+    val strings = uiResources()
     LicenseNoticeCard(
-        title = "Loading licenses",
-        message = "Reading the generated dependency license list.",
+        title = strings.getString(R.string.ui_loading_licenses),
+        message = strings.getString(R.string.ui_reading_the_generated_dependency_license_list),
         loading = true,
     )
 }
 
 @Composable
 private fun EmptyNotice() {
+    val strings = uiResources()
     LicenseNoticeCard(
-        title = "No license entries",
-        message = "The generated license asset is empty.",
+        title = strings.getString(R.string.ui_no_license_entries),
+        message = strings.getString(R.string.ui_the_generated_license_asset_is_empty),
     )
 }
 
 @Composable
 private fun ErrorNotice(message: String, onRetry: () -> Unit) {
+    val strings = uiResources()
     LicenseNoticeCard(
-        title = "Could not load licenses",
+        title = strings.getString(R.string.ui_could_not_load_licenses),
         message = message,
         action = {
             TextButton(onClick = onRetry) {
-                Text("Retry")
+                Text(strings.getString(R.string.ui_retry))
             }
         },
     )
@@ -223,6 +231,7 @@ private fun LicenseList(rows: List<LicenseEntry>, onOpenUrl: (String) -> Unit) {
 
 @Composable
 private fun LicensesPreamble() {
+    val strings = uiResources()
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -232,14 +241,12 @@ private fun LicensesPreamble() {
     ) {
         Column(modifier = Modifier.padding(MaterialTheme.closePaw.spacing.cardPadding), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                text = "ClosePaw is licensed under the Apache License 2.0. The list below " +
-                    "is generated at build time from every runtime dependency.",
+                text = strings.getString(R.string.ui_licenses_intro),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = "Note: ai.liquid.leap:leap-sdk is proprietary (Leap Terms of Use); " +
-                    "see NOTICE in the repository root for redistribution implications.",
+                text = strings.getString(R.string.ui_leap_license_notice),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -249,11 +256,12 @@ private fun LicensesPreamble() {
 
 @Composable
 private fun LicenseCard(entry: LicenseEntry, onOpenUrl: (String) -> Unit) {
+    val strings = uiResources()
     val title = entry.project?.takeIf { it.isNotBlank() } ?: entry.dependency.orEmpty()
     val coordinates = entry.dependency.orEmpty()
     val licenseLine = entry.licenses.mapNotNull { it.license?.takeIf(String::isNotBlank) }
         .joinToString(", ")
-        .ifBlank { "Unknown license" }
+        .ifBlank { strings.getString(R.string.ui_unknown_license) }
     val urlForClick = entry.licenses.firstNotNullOfOrNull { it.licenseUrl?.takeIf(String::isNotBlank) }
         ?: entry.url?.takeIf(String::isNotBlank)
 

@@ -21,7 +21,7 @@ class LiveCallClientTest {
     @Before fun setUp() { server = MockWebServer().apply { start() } }
     @After fun tearDown() { http.dispatcher.cancelAll(); server.shutdown() }
     private fun client(headers: suspend () -> CodexHeaders = { CodexHeaders("phone-token", "phone-account", null) }) =
-        LiveCallClient(http, headers, server.url("/backend-api/codex/realtime/calls?intent=quicksilver&architecture=avas").toString())
+        LiveCallClient(ai.closepaw.ui.resourceLabels(), http, headers, server.url("/backend-api/codex/realtime/calls?intent=quicksilver&architecture=avas").toString())
 
     @Test fun `call carries phone ChatGPT auth and client delegation configuration`() = runBlocking {
         server.enqueue(MockResponse().setBody("v=0\r\nanswer"))
@@ -50,7 +50,7 @@ class LiveCallClientTest {
 
     @Test fun `voice preferences configure the call without changing delegation or worker instructions`() = runBlocking {
         server.enqueue(MockResponse().setBody("v=0"))
-        LiveCallClient(http, { CodexHeaders("token", "account", null) }, server.url("/calls").toString(),
+        LiveCallClient(ai.closepaw.ui.resourceLabels(), http, { CodexHeaders("token", "account", null) }, server.url("/calls").toString(),
             LiveVoicePreferences(LiveVoice.JUNIPER, LiveLanguage.CANTONESE, LiveTone.CALM, "Use short sentences.")).create("v=0", "voice")
         val session = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject.obj("session")!!
         assertThat(session.obj("audio")?.obj("output")?.string("voice")).isEqualTo("juniper")
@@ -63,7 +63,7 @@ class LiveCallClientTest {
 
     @Test fun `preview asks for a sample without phone operation instructions`() = runBlocking {
         server.enqueue(MockResponse().setBody("v=0"))
-        LiveCallClient(http, { CodexHeaders("token", "account", null) }, server.url("/calls").toString(),
+        LiveCallClient(ai.closepaw.ui.resourceLabels(), http, { CodexHeaders("token", "account", null) }, server.url("/calls").toString(),
             LiveVoicePreferences(language = LiveLanguage.MANDARIN, tone = LiveTone.LIVELY), preview = true)
             .create("v=0", "preview")
         val session = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject.obj("session")!!
@@ -75,7 +75,7 @@ class LiveCallClientTest {
     @Test fun `account access rejection is actionable and does not expose response body`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(403).setBody("private phone-token backend trace"))
         val error = runCatching { client().create("v=0", "voice") }.exceptionOrNull()!!
-        assertThat(error.message).contains("not available")
+        assertThat(error.message).isEqualTo(ai.closepaw.R.string.live_error_unavailable.toString())
         assertThat(error.message).doesNotContain("phone-token")
         assertThat(error.message).doesNotContain("backend trace")
     }
@@ -83,16 +83,16 @@ class LiveCallClientTest {
     @Test fun `unexpected successful response does not masquerade as a valid voice answer`() = runBlocking {
         server.enqueue(MockResponse().setBody("<html>private backend response</html>"))
         val error = runCatching { client().create("v=0", "voice") }.exceptionOrNull()!!
-        assertThat(error.message).contains("invalid audio connection")
+        assertThat(error.message).isEqualTo(ai.closepaw.R.string.live_error_invalid_answer.toString())
         assertThat(error.message).doesNotContain("private backend")
     }
 
     @Test fun `DNS failure identifies network setup without disclosing the exception`() = runBlocking {
         val dnsClient = http.newBuilder().dns { throw java.net.UnknownHostException("private network details") }.build()
-        val calls = LiveCallClient(dnsClient, { CodexHeaders("token", "account", null) }, "https://unresolvable.example/calls")
+        val calls = LiveCallClient(ai.closepaw.ui.resourceLabels(), dnsClient, { CodexHeaders("token", "account", null) }, "https://unresolvable.example/calls")
         try {
             val error = runCatching { calls.create("v=0", "voice") }.exceptionOrNull()!!
-            assertThat(error.message).contains("DNS")
+            assertThat(error.message).isEqualTo(ai.closepaw.R.string.live_error_dns.toString())
             assertThat(error.message).doesNotContain("private network")
         } finally { dnsClient.dispatcher.cancelAll() }
     }

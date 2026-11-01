@@ -1,5 +1,9 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -33,10 +37,11 @@ import ai.closepaw.ui.theme.closePaw
 import ai.closepaw.ui.theme.foldedPaper
 
 internal data class ToolStatusUi(
-    val label: String,
-    val subtitle: String,
+    @androidx.annotation.StringRes val label: Int,
+    @androidx.annotation.StringRes val subtitle: Int? = null,
     val tone: ToolStatusTone,
     val showSpinner: Boolean = false,
+    val description: String = "",
 )
 
 internal enum class ToolStatusTone { Positive, Neutral, Warning }
@@ -55,6 +60,7 @@ internal fun ToolSettingsCard(
     trailingInfoIconLabel: String? = null,
     expanded: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
+    val strings = uiResources()
     val surfaceModifier = Modifier
         .fillMaxWidth()
         .let { base ->
@@ -97,7 +103,7 @@ internal fun ToolSettingsCard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         Text(
-                            text = status.label,
+                            text = strings.getString(status.label),
                             style = MaterialTheme.typography.labelMedium,
                             color = status.tone.labelColor(),
                         )
@@ -109,7 +115,7 @@ internal fun ToolSettingsCard(
                         }
                     }
                     Text(
-                        text = status.subtitle,
+                        text = status.subtitle?.let(strings::getString) ?: status.description,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -118,7 +124,7 @@ internal fun ToolSettingsCard(
                 Spacer(modifier = Modifier.width(12.dp))
 
                 if (trailingInfoIcon != null) {
-                    val infoLabel = trailingInfoIconLabel ?: "View $title details"
+                    val infoLabel = trailingInfoIconLabel ?: strings.getString(R.string.ui_view_details, title)
                     IconButton(onClick = trailingInfoIcon) {
                         Icon(
                             imageVector = Icons.Outlined.Info,

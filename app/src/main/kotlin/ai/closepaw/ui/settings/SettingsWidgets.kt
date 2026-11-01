@@ -1,5 +1,9 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,6 +44,7 @@ import ai.closepaw.ui.theme.foldedPaper
  */
 @Composable
 internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
+    val strings = uiResources()
     when (status) {
         is ModelLoadingStatus.Idle -> Unit
         is ModelLoadingStatus.Downloading -> {
@@ -59,7 +64,7 @@ internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
                         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm)
                     ) {
                         Text(
-                            text = "Downloading model...",
+                            text = strings.getString(R.string.ui_downloading_model),
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Text(
@@ -92,7 +97,7 @@ internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
                         modifier = Modifier.weight(1f)
                     )
                     Text(
-                        text = "Loading model...",
+                        text = strings.getString(R.string.ui_loading_model),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -118,7 +123,7 @@ internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
                             .background(MaterialTheme.colorScheme.secondary)
                     )
                     Text(
-                        text = "Model ready",
+                        text = strings.getString(R.string.ui_model_ready),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.secondary
                     )
@@ -127,7 +132,7 @@ internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
         }
         is ModelLoadingStatus.Error -> {
             SettingsAlertCard(
-                message = "Error: ${status.message}",
+                message = strings.getString(R.string.ui_model_load_error, status.message),
                 tone = AlertTone.Error,
             )
         }
@@ -158,6 +163,7 @@ internal fun SettingsRow(
     isEnabled: Boolean,
     onClick: () -> Unit
 ) {
+    val strings = uiResources()
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -201,7 +207,7 @@ internal fun SettingsRow(
                         .background(dotColor)
                 )
                 Text(
-                    text = if (isEnabled) "Enabled" else "Required",
+                    text = if (isEnabled) strings.getString(R.string.ui_enabled) else strings.getString(R.string.ui_required),
                     style = MaterialTheme.typography.labelMedium,
                     color = labelColor
                 )
@@ -256,6 +262,7 @@ internal fun PerceptionModeSelector(
     selectedMode: String,
     onModeChange: (String) -> Unit
 ) {
+    val strings = uiResources()
     data class PerceptionOption(
         val value: String,
         val label: String,
@@ -266,19 +273,19 @@ internal fun PerceptionModeSelector(
     val options = listOf(
         PerceptionOption(
             value = "accessibility_only",
-            label = "Screen Transcript",
-            subtitle = "Reads text and layout. Fast, cheap, works for most apps.",
+            label = strings.getString(R.string.ui_screen_transcript),
+            subtitle = strings.getString(R.string.ui_reads_text_and_layout_fast_cheap_works_for_most_apps),
             recommended = true,
         ),
         PerceptionOption(
             value = "screenshot_only",
-            label = "Screen Image",
-            subtitle = "Reads screenshots only. Slower; best for maps, canvas, or visual apps.",
+            label = strings.getString(R.string.ui_screen_image),
+            subtitle = strings.getString(R.string.ui_screenshot_mode_description),
         ),
         PerceptionOption(
             value = "hybrid",
-            label = "Transcript + Image",
-            subtitle = "Text + screenshots. Most reliable but slowest.",
+            label = strings.getString(R.string.ui_transcript_image),
+            subtitle = strings.getString(R.string.ui_text_screenshots_most_reliable_but_slowest),
         ),
     )
 
@@ -335,12 +342,13 @@ internal fun PerceptionModeSelector(
 
 @Composable
 private fun RecommendedChip() {
+    val strings = uiResources()
     Surface(
         color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f),
         shape = MaterialTheme.shapes.small,
     ) {
         Text(
-            text = "Recommended",
+            text = strings.getString(R.string.ui_recommended),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.secondary,
             modifier = Modifier.padding(horizontal = MaterialTheme.closePaw.spacing.sm, vertical = 2.dp),

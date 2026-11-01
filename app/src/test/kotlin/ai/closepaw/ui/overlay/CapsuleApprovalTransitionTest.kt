@@ -25,7 +25,7 @@ class CapsuleApprovalTransitionTest {
     @Before
     fun setUp() {
         scope = TestScope()
-        holder = CapsuleStateHolder(scope)
+        holder = CapsuleStateHolder(scope) { it.toString() }
     }
 
     // ── Approval flow ──
@@ -65,7 +65,7 @@ class CapsuleApprovalTransitionTest {
         assertThat(accepted).isTrue()
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.Running::class.java)
-        assertThat((mode as CapsuleMode.Running).thought).isEqualTo("Processing...")
+        assertThat((mode as CapsuleMode.Running).thought).isEqualTo(ai.closepaw.R.string.ui_processing.toString())
     }
 
     @Test
@@ -99,7 +99,7 @@ class CapsuleApprovalTransitionTest {
         assertThat(accepted).isTrue()
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.Running::class.java)
-        assertThat((mode as CapsuleMode.Running).thought).isEqualTo("Processing response...")
+        assertThat((mode as CapsuleMode.Running).thought).isEqualTo(ai.closepaw.R.string.ui_processing_response.toString())
     }
 
     // ── Takeover shortcut ──
@@ -209,14 +209,14 @@ class CapsuleApprovalTransitionTest {
     fun `task completed TASK_IMPOSSIBLE sets Done with impossible message`() {
         holder.onTaskStarted("task1", "input")
         holder.onTaskCompleted(TaskOutcome.TASK_IMPOSSIBLE)
-        assertThat((holder.mode.value as CapsuleMode.Done).message).isEqualTo("Task impossible")
+        assertThat((holder.mode.value as CapsuleMode.Done).message).isEqualTo(ai.closepaw.R.string.ui_task_impossible.toString())
     }
 
     @Test
     fun `task completed USER_STOPPED sets Done with stopped message`() {
         holder.onTaskStarted("task1", "input")
         holder.onTaskCompleted(TaskOutcome.USER_STOPPED)
-        assertThat((holder.mode.value as CapsuleMode.Done).message).isEqualTo("Stopped")
+        assertThat((holder.mode.value as CapsuleMode.Done).message).isEqualTo(ai.closepaw.R.string.ui_stopped.toString())
     }
 
     @Test

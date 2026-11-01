@@ -1,5 +1,9 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import ai.closepaw.platform.virtualdisplay.ShizukuClient
 import ai.closepaw.platform.virtualdisplay.ShizukuRuntimeGateway
 import ai.closepaw.protocol.PlatformMode
@@ -28,6 +32,7 @@ internal fun DisplaySection(
     effectiveMode: PlatformMode?,
     onPlatformModeChange: (PlatformMode) -> Unit,
 ) {
+    val strings = uiResources()
     val client = remember { ShizukuClient() }
     val shizukuStatus by rememberShizukuStatus(client)
     val scope = rememberCoroutineScope()
@@ -76,14 +81,14 @@ internal fun DisplaySection(
     }
 
     val rowClickLabel = if (rowAction == null) null else when (cardState.rowAction) {
-        VirtualDisplayRowAction.RetryEnable -> "Retry Virtual Display setup"
-        VirtualDisplayRowAction.RequestPermission -> "Grant Shizuku permission"
+        VirtualDisplayRowAction.RetryEnable -> strings.getString(R.string.ui_retry_virtual_display_setup)
+        VirtualDisplayRowAction.RequestPermission -> strings.getString(R.string.ui_grant_shizuku_permission)
         null -> null
     }
 
-    SettingsSection(title = "Display Mode") {
+    SettingsSection(title = strings.getString(R.string.ui_display_mode)) {
         ToolSettingsCard(
-            title = "Virtual Display",
+            title = strings.getString(R.string.ui_virtual_display),
             status = cardState.status,
             switchChecked = cardState.switchChecked,
             switchEnabled = cardState.switchEnabled,

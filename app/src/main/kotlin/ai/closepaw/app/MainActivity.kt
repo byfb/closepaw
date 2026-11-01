@@ -1,5 +1,7 @@
 package ai.closepaw.app
 
+import ai.closepaw.R
+
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -169,6 +171,7 @@ class MainActivity : ComponentActivity() {
             hasLegacyUsageEvidence()
         }
         deriveOpenAiAuthUiState()
+        lifecycleScope.launch { modelCatalogRepo.refreshCodex(force = false) }
 
         // Eval/debug bypass: EXTRA_FRESH_SESSION + EXTRA_GOAL → skip onboarding (debug only)
         onboardingRequired = !onboardingStore.isCompleted && !isEvalIntent(intent)
@@ -230,6 +233,7 @@ class MainActivity : ComponentActivity() {
                         onGoToAuthStep = { vm.goToAuthStep() },
                         onFinish = {
                             vm.finish()
+                            deriveOpenAiAuthUiState()
                             onboardingRequired = false
                         },
                         onEffect = { effect -> handleOnboardingEffect(effect) }
@@ -239,6 +243,9 @@ class MainActivity : ComponentActivity() {
                 var repairModel by remember { mutableStateOf(deriveRepairModel()) }
                 val lifecycleOwner = LocalLifecycleOwner.current
                 val catalogSnapshot by modelCatalogRepo.catalog.collectAsStateWithLifecycle()
+                androidx.compose.runtime.LaunchedEffect(catalogSnapshot, settingsState.selectedModel) {
+                    catalogSnapshot.replacementCodexModel(settingsState.selectedModel)?.let { settingsState.updateModel(it.name) }
+                }
                 DisposableEffect(lifecycleOwner) {
                     val observer = LifecycleEventObserver { _, event ->
                         if (event == Lifecycle.Event.ON_RESUME) {
@@ -308,19 +315,19 @@ class MainActivity : ComponentActivity() {
                 pendingGoalForConfirmation?.let { goal ->
                     AlertDialog(
                         onDismissRequest = { pendingGoalForConfirmation = null },
-                        title = { Text("External Goal") },
-                        text = { Text("An external app wants to run:\n\"$goal\"") },
+                        title = { Text(ai.closepaw.ui.theme.appResources(this@MainActivity).getString(R.string.ui_external_goal)) },
+                        text = { Text(ai.closepaw.ui.theme.appResources(this@MainActivity).getString(R.string.ui_an_external_app_wants_to_run_n, goal)) },
                         confirmButton = {
                             TextButton(onClick = {
                                 val confirmed = goal
                                 pendingGoalForConfirmation = null
                                 ensureSessionAndSend(confirmed)
-                            }) { Text("Run") }
+                            }) { Text(ai.closepaw.ui.theme.appResources(this@MainActivity).getString(R.string.ui_run)) }
                         },
                         dismissButton = {
                             TextButton(onClick = {
                                 pendingGoalForConfirmation = null
-                            }) { Text("Cancel") }
+                            }) { Text(ai.closepaw.ui.theme.appResources(this@MainActivity).getString(R.string.ui_cancel)) }
                         }
                     )
                 }
@@ -527,7 +534,7 @@ class MainActivity : ComponentActivity() {
         if (!validateCloudKeysForSelectedModels()) return
 
         if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "Please grant Overlay permission", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, ai.closepaw.ui.theme.appResources(this@MainActivity).getString(R.string.ui_please_grant_overlay_permission), Toast.LENGTH_LONG).show()
             openOverlaySettings(this)
             return
         }
@@ -535,7 +542,7 @@ class MainActivity : ComponentActivity() {
         val service = AgentService.instance
         if (service == null) {
             pendingAutoStartGoal = text
-            Toast.makeText(this, "Please enable the Accessibility Service", Toast.LENGTH_LONG)
+            Toast.makeText(this, ai.closepaw.ui.theme.appResources(this@MainActivity).getString(R.string.ui_please_enable_the_accessibility_service), Toast.LENGTH_LONG)
                     .show()
             openAccessibilitySettings(this)
             return
@@ -596,10 +603,10 @@ class MainActivity : ComponentActivity() {
                 Log.e(TAG, "Failed to create session", e)
                 if (settingsState.llmBackend == LLMBackendType.LOCAL) {
                     modelLoadingStatusHolder.update(
-                            ModelLoadingStatus.Error(e.message ?: "Unknown error")
+                            ModelLoadingStatus.Error(e.message ?: ai.closepaw.ui.theme.appResources(this@MainActivity).getString(R.string.ui_unknown_error))
                     )
                 }
-                val errMsg = e.message ?: "Unknown error"
+                val errMsg = e.message ?: ai.closepaw.ui.theme.appResources(this@MainActivity).getString(R.string.ui_unknown_error)
                 val deepLink = when (e) {
                     is ai.closepaw.auth.MissingCredential,
                     is ai.closepaw.auth.OAuthRefreshFailed,
@@ -618,7 +625,7 @@ class MainActivity : ComponentActivity() {
                 viewModel.reportStartupFailure(text, errMsg, deepLink)
                 Toast.makeText(
                                 this@MainActivity,
-                                "Failed to start: $errMsg",
+                                ai.closepaw.ui.theme.appResources(this@MainActivity).getString(R.string.ui_failed_to_start, errMsg),
                                 Toast.LENGTH_LONG
                         )
                         .show()
@@ -665,7 +672,7 @@ class MainActivity : ComponentActivity() {
             } else {
                 Log.w(TAG, "Explicit resume failed for ${selectedForReload.id}, checkpoint not reloadable")
                 coordinator.selectedSessionForReload = null
-                Toast.makeText(this, "Session from previous version — start a new session.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, ai.closepaw.ui.theme.appResources(this@MainActivity).getString(R.string.ui_session_from_previous_version_start_a_new_session), Toast.LENGTH_SHORT).show()
                 return null
             }
         } else {
@@ -884,7 +891,12 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     settingsState.updateBackend(ai.closepaw.protocol.LLMBackendType.OPENAI)
+                    settingsState.updateModel(ModelCatalog.PENDING_CODEX_MODEL)
                     openAiAuthUiState = ai.closepaw.ui.settings.OpenAiAuthUiState.SignedIn(tokens.email)
+                    modelCatalogRepo.refreshCodex()
+                    modelCatalog.preferredModelFor(LLMProvider.OPENAI_CODEX)?.let {
+                        if (settingsState.selectedModel == ModelCatalog.PENDING_CODEX_MODEL) settingsState.updateModel(it.name)
+                    }
                     ai.closepaw.voice.GptLiveWidget.requestUpdate(applicationContext)
                     Log.d(TAG, "Settings OAuth success")
                 }
@@ -905,7 +917,8 @@ class MainActivity : ComponentActivity() {
     private fun handleSignOut() {
         lifecycleScope.launch {
             resetSavedVoiceContext()
-            authStore.clear(LLMProvider.OPENAI_CODEX)
+            withContext(Dispatchers.IO) { authStore.clear(LLMProvider.OPENAI_CODEX) }
+            modelCatalogRepo.refreshCodex(force = false)
             ai.closepaw.voice.GptLiveWidget.requestUpdate(applicationContext)
         }
         openAiAuthUiState = ai.closepaw.ui.settings.OpenAiAuthUiState.SignedOut
@@ -932,7 +945,7 @@ class MainActivity : ComponentActivity() {
                     try {
                         startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
                     } catch (_: Exception) {
-                        Toast.makeText(this, "Unable to open battery settings", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, ai.closepaw.ui.theme.appResources(this@MainActivity).getString(R.string.ui_unable_to_open_battery_settings), Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -940,7 +953,7 @@ class MainActivity : ComponentActivity() {
                 try {
                     startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
                 } catch (_: Exception) {
-                    Toast.makeText(this, "Unable to open battery settings", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, ai.closepaw.ui.theme.appResources(this@MainActivity).getString(R.string.ui_unable_to_open_battery_settings), Toast.LENGTH_SHORT).show()
                 }
             }
             OnboardingEffect.BringMainActivityToFront -> {
@@ -955,7 +968,7 @@ class MainActivity : ComponentActivity() {
                     startActivity(intent)
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to launch OAuth browser", e)
-                    Toast.makeText(this, "Unable to open browser for sign-in", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, ai.closepaw.ui.theme.appResources(this@MainActivity).getString(R.string.ui_unable_to_open_browser_for_sign_in), Toast.LENGTH_SHORT).show()
                     onboardingViewModel?.cancelOAuth()
                 }
             }

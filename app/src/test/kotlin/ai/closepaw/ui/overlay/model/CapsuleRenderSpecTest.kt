@@ -4,10 +4,12 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 class CapsuleRenderSpecTest {
+    private val strings = ai.closepaw.ui.resourceLabels()
+
 
     @Test
     fun `running mode shows stopping disabled when stop pending`() {
-        val spec = CapsuleRenderSpec.from(
+        val spec = CapsuleRenderSpec.from(strings,
             mode = CapsuleMode.Running("thinking"),
             previousMode = null,
             isStopPending = true,
@@ -15,13 +17,13 @@ class CapsuleRenderSpecTest {
 
         val stop = spec.buttons.stop
         assertThat(stop).isNotNull()
-        assertThat(stop?.text).isEqualTo("Stopping...")
+        assertThat(stop?.text).isEqualTo(ai.closepaw.R.string.ui_stopping.toString())
         assertThat(stop?.enabled).isFalse()
     }
 
     @Test
     fun `error mode keeps close action even when stop pending`() {
-        val spec = CapsuleRenderSpec.from(
+        val spec = CapsuleRenderSpec.from(strings,
             mode = CapsuleMode.Error("oops"),
             previousMode = null,
             isStopPending = true,
@@ -29,13 +31,13 @@ class CapsuleRenderSpecTest {
 
         val stop = spec.buttons.stop
         assertThat(stop).isNotNull()
-        assertThat(stop?.text).isEqualTo("Close")
+        assertThat(stop?.text).isEqualTo(ai.closepaw.R.string.ui_close.toString())
         assertThat(stop?.enabled).isTrue()
     }
 
     @Test
     fun `entering WaitingForInput from a different mode sets clearInput true`() {
-        val spec = CapsuleRenderSpec.from(
+        val spec = CapsuleRenderSpec.from(strings,
             mode = CapsuleMode.WaitingForInput("question?", callId = "c1"),
             previousMode = CapsuleMode.Running("thinking"),
         )
@@ -44,7 +46,7 @@ class CapsuleRenderSpecTest {
 
     @Test
     fun `re-entering WaitingForInput from itself leaves clearInput false`() {
-        val spec = CapsuleRenderSpec.from(
+        val spec = CapsuleRenderSpec.from(strings,
             mode = CapsuleMode.WaitingForInput("another?", callId = "c2"),
             previousMode = CapsuleMode.WaitingForInput("first?", callId = "c1"),
         )
@@ -53,7 +55,7 @@ class CapsuleRenderSpecTest {
 
     @Test
     fun `waiting for approval renders app-level three-button prompt`() {
-        val spec = CapsuleRenderSpec.from(
+        val spec = CapsuleRenderSpec.from(strings,
             mode = CapsuleMode.WaitingForApproval(
                 callId = "approval-1",
                 description = "Tap OK",
@@ -63,10 +65,10 @@ class CapsuleRenderSpecTest {
             )
         )
 
-        assertThat(spec.thought.text).isEqualTo("Allow ClosePaw to operate Chrome?")
+        assertThat(spec.thought.text).isEqualTo("${ai.closepaw.R.string.ui_allow_closepaw_to_operate}:Chrome")
         assertThat(spec.expandedBody).isNull()
-        assertThat(spec.buttons.primary?.text).isEqualTo("Always")
-        assertThat(spec.buttons.secondary?.text).isEqualTo("Session")
-        assertThat(spec.buttons.stop?.text).isEqualTo("Reject")
+        assertThat(spec.buttons.primary?.text).isEqualTo(ai.closepaw.R.string.ui_always.toString())
+        assertThat(spec.buttons.secondary?.text).isEqualTo(ai.closepaw.R.string.ui_session.toString())
+        assertThat(spec.buttons.stop?.text).isEqualTo(ai.closepaw.R.string.ui_reject.toString())
     }
 }

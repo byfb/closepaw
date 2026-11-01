@@ -1,5 +1,7 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.R
+
 import ai.closepaw.platform.virtualdisplay.PermissionRequestResult
 import ai.closepaw.platform.virtualdisplay.ShizukuClient
 import ai.closepaw.platform.virtualdisplay.ShizukuRuntimeGateway
@@ -49,11 +51,11 @@ internal sealed interface VirtualDisplayToggleError {
     data object ShizukuPermissionDenied : VirtualDisplayToggleError
 }
 
-internal fun VirtualDisplayToggleError.message(): String = when (this) {
+internal fun VirtualDisplayToggleError.message(): Int = when (this) {
     VirtualDisplayToggleError.ShizukuUnavailable ->
-        "Shizuku is not running. Install or start Shizuku, then turn on Virtual Display."
+        R.string.ui_enable_shizuku_for_display
     VirtualDisplayToggleError.ShizukuPermissionDenied ->
-        "Permission denied. Tap to retry, or grant in Shizuku Manager."
+        R.string.ui_permission_denied_tap_to_retry_or_grant_in_shizuku_manager
 }
 
 /**

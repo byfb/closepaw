@@ -1,5 +1,9 @@
 package ai.closepaw.ui.overlay.compose
 
+import ai.closepaw.R
+
+import ai.closepaw.ui.theme.uiResources
+
 import android.accessibilityservice.AccessibilityService
 import android.graphics.PixelFormat
 import android.content.Intent
@@ -81,7 +85,7 @@ class IslandOverlayHost(
             val holder = stateHolder
             if (holder == null) {
                 StatusIslandCompose(
-                    text = "Working...",
+                    text = uiResources().getString(R.string.ui_worker_progress),
                     dotColor = MaterialTheme.colorScheme.primary,
                     pulsing = true,
                     onClick = onExpandCapsule,
@@ -92,7 +96,8 @@ class IslandOverlayHost(
                 val isExpanded by expanded.collectAsState()
                 val voice by LiveVoiceRuntime.state.collectAsState()
                 val task by LiveVoiceRuntime.task.collectAsState()
-                val text = if (mode is CapsuleMode.Hidden) voiceStatus(voice, task) else modeText(mode)
+                val strings = uiResources()
+                val text = if (mode is CapsuleMode.Hidden) voiceStatus(strings, voice, task) else modeText(mode, strings)
                 val glowState = deriveGlowState(mode, turnPhase)
                 if (isExpanded) FloatingSummaryCompose(
                     mode = mode,
@@ -104,7 +109,7 @@ class IslandOverlayHost(
                     onMute = { voiceControl(GptLiveService.ACTION_MUTE) },
                     onEndVoice = { voiceControl(GptLiveService.ACTION_STOP) },
                 ) else StatusIslandCompose(
-                    text = if (text.isBlank()) "Working..." else text,
+                    text = if (text.isBlank()) uiResources().getString(R.string.ui_worker_progress) else text,
                     dotColor = glowState.toStatusColor(),
                     pulsing = mode is CapsuleMode.Running,
                     onClick = onExpandCapsule,
@@ -141,15 +146,15 @@ class IslandOverlayHost(
         }
     }
 
-    private fun modeText(mode: CapsuleMode): String = when (mode) {
+    private fun modeText(mode: CapsuleMode, strings: android.content.res.Resources): String = when (mode) {
         is CapsuleMode.Running -> mode.thought
-        is CapsuleMode.TakeoverPending -> "Handing over..."
-        is CapsuleMode.Takeover -> "Paused"
-        is CapsuleMode.WaitingForInput -> "Awaiting response"
-        is CapsuleMode.WaitingForAction -> "Action needed"
-        is CapsuleMode.WaitingForApproval -> "Allow ClosePaw to operate ${mode.appLabel}?"
-        is CapsuleMode.Done -> "Done: ${mode.message.take(18)}"
-        is CapsuleMode.Error -> "Error: ${mode.message.take(18)}"
+        is CapsuleMode.TakeoverPending -> strings.getString(R.string.ui_takeover_pending)
+        is CapsuleMode.Takeover -> strings.getString(R.string.ui_paused)
+        is CapsuleMode.WaitingForInput -> strings.getString(R.string.ui_awaiting_response)
+        is CapsuleMode.WaitingForAction -> strings.getString(R.string.ui_action_needed)
+        is CapsuleMode.WaitingForApproval -> strings.getString(R.string.ui_allow_closepaw_to_operate, mode.appLabel)
+        is CapsuleMode.Done -> strings.getString(R.string.ui_task_done_summary, mode.message.take(18))
+        is CapsuleMode.Error -> strings.getString(R.string.ui_task_error_summary, mode.message.take(18))
         is CapsuleMode.Hidden -> ""
     }
 

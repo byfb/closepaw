@@ -40,7 +40,8 @@ class CapsuleLifecycleTest {
     @Test fun done_state_auto_dismisses_to_hidden_via_real_holder() = runBlocking {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         try {
-            val holder = CapsuleStateHolder(scope)
+            val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+            val holder = CapsuleStateHolder(scope, context::getString)
             withContext(Dispatchers.Main) {
                 holder.onTaskStarted("task-1", "start")
                 holder.onTaskCompleted(TaskOutcome.GOAL_ACHIEVED, "Task complete")

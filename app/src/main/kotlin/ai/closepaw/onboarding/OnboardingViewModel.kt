@@ -34,7 +34,8 @@ class OnboardingViewModel(
     private val permissionMonitor: PermissionStateMonitor,
     private val authStore: AuthStore,
     private val demoController: OnboardingDemoController,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val accountCatalog: suspend () -> ModelCatalog = { modelCatalog },
 ) {
     companion object {
         private const val TAG = "OnboardingVM"
@@ -116,7 +117,8 @@ class OnboardingViewModel(
                             )
                         )
                     }
-                    applyDefaultModelFor(LLMProvider.OPENAI_CODEX)
+                    val available = accountCatalog().preferredModelFor(LLMProvider.OPENAI_CODEX)
+                    settingsState.updateModel(available?.name ?: ModelCatalog.PENDING_CODEX_MODEL)
                     store.saveOutcome(WizardStep.ApiKey, StepOutcome.Done)
                     outcomes = outcomes.copy(apiKey = StepOutcome.Done)
                     stepState = ApiKeyStepState.OAuthSuccess(tokens.email ?: "")

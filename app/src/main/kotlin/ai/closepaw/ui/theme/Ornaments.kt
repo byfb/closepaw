@@ -1,5 +1,7 @@
 package ai.closepaw.ui.theme
 
+import ai.closepaw.ui.theme.uiResources
+
 import ai.closepaw.R
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -102,6 +104,7 @@ fun PageMastheadIdentity(
     onClose: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    val strings = uiResources()
     PageMasthead(
         title = title,
         modifier = modifier,
@@ -110,7 +113,7 @@ fun PageMastheadIdentity(
                 IconButton(onClick = onClose) {
                     Icon(
                         imageVector = Icons.Rounded.Close,
-                        contentDescription = "Close",
+                        contentDescription = strings.getString(R.string.ui_close),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -126,6 +129,7 @@ fun PageMastheadDrillDown(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = uiResources()
     PageMasthead(
         title = title,
         modifier = modifier,
@@ -133,7 +137,7 @@ fun PageMastheadDrillDown(
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.Rounded.ChevronLeft,
-                    contentDescription = "Back",
+                    contentDescription = strings.getString(R.string.ui_back),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -142,7 +146,7 @@ fun PageMastheadDrillDown(
             IconButton(onClick = onClose) {
                 Icon(
                     imageVector = Icons.Rounded.Close,
-                    contentDescription = "Close",
+                    contentDescription = strings.getString(R.string.ui_close),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

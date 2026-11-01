@@ -49,7 +49,9 @@ class ModelCatalogRepository(
     },
     private val discoverCodexFn: suspend (CodexHeaders) -> List<DiscoveredModel> =
         ModelDiscovery::discoverCodex,
+    private val codexAccountScope: () -> String? = { AuthStoreHolder.get(context).codexCatalogScope() },
 ) {
+    @Volatile private var codexScope: String? = null
     private val refreshLocks = LLMProvider.entries.associateWith { Mutex() }
     private val _catalog: MutableStateFlow<ModelCatalog> = MutableStateFlow(load())
     val catalog: StateFlow<ModelCatalog> = _catalog.asStateFlow()
@@ -124,32 +126,58 @@ class ModelCatalogRepository(
         refreshCatalog(provider, baseUrl) { discoverFn(provider, baseUrl, key) }
     }
 
-    suspend fun refreshCodex() {
-        refreshCatalog(LLMProvider.OPENAI_CODEX, ModelDiscovery.CODEX_BASE_URL) {
+    suspend fun refreshCodex(force: Boolean = true) = withContext(Dispatchers.IO) {
+        val owner = try {
+            codexAccountScope()
+        } catch (e: Exception) {
+            codexScope = null
+            invalidate()
+            updateDiscoveryState { it.withError(LLMProvider.OPENAI_CODEX, "Could not read the ChatGPT sign-in") }
+            return@withContext
+        }
+        if (owner != codexScope) {
+            codexScope = owner
+            invalidate()
+            updateDiscoveryState { it.copy(lastError = it.lastError - LLMProvider.OPENAI_CODEX) }
+        }
+        if (owner == null) return@withContext
+        refreshCatalog(LLMProvider.OPENAI_CODEX, ModelDiscovery.CODEX_BASE_URL, force) {
             discoverCodexFn(codexHeaderSupplier())
         }
+    }
+
+    private fun cacheKey(provider: LLMProvider, baseUrl: String): String? {
+        val base = ModelDiscoveryCache.cacheKey(provider, baseUrl)
+        return if (provider == LLMProvider.OPENAI_CODEX) codexScope?.let { "$base#${ModelDiscovery.CODEX_CLIENT_VERSION}#$it" } else base
     }
 
     private suspend fun refreshCatalog(
         provider: LLMProvider,
         baseUrl: String,
+        force: Boolean = true,
         discover: suspend () -> List<DiscoveredModel>,
     ) {
+        val key = cacheKey(provider, baseUrl) ?: return
         val lock = refreshLocks.getValue(provider)
-        if (!lock.tryLock()) return
+        if (provider == LLMProvider.OPENAI_CODEX) lock.lock() else if (!lock.tryLock()) return
         updateDiscoveryState {
             it.withRefreshing(provider, true).copy(lastError = it.lastError - provider)
         }
         try {
             withContext(Dispatchers.IO) {
+                if (cacheKey(provider, baseUrl) != key) return@withContext
+                val fetchedAt = discoveryState.value.lastFetchedAt[provider]
+                if (!force && fetchedAt != null && clock() - fetchedAt in 0 until CODEX_REFRESH_INTERVAL_MS) return@withContext
                 val discovered = discover()
                 currentCoroutineContext().ensureActive()
                 if (effectiveBaseUrlFor(provider) != baseUrl) return@withContext
-                if (discovered.isEmpty()) {
+                if (cacheKey(provider, baseUrl) != key ||
+                    (provider == LLMProvider.OPENAI_CODEX && codexScope != codexAccountScope())) return@withContext
+                if (provider != LLMProvider.OPENAI_CODEX && discovered.isEmpty()) {
                     throw IOException("No compatible models returned. Previous list kept.")
                 }
                 val now = clock()
-                discoveryCache.write(ModelDiscoveryCache.cacheKey(provider, baseUrl), now, discovered)
+                discoveryCache.write(key, now, discovered)
                 _catalog.value = load()
                 updateDiscoveryState { it.withSuccess(provider, now) }
             }
@@ -210,7 +238,7 @@ class ModelCatalogRepository(
             val provider = runCatching { LLMProvider.valueOf(key.substring(0, sep)) }
                 .getOrNull() ?: return@flatMap emptyList()
             val expectedBase = effectiveBaseUrlFor(provider) ?: return@flatMap emptyList()
-            val expectedKey = ModelDiscoveryCache.cacheKey(provider, expectedBase)
+            val expectedKey = cacheKey(provider, expectedBase)
             if (expectedKey != key) emptyList() else bucket.toDiscovered(provider).map { it.entry }
         }
     }
@@ -273,7 +301,7 @@ class ModelCatalogRepository(
 
     private fun readLastFetchedAtFor(provider: LLMProvider): Long? {
         val base = effectiveBaseUrlFor(provider) ?: return null
-        return discoveryCache.read(ModelDiscoveryCache.cacheKey(provider, base))?.fetchedAt
+        return cacheKey(provider, base)?.let { discoveryCache.read(it)?.fetchedAt }
     }
 
     /**
@@ -302,6 +330,7 @@ class ModelCatalogRepository(
 
     companion object {
         private const val TAG = "ModelCatalogRepo"
+        private const val CODEX_REFRESH_INTERVAL_MS = 60 * 60 * 1000L
         private const val ASSET_NAME = "llm_models.json"
         private val seedProbeJson = Json { ignoreUnknownKeys = true }
 

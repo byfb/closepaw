@@ -1,5 +1,9 @@
 package ai.closepaw.ui.chat.components
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
@@ -37,13 +41,14 @@ fun CollapsePill(
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = uiResources()
     val spacing = MaterialTheme.closePaw.spacing
     val rotation by animateFloatAsState(
         targetValue = if (expanded) -90f else 0f,
         animationSpec = tween(ClosePawMotion.RowExpand, easing = ClosePawMotion.EaseInOutSine),
         label = "CollapsePillChevronRotation",
     )
-    val state = if (expanded) "expanded" else "collapsed"
+    val state = if (expanded) strings.getString(R.string.ui_expanded) else strings.getString(R.string.ui_collapsed)
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,

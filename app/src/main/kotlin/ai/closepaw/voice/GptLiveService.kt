@@ -1,5 +1,7 @@
 package ai.closepaw.voice
 
+import ai.closepaw.R
+
 import ai.closepaw.app.AgentService
 import ai.closepaw.app.AuthStoreHolder
 import ai.closepaw.app.MainActivity
@@ -65,6 +67,7 @@ class GptLiveService : Service() {
     private var contextUpdates: Channel<ConversationMemory>? = null
     private var audioGeneration = 0
     private var recordingMonitor: AudioManager.AudioRecordingCallback? = null
+    private val strings get() = ai.closepaw.ui.theme.appResources(this)
     private val audioManager by lazy { getSystemService(AudioManager::class.java) }
     private val http = OkHttpClient.Builder().callTimeout(30, TimeUnit.SECONDS)
         .followRedirects(false).followSslRedirects(false).build()
@@ -101,7 +104,7 @@ class GptLiveService : Service() {
             return
         }
         if (!preview && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            fail("Allow microphone access to start GPT-Live."); return
+            fail(strings.getString(R.string.ui_allow_microphone_access_to_start_gpt_live)); return
         }
         mutableState.value = LiveVoiceState(phase = LiveVoicePhase.Connecting, preview = preview)
         try {
@@ -112,7 +115,7 @@ class GptLiveService : Service() {
                 if (preview) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
                 else ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
         } catch (_: Exception) {
-            fail("Open ClosePaw to start the microphone."); return
+            fail(strings.getString(R.string.ui_open_closepaw_to_start_the_microphone)); return
         }
         AgentService.instance?.setLiveVoiceActive(!preview)
         conversation = LiveConversation()
@@ -126,13 +129,13 @@ class GptLiveService : Service() {
             try {
                 val auth = withContext(Dispatchers.IO) { AuthStoreHolder.get(applicationContext) }
                 if (!withContext(Dispatchers.IO) { auth.has(LLMProvider.OPENAI_CODEX) })
-                    throw LiveVoiceException("Sign in to ChatGPT in Settings to use GPT-Live.")
+                    throw LiveVoiceException(strings.getString(R.string.ui_sign_in_to_chatgpt_in_settings_to_use_gpt_live))
                 if (!preview) {
                     val ready = withTimeoutOrNull(3000) {
                         while (AgentService.instance == null) delay(100)
                         true
                     } == true
-                    if (!ready) throw LiveVoiceException("Enable ClosePaw Accessibility in Settings first.")
+                    if (!ready) throw LiveVoiceException(strings.getString(R.string.ui_enable_closepaw_accessibility_in_settings_first))
                     AgentService.instance?.setLiveVoiceActive(true)
                     val active = AgentService.instance?.getActiveSession()?.takeUnless { it.state.value == SessionState.Shutdown }
                     val saved = withContext(Dispatchers.IO) { contextStore.begin(active?.sessionId?.value) }
@@ -154,7 +157,7 @@ class GptLiveService : Service() {
                     recordingMonitor = object : AudioManager.AudioRecordingCallback() {
                         override fun onRecordingConfigChanged(configs: MutableList<android.media.AudioRecordingConfiguration>?) {
                             if (configs?.any { it.isClientSilenced } == true) scope.launch {
-                                if (state.value.running) fail("Android silenced the microphone. Check microphone access and other recording apps.")
+                                if (state.value.running) fail(strings.getString(R.string.ui_live_microphone_silenced))
                             }
                         }
                     }.also { audioManager.registerAudioRecordingCallback(it, android.os.Handler(mainLooper)) }
@@ -165,9 +168,9 @@ class GptLiveService : Service() {
                         while (isActive) {
                             delay(2000)
                             if (!preview && AgentService.instance == null)
-                                throw LiveVoiceException("Accessibility disconnected. Start GPT-Live again after reconnecting.")
+                                throw LiveVoiceException(strings.getString(R.string.ui_live_accessibility_disconnected))
                             if (!withContext(Dispatchers.IO) { auth.has(LLMProvider.OPENAI_CODEX) })
-                                throw LiveVoiceException("ChatGPT signed out. Sign in again to use GPT-Live.")
+                                throw LiveVoiceException(strings.getString(R.string.ui_chatgpt_signed_out_sign_in_again_to_use_gpt_live))
                         }
                     }
                     var reconnects = 0
@@ -188,7 +191,7 @@ class GptLiveService : Service() {
                         connectionFailure = lost
                         responseWatchdog = watchdog
                         val connection = WebRtcLiveTransport(applicationContext,
-                            LiveCallClient(http, headers = { withContext(Dispatchers.IO) { auth.codexHeaders(LLMProvider.OPENAI_CODEX) } },
+                            LiveCallClient(strings, http, headers = { withContext(Dispatchers.IO) { auth.codexHeaders(LLMProvider.OPENAI_CODEX) } },
                                 preferences = preferences, preview = preview)::create,
                             onEvent = { raw -> scope.launch {
                                 if (run == generation && state.value.running) {
@@ -218,7 +221,7 @@ class GptLiveService : Service() {
                             onConnecting = { stage -> scope.launch {
                                 if (run == generation && state.value.phase == LiveVoicePhase.Connecting) {
                                     mutableState.value = state.value.copy(connectionStage =
-                                        if (reconnects > 0) "Reconnecting ($reconnects/2)… $stage" else stage)
+                                        if (reconnects > 0) strings.getString(R.string.ui_live_reconnect_stage, reconnects, stage) else stage)
                                 }
                             } },
                         )
@@ -226,7 +229,7 @@ class GptLiveService : Service() {
                         val failure = try {
                             connection.connect(UUID.randomUUID().toString())
                             if (withTimeoutOrNull(10_000) { sessionStarted.await(); true } != true)
-                                throw LiveVoiceException("GPT-Live did not become ready. Reconnect to try again.")
+                                throw LiveVoiceException(strings.getString(R.string.ui_gpt_live_did_not_become_ready_reconnect_to_try_again))
                             everConnected = true
                             connectionReady = true
                             mutableState.value = state.value.copy(phase = LiveVoicePhase.Active, connectionStage = null)
@@ -251,15 +254,15 @@ class GptLiveService : Service() {
                                 delay(1000)
                                 if (state.value.muted || state.value.audioInterrupted) watchdog.reset()
                                 else if (watchdog.expired(android.os.SystemClock.elapsedRealtime()))
-                                    lost.complete("GPT-Live stopped responding to speech.")
+                                    lost.complete(strings.getString(R.string.ui_gpt_live_stopped_responding_to_speech))
                             }
                             lost.await()
                         } catch (e: TimeoutCancellationException) {
-                            "GPT-Live connection timed out."
+                            strings.getString(R.string.ui_gpt_live_connection_timed_out)
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {
-                            (e as? LiveVoiceException)?.message ?: "GPT-Live could not connect."
+                            (e as? LiveVoiceException)?.message ?: strings.getString(R.string.ui_gpt_live_could_not_connect)
                         } finally {
                             connectionReady = false
                             generation++
@@ -272,18 +275,18 @@ class GptLiveService : Service() {
                             }
                         }
                         if (preview || !everConnected || reconnects >= 2) throw LiveVoiceException(
-                            "$failure Tap GPT-Live to reconnect. Your phone task has been kept."
+                            strings.getString(R.string.ui_tap_gpt_live_to_reconnect_your_phone_task_has_been_kept, failure)
                         )
                         reconnects++
                         mutableState.value = state.value.copy(phase = LiveVoicePhase.Connecting,
-                            speaking = false, connectionStage = "Reconnecting ($reconnects/2)…")
+                            speaking = false, connectionStage = strings.getString(R.string.ui_live_reconnect_count, reconnects))
                         delay(1000L * reconnects)
                     }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                fail((e as? LiveVoiceException)?.message ?: "GPT-Live could not connect. Check ChatGPT sign-in and try again.")
+                fail((e as? LiveVoiceException)?.message ?: strings.getString(R.string.ui_gpt_live_could_not_connect_check_chatgpt_sign_in_and_try_again))
             } finally {
                 generation++
                 delegations.cancel()
@@ -344,8 +347,8 @@ class GptLiveService : Service() {
     private fun receive(raw: String, requests: Channel<Pair<Int, LiveConversation.Delegation>>) {
         val event = runCatching { Json.parseToJsonElement(raw) as? JsonObject }.getOrNull() ?: return
         when (event.string("type")) {
-            "error" -> { fail("GPT-Live reported a session error. End the call and try again."); return }
-            "session.closed", "session.ended" -> { connectionFailure?.complete("GPT-Live session ended."); return }
+            "error" -> { fail(strings.getString(R.string.ui_gpt_live_reported_a_session_error_end_the_call_and_try_again)); return }
+            "session.closed", "session.ended" -> { connectionFailure?.complete(strings.getString(R.string.ui_gpt_live_session_ended)); return }
         }
         if (!state.value.preview && LiveVoiceCommands.isHangup(event)) { stopCall(); return }
         val request = conversation.receive(raw)
@@ -424,7 +427,7 @@ class GptLiveService : Service() {
             if (transport?.send(event) != true) {
                 pendingUpdates.addLast(bounded to spoken)
                 while (pendingUpdates.size > 12) pendingUpdates.removeFirst()
-                connectionFailure?.complete("GPT-Live could not receive the task update.")
+                connectionFailure?.complete(strings.getString(R.string.ui_gpt_live_could_not_receive_the_task_update))
                 break
             }
         }
@@ -439,7 +442,7 @@ class GptLiveService : Service() {
                 scope.launch {
                     if (audioRun != audioGeneration || !state.value.running) return@launch
                     when (change) {
-                        AudioManager.AUDIOFOCUS_LOSS -> fail("Voice ended because another app needs audio. Tap to reconnect.")
+                        AudioManager.AUDIOFOCUS_LOSS -> fail(strings.getString(R.string.ui_voice_ended_because_another_app_needs_audio_tap_to_reconnect))
                         AudioManager.AUDIOFOCUS_LOSS_TRANSIENT, AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                             transport?.mute(true)
                             responseWatchdog?.reset()
@@ -453,7 +456,7 @@ class GptLiveService : Service() {
                 }
             }.build()
         if (audioManager.requestAudioFocus(focus!!) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
-            throw LiveVoiceException("Microphone audio is in use by another app.")
+            throw LiveVoiceException(strings.getString(R.string.ui_microphone_audio_is_in_use_by_another_app))
         previousAudioMode = audioManager.mode
         previousAudioDevice = audioManager.communicationDevice
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
@@ -483,7 +486,7 @@ class GptLiveService : Service() {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(this, 1, Intent(this, GptLiveService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL).setSmallIcon(android.R.drawable.ic_btn_speak_now)
-            .setContentTitle("GPT-Live").setContentText(voiceStatus(state.value, LiveVoiceRuntime.task.value))
+            .setContentTitle("GPT-Live").setContentText(voiceStatus(ai.closepaw.ui.theme.appResources(this), state.value, LiveVoiceRuntime.task.value))
             .setContentIntent(open).setOngoing(true).setSilent(true)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "End voice", stop).build()
     }

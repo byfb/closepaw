@@ -61,7 +61,7 @@ class ServiceOverlayController(
 ) {
     // ── Unified state (single source of truth) ──
 
-    val stateHolder = CapsuleStateHolder(scope)
+    val stateHolder = CapsuleStateHolder(scope) { ai.closepaw.ui.theme.appResources(context).getString(it) }
 
     /** Package manager for resolving app labels. */
     private val packageManager = context.packageManager

@@ -1,5 +1,7 @@
 package ai.closepaw.voice
 
+import ai.closepaw.R
+
 import ai.closepaw.protocol.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,9 +22,9 @@ data class LiveVoiceState(
     internal val showInOverlay: Boolean get() = !preview && (running || phase == LiveVoicePhase.Error)
 }
 
-enum class LiveTaskStatus(val label: String) {
-    NONE("Ready"), RUNNING("Working"), WAITING("Needs your input"),
-    DONE("Task complete"), FAILED("Task failed"), STOPPED("Task stopped");
+enum class LiveTaskStatus(@androidx.annotation.StringRes val label: Int) {
+    NONE(R.string.ui_ready), RUNNING(R.string.ui_working), WAITING(R.string.ui_needs_your_input),
+    DONE(R.string.ui_task_complete), FAILED(R.string.ui_task_failed), STOPPED(R.string.ui_task_stopped);
 }
 
 /** Only small in-memory state lives here; no Context, microphone or service reference. */
@@ -60,15 +62,15 @@ object LiveVoiceRuntime {
     }
 }
 
-internal fun voiceStatus(voice: LiveVoiceState, task: LiveTaskStatus): String = when {
-    voice.phase == LiveVoicePhase.Connecting -> voice.connectionStage ?: "Connecting…"
-    voice.audioInterrupted && voice.running -> "Audio interrupted"
-    voice.preview && voice.running -> "Previewing"
-    voice.speaking && voice.running -> "Replying"
-    voice.muted && voice.running -> "Microphone muted"
-    voice.running && task in listOf(LiveTaskStatus.RUNNING, LiveTaskStatus.WAITING) -> task.label
-    voice.running -> "Listening"
-    task != LiveTaskStatus.NONE -> task.label
-    voice.phase == LiveVoicePhase.Error -> "Voice disconnected"
-    else -> task.label
+internal fun voiceStatus(strings: android.content.res.Resources, voice: LiveVoiceState, task: LiveTaskStatus): String = when {
+    voice.phase == LiveVoicePhase.Connecting -> voice.connectionStage ?: strings.getString(R.string.ui_connecting)
+    voice.audioInterrupted && voice.running -> strings.getString(R.string.ui_audio_interrupted)
+    voice.preview && voice.running -> strings.getString(R.string.ui_previewing)
+    voice.speaking && voice.running -> strings.getString(R.string.ui_replying)
+    voice.muted && voice.running -> strings.getString(R.string.ui_microphone_muted)
+    voice.running && task in listOf(LiveTaskStatus.RUNNING, LiveTaskStatus.WAITING) -> strings.getString(task.label)
+    voice.running -> strings.getString(R.string.ui_voice_listening)
+    task != LiveTaskStatus.NONE -> strings.getString(task.label)
+    voice.phase == LiveVoicePhase.Error -> strings.getString(R.string.ui_voice_disconnected)
+    else -> strings.getString(task.label)
 }

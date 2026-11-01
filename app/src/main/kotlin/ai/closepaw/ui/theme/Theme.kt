@@ -125,7 +125,7 @@ fun ClosePawTheme(
             colorScheme = colorScheme,
             typography = ClosePawTypography,
             shapes = ClosePawShapes,
-            content = content,
+            content = { AppLanguageResources(content) },
         )
     }
 }

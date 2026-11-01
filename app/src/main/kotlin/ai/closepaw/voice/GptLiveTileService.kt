@@ -1,5 +1,7 @@
 package ai.closepaw.voice
 
+import ai.closepaw.R
+
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
@@ -20,7 +22,8 @@ class GptLiveTileService : TileService() {
                 qsTile?.apply {
                     state = if (voice.running) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
                     label = "GPT-Live"
-                    subtitle = if (voice.running) "End voice" else "Start voice"
+                    val strings = ai.closepaw.ui.theme.appResources(this@GptLiveTileService)
+                    subtitle = if (voice.running) strings.getString(R.string.ui_end_voice) else strings.getString(R.string.ui_start_voice)
                     contentDescription = "GPT-Live: $subtitle"
                     updateTile()
                 }

@@ -1,10 +1,11 @@
 package ai.closepaw.ui.session
 
+import ai.closepaw.R
+
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /**
@@ -12,14 +13,10 @@ import java.util.concurrent.TimeUnit
  */
 object TimeUtils {
     
-    // DateTimeFormatter is thread-safe unlike SimpleDateFormat
-    private val dateFormatter = DateTimeFormatter.ofPattern("MMM d", Locale.US)
-    private val dateWithYearFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US)
-    
     /**
      * Format timestamp as relative time.
      * 
-     * - < 1 minute: "Just now"
+     * - < 1 minute: strings.getString(R.string.ui_just_now)
      * - < 60 minutes: "X minutes ago"
      * - < 24 hours: "X hours ago"
      * - < 7 days: "X days ago"
@@ -29,23 +26,23 @@ object TimeUtils {
      * @param timestamp The epoch timestamp in milliseconds
      * @return A human-readable relative time string
      */
-    fun formatRelativeTime(timestamp: Long): String {
+    fun formatRelativeTime(strings: android.content.res.Resources, timestamp: Long): String {
         val now = System.currentTimeMillis()
         val diff = now - timestamp
         
         return when {
-            diff < TimeUnit.MINUTES.toMillis(1) -> "Just now"
+            diff < TimeUnit.MINUTES.toMillis(1) -> strings.getString(R.string.ui_just_now)
             diff < TimeUnit.HOURS.toMillis(1) -> {
                 val minutes = TimeUnit.MILLISECONDS.toMinutes(diff)
-                if (minutes == 1L) "1 minute ago" else "$minutes minutes ago"
+                if (minutes == 1L) strings.getString(R.string.ui_1_minute_ago) else strings.getString(R.string.ui_minutes_ago, minutes)
             }
             diff < TimeUnit.DAYS.toMillis(1) -> {
                 val hours = TimeUnit.MILLISECONDS.toHours(diff)
-                if (hours == 1L) "1 hour ago" else "$hours hours ago"
+                if (hours == 1L) strings.getString(R.string.ui_1_hour_ago) else strings.getString(R.string.ui_hours_ago, hours)
             }
             diff < TimeUnit.DAYS.toMillis(7) -> {
                 val days = TimeUnit.MILLISECONDS.toDays(diff)
-                if (days == 1L) "Yesterday" else "$days days ago"
+                if (days == 1L) strings.getString(R.string.ui_yesterday) else strings.getString(R.string.ui_days_ago, days)
             }
             else -> {
                 val dateTime = LocalDateTime.ofInstant(
@@ -54,11 +51,10 @@ object TimeUtils {
                 )
                 val currentYear = LocalDateTime.now().year
                 
-                if (dateTime.year == currentYear) {
-                    dateTime.format(dateFormatter)
-                } else {
-                    dateTime.format(dateWithYearFormatter)
-                }
+                val locale = strings.configuration.locales[0]
+                val skeleton = if (dateTime.year == currentYear) "MMMd" else "yMMMd"
+                val pattern = android.text.format.DateFormat.getBestDateTimePattern(locale, skeleton)
+                dateTime.format(DateTimeFormatter.ofPattern(pattern, locale))
             }
         }
     }
@@ -67,9 +63,9 @@ object TimeUtils {
      * Format message count for display.
      * 
      * @param count The number of messages
-     * @return A formatted string like "3 messages" or "1 message"
+     * @return A formatted string like "3 messages" or strings.getString(R.string.ui_1_message)
      */
-    fun formatMessageCount(count: Int): String {
-        return if (count == 1) "1 message" else "$count messages"
+    fun formatMessageCount(strings: android.content.res.Resources, count: Int): String {
+        return if (count == 1) strings.getString(R.string.ui_1_message) else strings.getString(R.string.ui_messages, count)
     }
 }

@@ -1,5 +1,5 @@
 <resources>
-    <string name="gpt_live_widget_name">GPT-Live</string>
+    <string name="gpt_live_widget_name" translatable="false">GPT-Live</string>
     <string name="gpt_live_widget_description">Talk to ClosePaw from your home screen</string>
     <string name="gpt_live_widget_settings">GPT-Live settings</string>
     <string name="gpt_live_widget_ready">Ready</string>

@@ -1,5 +1,9 @@
 package ai.closepaw.ui.onboarding
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -44,6 +48,7 @@ fun PermissionRepairCard(
     onFixBattery: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = uiResources()
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -56,22 +61,22 @@ fun PermissionRepairCard(
         Column {
             if (model.accessibilityMissing) {
                 RepairRow(
-                    text = "Accessibility disabled",
-                    detail = "Agent cannot automate.",
+                    text = strings.getString(R.string.ui_accessibility_disabled),
+                    detail = strings.getString(R.string.ui_agent_cannot_automate),
                     onFix = onFixAccessibility,
                 )
             }
             if (model.overlayMissing) {
                 RepairRow(
-                    text = "Overlay revoked",
-                    detail = "Capsule controls hidden during tasks.",
+                    text = strings.getString(R.string.ui_overlay_revoked),
+                    detail = strings.getString(R.string.ui_capsule_controls_hidden_during_tasks),
                     onFix = onFixOverlay,
                 )
             }
             if (model.batteryMissing) {
                 RepairRow(
-                    text = "Battery optimization on",
-                    detail = "Long tasks may stop.",
+                    text = strings.getString(R.string.ui_battery_optimization_on),
+                    detail = strings.getString(R.string.ui_long_tasks_may_stop),
                     onFix = onFixBattery,
                 )
             }
@@ -85,6 +90,7 @@ private fun RepairRow(
     detail: String,
     onFix: () -> Unit,
 ) {
+    val strings = uiResources()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -119,10 +125,10 @@ private fun RepairRow(
             modifier = Modifier
                 .minimumInteractiveComponentSize()
                 .height(28.dp)
-                .semantics { contentDescription = "Fix $text" },
+                .semantics { contentDescription = strings.getString(R.string.ui_fix, text) },
         ) {
             Text(
-                text = "Fix",
+                text = strings.getString(R.string.ui_fix_button),
                 style = MaterialTheme.closePaw.monoSmall,
                 color = MaterialTheme.colorScheme.error,
             )

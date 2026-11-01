@@ -1,5 +1,9 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -61,32 +65,33 @@ internal fun PermissionsAdvancedSettingsPage(
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
+    val strings = uiResources()
     Column(modifier = Modifier.fillMaxWidth()) {
-        PageMastheadDrillDown(title = "System & Debug", onBack = onBack, onClose = onClose)
+        PageMastheadDrillDown(title = strings.getString(R.string.ui_system_debug), onBack = onBack, onClose = onClose)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = MaterialTheme.closePaw.spacing.lg)
         ) {
-            SettingsSection(title = "Permissions") {
+            SettingsSection(title = strings.getString(R.string.ui_permissions)) {
                 Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.md)) {
                     SettingsRow(
                         icon = Icons.Outlined.Settings,
-                        title = "Accessibility Service",
+                        title = strings.getString(R.string.ui_permission_accessibility),
                         isEnabled = isAccessibilityEnabled,
                         onClick = onAccessibilityClick
                     )
                     SettingsRow(
                         icon = Icons.Outlined.Layers,
-                        title = "Overlay Permission",
+                        title = strings.getString(R.string.ui_overlay_permission),
                         isEnabled = isOverlayEnabled,
                         onClick = onOverlayClick
                     )
                 }
             }
             Spacer(modifier = Modifier.height(20.dp))
-            SettingsSection(title = "Debug") {
+            SettingsSection(title = strings.getString(R.string.ui_debug)) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.surfaceVariant,
@@ -105,11 +110,11 @@ internal fun PermissionsAdvancedSettingsPage(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Debug Mode",
+                                text = strings.getString(R.string.ui_debug_mode),
                                 style = MaterialTheme.typography.bodyLarge
                             )
                             Text(
-                                text = "Enable verbose logging",
+                                text = strings.getString(R.string.ui_enable_verbose_logging),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -132,7 +137,7 @@ internal fun PermissionsAdvancedSettingsPage(
             )
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                text = "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                text = strings.getString(R.string.ui_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -159,6 +164,7 @@ private fun DataStorageSection(
     traceEnabled: Boolean,
     onTraceEnabledChange: (Boolean) -> Unit
 ) {
+    val strings = uiResources()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var traceClearState by remember { mutableStateOf<ClearDataState>(ClearDataState.Idle) }
@@ -171,7 +177,7 @@ private fun DataStorageSection(
         traceClearState = ClearDataState.Clearing
         scope.launch {
             traceClearState = withContext(Dispatchers.IO) {
-                clearDirectory(context.getExternalFilesDir(TRACE_DIR), label = "traces")
+                clearDirectory(strings, context.getExternalFilesDir(TRACE_DIR), label = strings.getString(R.string.ui_traces))
             }
         }
     }
@@ -181,7 +187,7 @@ private fun DataStorageSection(
         sessionClearState = ClearDataState.Clearing
         scope.launch {
             sessionClearState = withContext(Dispatchers.IO) {
-                clearDirectory(File(context.filesDir, SESSIONS_DIR), label = "session history")
+                clearDirectory(strings, File(context.filesDir, SESSIONS_DIR), label = strings.getString(R.string.ui_session_history))
             }
         }
     }
@@ -189,8 +195,8 @@ private fun DataStorageSection(
     if (showClearTracesConfirm) {
         AlertDialog(
             onDismissRequest = { showClearTracesConfirm = false },
-            title = { Text("Clear Traces") },
-            text = { Text("All recorded execution traces will be permanently deleted. This cannot be undone.") },
+            title = { Text(strings.getString(R.string.ui_clear_traces)) },
+            text = { Text(strings.getString(R.string.ui_clear_traces_confirmation)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -200,10 +206,10 @@ private fun DataStorageSection(
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
                     )
-                ) { Text("Clear") }
+                ) { Text(strings.getString(R.string.ui_clear)) }
             },
             dismissButton = {
-                TextButton(onClick = { showClearTracesConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showClearTracesConfirm = false }) { Text(strings.getString(R.string.ui_cancel)) }
             }
         )
     }
@@ -211,8 +217,8 @@ private fun DataStorageSection(
     if (showClearSessionsConfirm) {
         AlertDialog(
             onDismissRequest = { showClearSessionsConfirm = false },
-            title = { Text("Clear Session History") },
-            text = { Text("All saved sessions and chat history will be permanently deleted. This cannot be undone.") },
+            title = { Text(strings.getString(R.string.ui_clear_session_history)) },
+            text = { Text(strings.getString(R.string.ui_clear_history_confirmation)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -222,15 +228,15 @@ private fun DataStorageSection(
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
                     )
-                ) { Text("Clear") }
+                ) { Text(strings.getString(R.string.ui_clear)) }
             },
             dismissButton = {
-                TextButton(onClick = { showClearSessionsConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showClearSessionsConfirm = false }) { Text(strings.getString(R.string.ui_cancel)) }
             }
         )
     }
 
-    SettingsSection(title = "Data & Storage") {
+    SettingsSection(title = strings.getString(R.string.ui_data_storage)) {
         Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.md)) {
             // Trace toggle
             Surface(
@@ -249,11 +255,11 @@ private fun DataStorageSection(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Session Traces",
+                                text = strings.getString(R.string.ui_session_traces),
                                 style = MaterialTheme.typography.bodyLarge
                             )
                             Text(
-                                text = "Save step-by-step session logs",
+                                text = strings.getString(R.string.ui_save_step_by_step_session_logs),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -275,7 +281,7 @@ private fun DataStorageSection(
                             shape = MaterialTheme.shapes.small
                         ) {
                             Text(
-                                text = "Traces may include screenshots and inputs. Turn off when done.",
+                                text = strings.getString(R.string.ui_traces_may_include_screenshots_and_inputs_turn_off_when_done),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                                 modifier = Modifier.padding(horizontal = MaterialTheme.closePaw.spacing.md, vertical = MaterialTheme.closePaw.spacing.sm)
@@ -287,7 +293,7 @@ private fun DataStorageSection(
 
             // Clear traces button
             ClearDataButton(
-                label = clearDataButtonLabel(traceClearState, idle = "Clear Traces", clearing = "Clearing Traces", cleared = "Traces Cleared"),
+                label = clearDataButtonLabel(traceClearState, idle = strings.getString(R.string.ui_clear_traces), clearing = strings.getString(R.string.ui_clearing_traces), cleared = strings.getString(R.string.ui_traces_cleared)),
                 enabled = traceClearState !is ClearDataState.Clearing && traceClearState !is ClearDataState.Cleared,
                 onClick = { showClearTracesConfirm = true }
             )
@@ -295,7 +301,7 @@ private fun DataStorageSection(
 
             // Clear session history button
             ClearDataButton(
-                label = clearDataButtonLabel(sessionClearState, idle = "Clear Session History", clearing = "Clearing Sessions", cleared = "Sessions Cleared"),
+                label = clearDataButtonLabel(sessionClearState, idle = strings.getString(R.string.ui_clear_session_history), clearing = strings.getString(R.string.ui_clearing_sessions), cleared = strings.getString(R.string.ui_sessions_cleared)),
                 enabled = sessionClearState !is ClearDataState.Clearing && sessionClearState !is ClearDataState.Cleared,
                 onClick = { showClearSessionsConfirm = true }
             )
@@ -304,18 +310,18 @@ private fun DataStorageSection(
     }
 }
 
-private fun clearDirectory(directory: File?, label: String): ClearDataState {
+private fun clearDirectory(strings: android.content.res.Resources, directory: File?, label: String): ClearDataState {
     if (directory == null) {
-        return ClearDataState.Failed("Could not access $label storage. Retry from Settings.")
+        return ClearDataState.Failed(strings.getString(R.string.ui_could_not_access_storage_retry_from_settings, label))
     }
     return try {
         if (directory.deleteRecursively()) {
             ClearDataState.Cleared
         } else {
-            ClearDataState.Failed("Could not clear $label. Retry from Settings.")
+            ClearDataState.Failed(strings.getString(R.string.ui_could_not_clear_retry_from_settings, label))
         }
     } catch (e: SecurityException) {
-        ClearDataState.Failed("Could not clear $label because storage access was denied.")
+        ClearDataState.Failed(strings.getString(R.string.ui_could_not_clear_because_storage_access_was_denied, label))
     }
 }
 
@@ -333,13 +339,14 @@ private fun clearDataButtonLabel(
 
 @Composable
 private fun ClearFailureAlert(state: ClearDataState, onRetry: () -> Unit) {
+    val strings = uiResources()
     val failed = state as? ClearDataState.Failed ?: return
     SettingsAlertCard(
         message = failed.message,
         tone = AlertTone.Error,
         action = {
             TextButton(onClick = onRetry) {
-                Text("Retry")
+                Text(strings.getString(R.string.ui_retry))
             }
         },
     )

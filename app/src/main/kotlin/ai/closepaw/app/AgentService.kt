@@ -125,7 +125,9 @@ class AgentService : AccessibilityService() {
         try {
             check(isServiceActive) { "Accessibility is disconnected" }
             val catalog = withContext(Dispatchers.IO) {
-                ai.closepaw.llm.ModelCatalogRepositoryHolder.get(applicationContext).catalog.value
+                val repo = ai.closepaw.llm.ModelCatalogRepositoryHolder.get(applicationContext)
+                repo.refreshCodex(force = false)
+                repo.catalog.value
             }
             fun requireChatGpt(candidate: AgentSession): AgentSession {
                 val config = candidate.getServices().config

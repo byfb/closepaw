@@ -1,5 +1,7 @@
 package ai.closepaw.ui.overlay
 
+import ai.closepaw.R
+
 import android.util.Log
 import ai.closepaw.protocol.AskUserType
 import ai.closepaw.protocol.SessionEndReason
@@ -33,7 +35,7 @@ import kotlinx.coroutines.launch
  * All mutations must happen on the Main dispatcher (enforced by StateFlow usage from
  * coroutine scope or direct main-thread calls from ServiceOverlayController).
  */
-class CapsuleStateHolder(private val scope: CoroutineScope) {
+class CapsuleStateHolder(private val scope: CoroutineScope, private val label: (Int) -> String) {
 
     companion object {
         private const val TAG = "CapsuleStateHolder"
@@ -153,7 +155,7 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
             Log.d(TAG, "Ignoring approval resolved: callId mismatch expected=${current.callId}, actual=$callId")
             return false
         }
-        setMode(CapsuleMode.Running("Processing..."))
+        setMode(CapsuleMode.Running(label(R.string.ui_processing)))
         return true
     }
 
@@ -192,7 +194,7 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
         }
         _turnPhase.value = null
         _isAgentMidTurn.value = false
-        setMode(CapsuleMode.Running("Thinking..."))
+        setMode(CapsuleMode.Running(label(R.string.ui_thinking_status)))
     }
 
     fun onUserResponseSent(callId: String): Boolean {
@@ -209,7 +211,7 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
             Log.d(TAG, "Ignoring user response due to callId mismatch: expected=$expectedCallId, actual=$callId")
             return false
         }
-        setMode(CapsuleMode.Running("Processing response..."))
+        setMode(CapsuleMode.Running(label(R.string.ui_processing_response)))
         return true
     }
 
@@ -242,13 +244,13 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
         _isStopPending.value = false
         val mode = when (outcome) {
             TaskOutcome.GOAL_ACHIEVED -> {
-                val completionMessage = message?.takeIf { it.isNotBlank() } ?: "Task completed"
+                val completionMessage = message?.takeIf { it.isNotBlank() } ?: label(R.string.ui_task_completed)
                 CapsuleMode.Done(completionMessage)
             }
-            TaskOutcome.TASK_IMPOSSIBLE -> CapsuleMode.Done("Task impossible")
-            TaskOutcome.USER_STOPPED -> CapsuleMode.Done("Stopped")
+            TaskOutcome.TASK_IMPOSSIBLE -> CapsuleMode.Done(label(R.string.ui_task_impossible))
+            TaskOutcome.USER_STOPPED -> CapsuleMode.Done(label(R.string.ui_stopped))
             TaskOutcome.ERROR -> CapsuleMode.Error(
-                message?.takeIf { it.isNotBlank() }?.let(::compactThought) ?: "Error occurred"
+                message?.takeIf { it.isNotBlank() }?.let(::compactThought) ?: label(R.string.ui_error_occurred)
             )
         }
         setMode(mode)

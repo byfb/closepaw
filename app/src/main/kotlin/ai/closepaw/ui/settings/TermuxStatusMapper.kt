@@ -1,5 +1,7 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.R
+
 import ai.closepaw.termux.NeedsSetupReason
 import ai.closepaw.termux.TermuxBridgeStatus
 
@@ -8,8 +10,8 @@ import ai.closepaw.termux.TermuxBridgeStatus
  * and the user's enable pref into the display-only [ToolStatusUi] the unified tool card
  * renders. No Compose dependency — covered by JVM unit tests.
  *
- * Label words MUST stay exactly `"Ready" / "Needs Setup" / "Setting up…" / "Not Installed"
- * / "Disabled"` — `SettingsTermuxRowTest` matches on them.
+ * Label words MUST stay exactly `R.string.ui_ready / R.string.ui_needs_setup / R.string.ui_setting_up / R.string.ui_not_installed
+ * / R.string.ui_disabled` — `SettingsTermuxRowTest` matches on them.
  */
 internal fun termuxStatusUi(
     state: TermuxBridgeStatus,
@@ -25,12 +27,12 @@ internal fun termuxStatusUi(
     )
 }
 
-private fun TermuxBridgeStatus.label(): String = when (this) {
-    TermuxBridgeStatus.NotInstalled -> "Not Installed"
-    is TermuxBridgeStatus.NeedsSetup -> "Needs Setup"
-    TermuxBridgeStatus.SetupInProgress -> "Setting up…"
-    TermuxBridgeStatus.Ready -> "Ready"
-    TermuxBridgeStatus.Disabled -> "Disabled"
+private fun TermuxBridgeStatus.label(): Int = when (this) {
+    TermuxBridgeStatus.NotInstalled -> R.string.ui_not_installed
+    is TermuxBridgeStatus.NeedsSetup -> R.string.ui_needs_setup
+    TermuxBridgeStatus.SetupInProgress -> R.string.ui_setting_up
+    TermuxBridgeStatus.Ready -> R.string.ui_ready
+    TermuxBridgeStatus.Disabled -> R.string.ui_disabled
 }
 
 private fun TermuxBridgeStatus.tone(): ToolStatusTone = when (this) {
@@ -41,12 +43,12 @@ private fun TermuxBridgeStatus.tone(): ToolStatusTone = when (this) {
     TermuxBridgeStatus.Disabled -> ToolStatusTone.Neutral
 }
 
-private fun TermuxBridgeStatus.subtitle(): String = when (this) {
-    TermuxBridgeStatus.NotInstalled -> "Install Termux from F-Droid"
+private fun TermuxBridgeStatus.subtitle(): Int = when (this) {
+    TermuxBridgeStatus.NotInstalled -> R.string.ui_install_termux_from_f_droid
     is TermuxBridgeStatus.NeedsSetup -> reason.toDisplayText()
-    TermuxBridgeStatus.SetupInProgress -> "This may take a minute"
-    TermuxBridgeStatus.Ready -> "Termux bridge running — tap to restart"
-    TermuxBridgeStatus.Disabled -> "Toggle to enable"
+    TermuxBridgeStatus.SetupInProgress -> R.string.ui_this_may_take_a_minute
+    TermuxBridgeStatus.Ready -> R.string.ui_termux_bridge_running_tap_to_restart
+    TermuxBridgeStatus.Disabled -> R.string.ui_toggle_to_enable
 }
 
 /**
@@ -56,33 +58,33 @@ private fun TermuxBridgeStatus.subtitle(): String = when (this) {
  */
 private fun TermuxBridgeStatus.subtitleFor(
     permissionDisposition: RunCommandPermissionDisposition?,
-): String {
+): Int {
     if (this is TermuxBridgeStatus.NeedsSetup &&
         reason == NeedsSetupReason.PERMISSION_MISSING
     ) {
         return when (permissionDisposition) {
             RunCommandPermissionDisposition.OpenAppSettings ->
-                "Permission permanently denied. Tap to open App Settings → Permissions."
+                R.string.ui_termux_permission_denied
             RunCommandPermissionDisposition.Request,
             RunCommandPermissionDisposition.Granted,
-            null -> "Tap to grant RUN_COMMAND permission to Termux."
+            null -> R.string.ui_tap_to_grant_run_command_permission_to_termux
         }
     }
     return subtitle()
 }
 
-private fun NeedsSetupReason.toDisplayText(): String = when (this) {
-    NeedsSetupReason.PERMISSION_MISSING -> "Tap to grant RUN_COMMAND permission to Termux."
+private fun NeedsSetupReason.toDisplayText(): Int = when (this) {
+    NeedsSetupReason.PERMISSION_MISSING -> R.string.ui_tap_to_grant_run_command_permission_to_termux
     NeedsSetupReason.ALLOW_EXTERNAL_APPS_MISSING ->
-        "Allow external apps is disabled in Termux. Enable it, then tap setup."
+        R.string.ui_termux_external_apps_disabled
     NeedsSetupReason.TERMUX_NOT_RUNNING ->
-        "Termux is not running. Tap to open Termux, then return here."
+        R.string.ui_termux_is_not_running_tap_to_open_termux_then_return_here
     NeedsSetupReason.TERMUX_RUN_COMMAND_UNAVAILABLE ->
-        "This Termux build cannot accept external commands. Install Termux from F-Droid (the Google Play build is incompatible)."
-    NeedsSetupReason.PACKAGES_MISSING -> "Missing packages — tap to install python/git/ripgrep"
-    NeedsSetupReason.BRIDGE_OUTDATED -> "Bridge daemon out of date — tap to update"
-    NeedsSetupReason.HEALTH_TIMEOUT -> "Bridge unreachable — tap to retry setup"
-    NeedsSetupReason.TERMUX_TIMEOUT -> "Termux command timed out — open Termux once and retry"
-    NeedsSetupReason.PORT_IN_USE -> "Port 18422 in use by another process"
-    NeedsSetupReason.UNKNOWN -> "Setup error — tap to retry"
+        R.string.ui_termux_incompatible_build
+    NeedsSetupReason.PACKAGES_MISSING -> R.string.ui_missing_packages_tap_to_install_python_git_ripgrep
+    NeedsSetupReason.BRIDGE_OUTDATED -> R.string.ui_bridge_daemon_out_of_date_tap_to_update
+    NeedsSetupReason.HEALTH_TIMEOUT -> R.string.ui_bridge_unreachable_tap_to_retry_setup
+    NeedsSetupReason.TERMUX_TIMEOUT -> R.string.ui_termux_command_timed_out_open_termux_once_and_retry
+    NeedsSetupReason.PORT_IN_USE -> R.string.ui_port_18422_in_use_by_another_process
+    NeedsSetupReason.UNKNOWN -> R.string.ui_setup_error_tap_to_retry
 }

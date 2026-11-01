@@ -23,7 +23,8 @@ import kotlinx.coroutines.sync.withLock
 /** RemoteViews is sufficient for a single action and a short event-driven status. */
 class GptLiveWidget : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == ACTION_REFRESH) refresh(context)
+        if (intent.action == ACTION_REFRESH || intent.action == Intent.ACTION_LOCALE_CHANGED ||
+            intent.action == "android.intent.action.APPLICATION_LOCALE_CHANGED") refresh(context)
         else super.onReceive(context, intent)
     }
 
@@ -52,13 +53,14 @@ class GptLiveWidget : AppWidgetProvider() {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
 
         suspend fun updateAll(context: Context) = withContext(Dispatchers.IO) { updateMutex.withLock {
+            val strings = ai.closepaw.ui.theme.appResources(context)
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, GptLiveWidget::class.java))
             if (ids.isEmpty()) return@withContext
             val setup = when {
-                !runCatching { AuthStoreHolder.get(context).has(LLMProvider.OPENAI_CODEX) }.getOrDefault(false) -> "Sign in to ChatGPT"
-                ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED -> "Allow microphone access"
-                AgentService.instance == null -> "Enable Accessibility"
+                !runCatching { AuthStoreHolder.get(context).has(LLMProvider.OPENAI_CODEX) }.getOrDefault(false) -> strings.getString(R.string.ui_sign_in_to_chatgpt)
+                ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED -> strings.getString(R.string.ui_allow_microphone_access)
+                AgentService.instance == null -> strings.getString(R.string.ui_enable_accessibility)
                 else -> null
             }
             val voice = LiveVoiceRuntime.state.value
@@ -76,11 +78,11 @@ class GptLiveWidget : AppWidgetProvider() {
             fun views(compact: Boolean) = RemoteViews(context.packageName,
                 if (compact) R.layout.gpt_live_widget_compact else R.layout.gpt_live_widget).apply {
                 setTextViewText(R.id.live_widget_status, if (!voice.running && setup != null && LiveVoiceRuntime.task.value == LiveTaskStatus.NONE) setup
-                    else voiceStatus(voice, LiveVoiceRuntime.task.value))
+                    else voiceStatus(strings, voice, LiveVoiceRuntime.task.value))
                 val label = when {
-                    voice.running -> if (voice.preview) "Stop preview" else "End voice"
-                    setup != null -> "Set up voice"
-                    else -> "Start voice"
+                    voice.running -> if (voice.preview) strings.getString(R.string.ui_stop_preview) else strings.getString(R.string.ui_end_voice)
+                    setup != null -> strings.getString(R.string.ui_set_up_voice)
+                    else -> strings.getString(R.string.ui_start_voice)
                 }
                 if (compact) setImageViewResource(R.id.live_widget_action,
                     if (voice.running) R.drawable.ic_live_stop else R.drawable.ic_live_microphone)

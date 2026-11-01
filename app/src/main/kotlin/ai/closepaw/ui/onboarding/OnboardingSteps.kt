@@ -1,5 +1,9 @@
 package ai.closepaw.ui.onboarding
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -69,7 +73,8 @@ fun PermissionStepContent(
     onSkip: () -> Unit,
     onContinue: () -> Unit = {}
 ) {
-    val copy = permissionStepCopy(step)
+    val strings = uiResources()
+    val copy = permissionStepCopy(step, strings)
     var detailsExpanded by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -93,7 +98,7 @@ fun PermissionStepContent(
         // Optional expandable disclosure (LLM data flow + privacy policy).
         if (copy.extendedDescription != null) {
             TextButton(onClick = { detailsExpanded = !detailsExpanded }) {
-                Text(if (detailsExpanded) "Hide details" else "Data & privacy details")
+                Text(if (detailsExpanded) strings.getString(R.string.ui_hide_details) else strings.getString(R.string.ui_data_privacy_details))
             }
             if (detailsExpanded) {
                 Text(
@@ -114,7 +119,7 @@ fun PermissionStepContent(
         // Primary CTA
         when (state) {
             PermissionStepState.Checking -> {
-                LoadingButton(text = "Checking...")
+                LoadingButton(text = strings.getString(R.string.ui_checking))
             }
             PermissionStepState.Satisfied -> {
                 Button(
@@ -127,7 +132,7 @@ fun PermissionStepContent(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Continue")
+                    Text(strings.getString(R.string.ui_continue))
                 }
             }
             else -> {
@@ -149,7 +154,7 @@ fun PermissionStepContent(
                     .fillMaxWidth()
                     .padding(top = 8.dp)
             ) {
-                Text("Continue without this")
+                Text(strings.getString(R.string.ui_continue_without_this))
             }
         }
 
@@ -252,10 +257,11 @@ private fun ColumnScope.OAuthContent(
     onSwitchToManual: () -> Unit,
     onRetry: () -> Unit
 ) {
+    val strings = uiResources()
     when (state) {
         is ApiKeyStepState.OAuthReady -> {
             Text(
-                text = "Sign in with your OpenAI account. Uses your existing ChatGPT subscription — no API key needed.",
+                text = strings.getString(R.string.ui_onboarding_oauth_intro),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -266,14 +272,14 @@ private fun ColumnScope.OAuthContent(
                 onClick = onStartOAuth,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Sign in with OpenAI")
+                Text(strings.getString(R.string.ui_sign_in_with_openai))
             }
 
             TextButton(
                 onClick = onSwitchToManual,
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
             ) {
-                Text("or enter API key manually")
+                Text(strings.getString(R.string.ui_or_enter_api_key_manually))
             }
         }
 
@@ -290,7 +296,7 @@ private fun ColumnScope.OAuthContent(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Complete sign-in in your browser.\nYou'll return here automatically.",
+                text = strings.getString(R.string.ui_onboarding_oauth_browser),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth()
@@ -302,7 +308,7 @@ private fun ColumnScope.OAuthContent(
                 onClick = onCancelOAuth,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Cancel")
+                Text(strings.getString(R.string.ui_cancel))
             }
         }
 
@@ -319,7 +325,7 @@ private fun ColumnScope.OAuthContent(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Browser sign-in complete.\nFinishing up with OpenAI — this can take ~20 seconds.",
+                text = strings.getString(R.string.ui_onboarding_oauth_finishing),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth()
@@ -332,8 +338,8 @@ private fun ColumnScope.OAuthContent(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = if (state.email.isNotBlank()) "Signed in as ${state.email}"
-                    else "Signed in successfully",
+                text = if (state.email.isNotBlank()) strings.getString(R.string.ui_signed_in_as, state.email)
+                    else strings.getString(R.string.ui_signed_in_successfully),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.secondary
             )
@@ -350,7 +356,7 @@ private fun ColumnScope.OAuthContent(
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Continue")
+                Text(strings.getString(R.string.ui_continue))
             }
         }
 
@@ -369,14 +375,14 @@ private fun ColumnScope.OAuthContent(
                 onClick = onRetry,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Try Again")
+                Text(strings.getString(R.string.ui_try_again))
             }
 
             TextButton(
                 onClick = onSwitchToManual,
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
             ) {
-                Text("or enter API key manually")
+                Text(strings.getString(R.string.ui_or_enter_api_key_manually))
             }
         }
 
@@ -401,11 +407,12 @@ private fun ColumnScope.ManualApiKeyContent(
     showSwitchToOAuth: Boolean,
     onSwitchToOAuth: () -> Unit
 ) {
+    val strings = uiResources()
     // API key field
     OutlinedTextField(
         value = currentKey,
         onValueChange = onKeyChanged,
-        label = { Text("API Key") },
+        label = { Text(strings.getString(R.string.ui_api_key)) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         enabled = state !is ApiKeyStepState.Validating && state !is ApiKeyStepState.Valid,
@@ -417,7 +424,7 @@ private fun ColumnScope.ManualApiKeyContent(
                 Icon(
                     imageVector = if (passwordVisible) Icons.Outlined.VisibilityOff
                         else Icons.Outlined.Visibility,
-                    contentDescription = if (passwordVisible) "Hide" else "Show"
+                    contentDescription = if (passwordVisible) strings.getString(R.string.ui_hide) else strings.getString(R.string.ui_show)
                 )
             }
         },
@@ -427,7 +434,7 @@ private fun ColumnScope.ManualApiKeyContent(
     // Security note
     Spacer(modifier = Modifier.height(8.dp))
     Text(
-        text = "Your key is encrypted on-device. Never sent anywhere except the LLM provider.",
+        text = strings.getString(R.string.ui_onboarding_key_privacy),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -449,17 +456,17 @@ private fun ColumnScope.ManualApiKeyContent(
 
     // CTA
     when (state) {
-        is ApiKeyStepState.Validating -> LoadingButton(text = "Validating...")
-        is ApiKeyStepState.Valid -> SuccessButton(text = "Key verified")
+        is ApiKeyStepState.Validating -> LoadingButton(text = strings.getString(R.string.ui_validating))
+        is ApiKeyStepState.Valid -> SuccessButton(text = strings.getString(R.string.ui_key_verified))
         is ApiKeyStepState.TransientError -> {
-            Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) { Text("Retry") }
+            Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) { Text(strings.getString(R.string.ui_retry)) }
         }
         else -> {
             Button(
                 onClick = onValidate,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = currentKey.isNotBlank()
-            ) { Text("Validate & Continue") }
+            ) { Text(strings.getString(R.string.ui_validate_continue)) }
         }
     }
 
@@ -468,7 +475,7 @@ private fun ColumnScope.ManualApiKeyContent(
             onClick = onSwitchToOAuth,
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
         ) {
-            Text("or sign in with OpenAI")
+            Text(strings.getString(R.string.ui_or_sign_in_with_openai))
         }
     }
 
@@ -484,6 +491,7 @@ fun DemoStepContent(
     onSkip: () -> Unit,
     onGoToAuthStep: () -> Unit = {}
 ) {
+    val strings = uiResources()
     Column(modifier = Modifier.fillMaxWidth()) {
         Icon(
             imageVector = Icons.Outlined.RocketLaunch,
@@ -497,14 +505,14 @@ fun DemoStepContent(
         when (state) {
             DemoStepState.Ready, DemoStepState.Preflight -> {
                 Text(
-                    text = "We'll open the Settings app to prove everything works. This does not change any device setting.",
+                    text = strings.getString(R.string.ui_onboarding_demo_intro),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             DemoStepState.Running -> {
                 Text(
-                    text = "Opening Settings...",
+                    text = strings.getString(R.string.ui_opening_settings),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -532,7 +540,7 @@ fun DemoStepContent(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Credential problem",
+                            text = strings.getString(R.string.ui_credential_problem),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
@@ -553,7 +561,7 @@ fun DemoStepContent(
         when (state) {
             DemoStepState.Ready -> {
                 Button(onClick = onRunDemo, modifier = Modifier.fillMaxWidth()) {
-                    Text("Run Demo")
+                    Text(strings.getString(R.string.ui_run_demo))
                 }
                 TextButton(
                     onClick = onSkip,
@@ -561,15 +569,15 @@ fun DemoStepContent(
                         .fillMaxWidth()
                         .padding(top = 8.dp)
                 ) {
-                    Text("Skip for now")
+                    Text(strings.getString(R.string.ui_skip_for_now))
                 }
             }
             DemoStepState.Preflight, DemoStepState.Running -> {
-                LoadingButton(text = "Running...")
+                LoadingButton(text = strings.getString(R.string.ui_running))
             }
             is DemoStepState.Failure -> {
                 Button(onClick = onRunDemo, modifier = Modifier.fillMaxWidth()) {
-                    Text("Try Again")
+                    Text(strings.getString(R.string.ui_try_again))
                 }
                 TextButton(
                     onClick = onSkip,
@@ -577,12 +585,12 @@ fun DemoStepContent(
                         .fillMaxWidth()
                         .padding(top = 8.dp)
                 ) {
-                    Text("Skip for now")
+                    Text(strings.getString(R.string.ui_skip_for_now))
                 }
             }
             is DemoStepState.CredentialError -> {
                 Button(onClick = onGoToAuthStep, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (state.isOAuth) "Sign in again" else "Re-enter API key")
+                    Text(if (state.isOAuth) strings.getString(R.string.ui_sign_in_again) else strings.getString(R.string.ui_re_enter_api_key))
                 }
                 TextButton(
                     onClick = onSkip,
@@ -590,11 +598,11 @@ fun DemoStepContent(
                         .fillMaxWidth()
                         .padding(top = 8.dp)
                 ) {
-                    Text("Skip for now")
+                    Text(strings.getString(R.string.ui_skip_for_now))
                 }
             }
             is DemoStepState.Success, DemoStepState.Skipped -> {
-                SuccessButton(text = "Demo complete")
+                SuccessButton(text = strings.getString(R.string.ui_demo_complete))
             }
         }
 
@@ -613,6 +621,7 @@ fun CompleteStepContent(
     batteryGranted: Boolean,
     onFinish: () -> Unit
 ) {
+    val strings = uiResources()
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -628,13 +637,13 @@ fun CompleteStepContent(
 
         // Checklist — permission rows reflect live state (auto-skipped steps
         // never write StepOutcome.Done, so reading `outcomes` here would lie).
-        LiveStatusRow("Accessibility service", accessibilityGranted)
-        LiveStatusRow("Display overlay", overlayGranted)
-        LiveStatusRow("Battery optimization", batteryGranted)
-        val apiKeyLabel = if (authMethod == ApiKeyAuthMethod.OAUTH) "Signed in with OpenAI"
-            else "API key verified"
+        LiveStatusRow(strings.getString(R.string.ui_accessibility_service), accessibilityGranted)
+        LiveStatusRow(strings.getString(R.string.ui_display_overlay), overlayGranted)
+        LiveStatusRow(strings.getString(R.string.ui_battery_optimization), batteryGranted)
+        val apiKeyLabel = if (authMethod == ApiKeyAuthMethod.OAUTH) strings.getString(R.string.ui_signed_in_with_openai)
+            else strings.getString(R.string.ui_api_key_verified)
         OutcomeRow(apiKeyLabel, outcomes.apiKey)
-        OutcomeRow("Demo task", outcomes.demo)
+        OutcomeRow(strings.getString(R.string.ui_demo_task), outcomes.demo)
 
         Spacer(modifier = Modifier.weight(1f))
 
@@ -642,7 +651,7 @@ fun CompleteStepContent(
             onClick = onFinish,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Start Using ClosePaw")
+            Text(strings.getString(R.string.ui_start_using_closepaw))
         }
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -653,13 +662,14 @@ fun CompleteStepContent(
 
 @Composable
 private fun StatusCard(state: PermissionStepState, consequence: String) {
+    val strings = uiResources()
     val (label, color) = when (state) {
-        PermissionStepState.Checking -> "Checking..." to MaterialTheme.colorScheme.onSurfaceVariant
-        PermissionStepState.Ready -> "Not enabled" to MaterialTheme.colorScheme.error
-        PermissionStepState.OpeningSettings -> "Waiting..." to MaterialTheme.colorScheme.onSurfaceVariant
-        PermissionStepState.Satisfied -> "Enabled" to MaterialTheme.colorScheme.secondary
-        PermissionStepState.Unsatisfied -> "Not enabled" to MaterialTheme.colorScheme.error
-        PermissionStepState.Skipped -> "Skipped" to MaterialTheme.colorScheme.onSurfaceVariant
+        PermissionStepState.Checking -> strings.getString(R.string.ui_checking) to MaterialTheme.colorScheme.onSurfaceVariant
+        PermissionStepState.Ready -> strings.getString(R.string.ui_not_enabled) to MaterialTheme.colorScheme.error
+        PermissionStepState.OpeningSettings -> strings.getString(R.string.ui_status_waiting) to MaterialTheme.colorScheme.onSurfaceVariant
+        PermissionStepState.Satisfied -> strings.getString(R.string.ui_enabled) to MaterialTheme.colorScheme.secondary
+        PermissionStepState.Unsatisfied -> strings.getString(R.string.ui_not_enabled) to MaterialTheme.colorScheme.error
+        PermissionStepState.Skipped -> strings.getString(R.string.ui_skipped) to MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     Card(
@@ -668,7 +678,7 @@ private fun StatusCard(state: PermissionStepState, consequence: String) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Status: $label",
+                text = strings.getString(R.string.ui_status, label),
                 style = MaterialTheme.typography.bodyMedium,
                 color = color
             )
@@ -752,6 +762,7 @@ private fun LiveStatusRow(label: String, granted: Boolean) {
 
 @Composable
 private fun OutcomeRow(label: String, outcome: StepOutcome) {
+    val strings = uiResources()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -767,7 +778,7 @@ private fun OutcomeRow(label: String, outcome: StepOutcome) {
             StepOutcome.Skipped -> Triple(
                 Icons.Filled.Close,
                 MaterialTheme.colorScheme.onSurfaceVariant,
-                " (skipped)"
+                strings.getString(R.string.ui_skipped_suffix)
             )
             StepOutcome.Pending -> Triple(
                 Icons.Filled.Close,
@@ -801,28 +812,25 @@ private data class PermissionCopy(
     val extendedDescription: String? = null
 )
 
-private fun permissionStepCopy(step: WizardStep): PermissionCopy = when (step) {
+private fun permissionStepCopy(step: WizardStep, strings: android.content.res.Resources): PermissionCopy = when (step) {
     WizardStep.Accessibility -> PermissionCopy(
         icon = Icons.Outlined.Security,
-        description = "Android only allows trusted automation through Accessibility. " +
-            "ClosePaw uses it to read the screen and perform taps so it can complete the tasks you ask for.",
-        consequence = "Without Accessibility, ClosePaw cannot automate tasks.",
-        ctaLabel = "Open Accessibility Settings",
-        extendedDescription = "Active only when you start a task — ClosePaw does not run in the background or " +
-            "monitor other apps. Screen content read during a task is sent to the LLM provider you chose " +
-            "(e.g. OpenAI, Anthropic) so the agent can pick the next step. See our Privacy Policy: https://imoonkey.github.io/closepaw/privacy/"
+        description = strings.getString(R.string.ui_onboarding_accessibility_description),
+        consequence = strings.getString(R.string.ui_without_accessibility_closepaw_cannot_automate_tasks),
+        ctaLabel = strings.getString(R.string.ui_open_accessibility_settings),
+        extendedDescription = strings.getString(R.string.ui_onboarding_accessibility_privacy)
     )
     WizardStep.Overlay -> PermissionCopy(
         icon = Icons.Outlined.Layers,
-        description = "The floating capsule shows progress and lets you stop, take over, or return to ClosePaw.",
-        consequence = "Without Overlay, you won't see controls while the agent works in other apps.",
-        ctaLabel = "Grant Overlay Permission"
+        description = strings.getString(R.string.ui_onboarding_overlay_description),
+        consequence = strings.getString(R.string.ui_onboarding_overlay_consequence),
+        ctaLabel = strings.getString(R.string.ui_grant_overlay_permission)
     )
     WizardStep.Battery -> PermissionCopy(
         icon = Icons.Outlined.BatteryChargingFull,
-        description = "Some phones aggressively stop background work. Allowing unrestricted battery use makes long tasks reliable.\n\nThis is optional but recommended.",
-        consequence = "Long tasks may stop when the app is backgrounded.",
-        ctaLabel = "Allow Background Running"
+        description = strings.getString(R.string.ui_onboarding_battery_description),
+        consequence = strings.getString(R.string.ui_long_tasks_may_stop_when_the_app_is_backgrounded),
+        ctaLabel = strings.getString(R.string.ui_allow_background_running)
     )
     else -> error("Not a permission step: $step")
 }

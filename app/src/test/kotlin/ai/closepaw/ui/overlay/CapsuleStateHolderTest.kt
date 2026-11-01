@@ -20,7 +20,7 @@ class CapsuleStateHolderTest {
     @Before
     fun setUp() {
         scope = TestScope()
-        holder = CapsuleStateHolder(scope)
+        holder = CapsuleStateHolder(scope) { it.toString() }
     }
 
     // ── Initial state ──
@@ -118,7 +118,7 @@ class CapsuleStateHolderTest {
         holder.onResumed()
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.Running::class.java)
-        assertThat((mode as CapsuleMode.Running).thought).isEqualTo("Thinking...")
+        assertThat((mode as CapsuleMode.Running).thought).isEqualTo(ai.closepaw.R.string.ui_thinking_status.toString())
     }
 
     @Test
@@ -166,7 +166,7 @@ class CapsuleStateHolderTest {
         holder.onUserResponseSent("call1")
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.Running::class.java)
-        assertThat((mode as CapsuleMode.Running).thought).isEqualTo("Processing response...")
+        assertThat((mode as CapsuleMode.Running).thought).isEqualTo(ai.closepaw.R.string.ui_processing_response.toString())
     }
 
     @Test
@@ -236,7 +236,7 @@ class CapsuleStateHolderTest {
         holder.onTaskCompleted(TaskOutcome.GOAL_ACHIEVED, null)
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.Done::class.java)
-        assertThat((mode as CapsuleMode.Done).message).isEqualTo("Task completed")
+        assertThat((mode as CapsuleMode.Done).message).isEqualTo(ai.closepaw.R.string.ui_task_completed.toString())
     }
 
     @Test
@@ -245,7 +245,7 @@ class CapsuleStateHolderTest {
         holder.onTaskCompleted(TaskOutcome.GOAL_ACHIEVED, "   ")
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.Done::class.java)
-        assertThat((mode as CapsuleMode.Done).message).isEqualTo("Task completed")
+        assertThat((mode as CapsuleMode.Done).message).isEqualTo(ai.closepaw.R.string.ui_task_completed.toString())
     }
 
     @Test

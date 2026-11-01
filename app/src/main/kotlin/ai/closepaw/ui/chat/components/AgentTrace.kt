@@ -1,5 +1,9 @@
 package ai.closepaw.ui.chat.components
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -171,6 +175,7 @@ internal fun ActionRow(
     data: ActionCardData,
     modifier: Modifier = Modifier,
 ) {
+    val strings = uiResources()
     val spacing = MaterialTheme.closePaw.spacing
     val statusIcon = when (data.state) {
         ActionState.Proposed, ActionState.Executing -> Lucide.LoaderCircle
@@ -179,11 +184,11 @@ internal fun ActionRow(
         ActionState.Skipped -> Lucide.Ban
     }
     val statusDescription = when (data.state) {
-        ActionState.Proposed -> "Proposed"
-        ActionState.Executing -> "Executing"
-        ActionState.Success -> "Success"
-        ActionState.Failed -> "Failed"
-        ActionState.Skipped -> "Skipped"
+        ActionState.Proposed -> strings.getString(R.string.ui_proposed)
+        ActionState.Executing -> strings.getString(R.string.ui_executing)
+        ActionState.Success -> strings.getString(R.string.ui_success)
+        ActionState.Failed -> strings.getString(R.string.ui_failed)
+        ActionState.Skipped -> strings.getString(R.string.ui_skipped)
     }
     val statusColor = when (data.state) {
         ActionState.Success -> MaterialTheme.colorScheme.secondary

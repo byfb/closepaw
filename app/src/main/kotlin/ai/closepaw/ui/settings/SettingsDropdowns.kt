@@ -1,5 +1,9 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Memory
@@ -14,11 +18,12 @@ internal fun CloudModelDropdown(
     modelOptions: List<Pair<String, String>>,
     onModelChange: (String) -> Unit
 ) {
+    val strings = uiResources()
     val matched = modelOptions.find { it.first == selectedModel }
-    val selectedDisplayName = matched?.second ?: "Select a model"
+    val selectedDisplayName = matched?.second ?: strings.getString(R.string.ui_select_a_model)
 
     SettingsDropdown(
-        label = "Model",
+        label = strings.getString(R.string.ui_model),
         value = selectedDisplayName,
         leadingIcon = Icons.Outlined.Psychology,
         options = modelOptions,
@@ -36,11 +41,12 @@ internal fun LocalModelDropdown(
     selectedModelId: String,
     onModelChange: (LocalModelOption) -> Unit
 ) {
+    val strings = uiResources()
     val selectedModel = AVAILABLE_LOCAL_MODELS.find { it.id == selectedModelId }
         ?: AVAILABLE_LOCAL_MODELS.first()
 
     SettingsDropdown(
-        label = "Local Model",
+        label = strings.getString(R.string.ui_local_model),
         value = selectedModel.displayName,
         leadingIcon = Icons.Outlined.Memory,
         options = AVAILABLE_LOCAL_MODELS,

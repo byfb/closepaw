@@ -1,5 +1,9 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
@@ -30,6 +34,7 @@ internal fun ApiKeyField(
     value: String,
     onValueChange: (String) -> Unit
 ) {
+    val strings = uiResources()
     var visible by remember { mutableStateOf(false) }
 
     OutlinedTextField(
@@ -55,7 +60,7 @@ internal fun ApiKeyField(
             IconButton(onClick = { visible = !visible }) {
                 Icon(
                     imageVector = if (visible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                    contentDescription = if (visible) "Hide" else "Show",
+                    contentDescription = if (visible) strings.getString(R.string.ui_hide) else strings.getString(R.string.ui_show),
                     modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )

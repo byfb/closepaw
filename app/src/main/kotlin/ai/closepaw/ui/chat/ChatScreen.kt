@@ -1,5 +1,7 @@
 package ai.closepaw.ui.chat
 
+import ai.closepaw.ui.theme.uiResources
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -338,6 +340,7 @@ private fun MessageList(
     onOpenApp: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = uiResources()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
@@ -450,7 +453,7 @@ private fun MessageList(
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
-                        text = "live",
+                        text = strings.getString(R.string.ui_live),
                         style = MaterialTheme.closePaw.monoSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

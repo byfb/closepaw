@@ -84,6 +84,15 @@ class AuthStore(
 
     fun has(provider: LLMProvider): Boolean = read(provider.name) != null
 
+    /** Local cache namespace for the signed-in account. Never store account identifiers or credentials in the catalog. */
+    fun codexCatalogScope(): String? {
+        val cred = read(LLMProvider.OPENAI_CODEX.name) as? AuthCredential.OAuth ?: return null
+        val headers = cred.toHeaders()
+        val identity = listOfNotNull(headers.chatgptAccountId, headers.email).joinToString("|").ifEmpty { cred.refreshToken.ifBlank { cred.accessToken } }
+        return java.security.MessageDigest.getInstance("SHA-256").digest(identity.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+    }
+
     fun generation(provider: LLMProvider): Long =
         generations[provider.name]?.get() ?: 0L
 

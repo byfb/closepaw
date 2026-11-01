@@ -1,5 +1,9 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import ai.closepaw.protocol.CustomInstructions
 import ai.closepaw.ui.theme.PageMastheadDrillDown
 import ai.closepaw.ui.theme.closePaw
@@ -20,6 +24,7 @@ internal fun CustomInstructionsSettingsPage(
     onBack: () -> Unit,
     onClose: () -> Unit,
 ) {
+    val strings = uiResources()
     var live by rememberSaveable(liveInstructions) { mutableStateOf(liveInstructions) }
     var core by rememberSaveable(coreInstructions) { mutableStateOf(coreInstructions) }
     var confirmExit by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -27,24 +32,24 @@ internal fun CustomInstructionsSettingsPage(
     fun leave(action: () -> Unit) { if (changed) confirmExit = action else action() }
     androidx.activity.compose.BackHandler { leave(onBack) }
     Column(Modifier.fillMaxWidth()) {
-        PageMastheadDrillDown("Custom instructions", onBack = { leave(onBack) }, onClose = { leave(onClose) })
+        PageMastheadDrillDown(strings.getString(R.string.ui_custom_instructions), onBack = { leave(onBack) }, onClose = { leave(onClose) })
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
             .padding(horizontal = MaterialTheme.closePaw.spacing.lg), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             OutlinedTextField(value = live, onValueChange = { live = it.take(CustomInstructions.MAX_LENGTH) },
                 label = { Text("GPT-Live") }, minLines = 4, maxLines = 10, modifier = Modifier.fillMaxWidth(),
-                supportingText = { Text("Speaking style and conversation context. Applies to new calls.") })
+                supportingText = { Text(strings.getString(R.string.ui_speaking_style_and_conversation_context_applies_to_new_calls)) })
             OutlinedTextField(value = core, onValueChange = { core = it.take(CustomInstructions.MAX_LENGTH) },
-                label = { Text("Core Agent") }, minLines = 4, maxLines = 10, modifier = Modifier.fillMaxWidth(),
-                supportingText = { Text("Phone workflows and background knowledge. Applies to new chats.") })
+                label = { Text(strings.getString(R.string.ui_core_agent)) }, minLines = 4, maxLines = 10, modifier = Modifier.fillMaxWidth(),
+                supportingText = { Text(strings.getString(R.string.ui_phone_workflows_and_background_knowledge_applies_to_new_chats)) })
             Button(onClick = { onSave(live, core) }, enabled = changed, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                Text("Save")
+                Text(strings.getString(R.string.ui_save))
             }
             Spacer(Modifier.height(16.dp))
         }
     }
     confirmExit?.let { exit ->
-        AlertDialog(onDismissRequest = { confirmExit = null }, title = { Text("Save changes?") },
-            confirmButton = { TextButton(onClick = { onSave(live, core); confirmExit = null; exit() }) { Text("Save") } },
-            dismissButton = { TextButton(onClick = { confirmExit = null; exit() }) { Text("Discard") } })
+        AlertDialog(onDismissRequest = { confirmExit = null }, title = { Text(strings.getString(R.string.ui_save_changes)) },
+            confirmButton = { TextButton(onClick = { onSave(live, core); confirmExit = null; exit() }) { Text(strings.getString(R.string.ui_save)) } },
+            dismissButton = { TextButton(onClick = { confirmExit = null; exit() }) { Text(strings.getString(R.string.ui_discard)) } })
     }
 }

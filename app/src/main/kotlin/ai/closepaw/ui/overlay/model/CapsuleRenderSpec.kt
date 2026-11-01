@@ -1,5 +1,7 @@
 package ai.closepaw.ui.overlay.model
 
+import ai.closepaw.R
+
 import ai.closepaw.protocol.PlatformMode
 
 /**
@@ -55,6 +57,7 @@ data class CapsuleRenderSpec(
          * on transitions into WaitingForInput.
          */
         fun from(
+            strings: android.content.res.Resources,
             mode: CapsuleMode,
             previousMode: CapsuleMode? = null,
             isStopPending: Boolean = false,
@@ -62,52 +65,52 @@ data class CapsuleRenderSpec(
             when (mode) {
                 is CapsuleMode.Running -> CapsuleRenderSpec(
                     dot = DotSpec(GlowState.Active, pulsing = true),
-                    thought = ThoughtSpec(mode.thought.ifEmpty { "Thinking..." }),
+                    thought = ThoughtSpec(mode.thought.ifEmpty { strings.getString(R.string.ui_thinking_status) }),
                     expandedBody = null,
                     buttons = ButtonsSpec(
-                        primary = ButtonSpec("Takeover"),
-                        stop = stopButtonSpec(isStopPending),
+                        primary = ButtonSpec(strings.getString(R.string.ui_takeover)),
+                        stop = stopButtonSpec(strings, isStopPending),
                     ),
-                    input = InputSpec("Got ideas? Add a note...", "Add note"),
+                    input = InputSpec(strings.getString(R.string.ui_got_ideas_add_a_note), strings.getString(R.string.ui_add_note)),
                 )
 
                 is CapsuleMode.TakeoverPending -> CapsuleRenderSpec(
                     dot = DotSpec(GlowState.Paused, pulsing = false),
-                    thought = ThoughtSpec("Handing over..."),
+                    thought = ThoughtSpec(strings.getString(R.string.ui_takeover_pending)),
                     expandedBody = null,
                     buttons = ButtonsSpec(
-                        primary = ButtonSpec("Handing over", enabled = false),
-                        stop = stopButtonSpec(isStopPending),
+                        primary = ButtonSpec(strings.getString(R.string.ui_takeover_pending_action), enabled = false),
+                        stop = stopButtonSpec(strings, isStopPending),
                     ),
-                    input = InputSpec("Got ideas? Add a note...", "Add note"),
+                    input = InputSpec(strings.getString(R.string.ui_got_ideas_add_a_note), strings.getString(R.string.ui_add_note)),
                 )
 
                 is CapsuleMode.Takeover -> CapsuleRenderSpec(
                     dot = DotSpec(GlowState.Paused, pulsing = false),
                     thought = ThoughtSpec(
-                        mode.lastThought.ifEmpty { "Paused" },
+                        mode.lastThought.ifEmpty { strings.getString(R.string.ui_paused) },
                         dimmed = true,
                     ),
                     expandedBody = null,
                     buttons = ButtonsSpec(
-                        primary = ButtonSpec("Resume"),
-                        stop = stopButtonSpec(isStopPending),
+                        primary = ButtonSpec(strings.getString(R.string.ui_resume)),
+                        stop = stopButtonSpec(strings, isStopPending),
                     ),
-                    input = InputSpec("Got ideas? Add a note...", "Add note"),
+                    input = InputSpec(strings.getString(R.string.ui_got_ideas_add_a_note), strings.getString(R.string.ui_add_note)),
                 )
 
                 is CapsuleMode.WaitingForInput -> CapsuleRenderSpec(
                     dot = null,
-                    thought = ThoughtSpec("Awaiting response"),
+                    thought = ThoughtSpec(strings.getString(R.string.ui_awaiting_response)),
                     expandedBody = mode.question,
                     buttons = ButtonsSpec(
                         primary = null,
-                        stop = stopButtonSpec(isStopPending),
+                        stop = stopButtonSpec(strings, isStopPending),
                         layout = ControlLayout.RequiredActionsOnly,
                     ),
                     input = InputSpec(
-                        hint = "Type your response...",
-                        submitLabel = "Send",
+                        hint = strings.getString(R.string.ui_type_your_response),
+                        submitLabel = strings.getString(R.string.ui_send),
                         clearDraft = previousMode != null
                             && previousMode !is CapsuleMode.WaitingForInput,
                     ),
@@ -115,11 +118,11 @@ data class CapsuleRenderSpec(
 
                 is CapsuleMode.WaitingForAction -> CapsuleRenderSpec(
                     dot = null,
-                    thought = ThoughtSpec("Action needed"),
+                    thought = ThoughtSpec(strings.getString(R.string.ui_action_needed)),
                     expandedBody = mode.instruction,
                     buttons = ButtonsSpec(
-                        primary = ButtonSpec("Done"),
-                        stop = stopButtonSpec(isStopPending),
+                        primary = ButtonSpec(strings.getString(R.string.ui_done_action)),
+                        stop = stopButtonSpec(strings, isStopPending),
                         layout = ControlLayout.RequiredActionsOnly,
                     ),
                     input = null,
@@ -127,12 +130,12 @@ data class CapsuleRenderSpec(
 
                 is CapsuleMode.WaitingForApproval -> CapsuleRenderSpec(
                     dot = DotSpec(GlowState.Paused, pulsing = false),
-                    thought = ThoughtSpec("Allow ClosePaw to operate ${mode.appLabel}?"),
+                    thought = ThoughtSpec(strings.getString(R.string.ui_allow_closepaw_to_operate, mode.appLabel)),
                     expandedBody = null,
                     buttons = ButtonsSpec(
-                        primary = ButtonSpec("Always"),
-                        secondary = ButtonSpec("Session"),
-                        stop = ButtonSpec("Reject"),
+                        primary = ButtonSpec(strings.getString(R.string.ui_always)),
+                        secondary = ButtonSpec(strings.getString(R.string.ui_session)),
+                        stop = ButtonSpec(strings.getString(R.string.ui_reject)),
                         layout = ControlLayout.RequiredActionsOnly,
                     ),
                     input = null,
@@ -152,7 +155,7 @@ data class CapsuleRenderSpec(
                     expandedBody = null,
                     buttons = ButtonsSpec(
                         primary = null,
-                        stop = ButtonSpec("Close"),
+                        stop = ButtonSpec(strings.getString(R.string.ui_close)),
                         layout = ControlLayout.RequiredActionsOnly,
                     ),
                     input = null,
@@ -163,13 +166,13 @@ data class CapsuleRenderSpec(
                     thought = ThoughtSpec(""),
                     expandedBody = null,
                     buttons = ButtonsSpec(primary = null, stop = null),
-                    input = InputSpec("What can I help you with?", "Send"),
+                    input = InputSpec(strings.getString(R.string.ui_what_can_i_help_you_with), strings.getString(R.string.ui_send)),
                 )
             }
 
-        private fun stopButtonSpec(isStopPending: Boolean): ButtonSpec =
-            if (isStopPending) ButtonSpec("Stopping...", enabled = false)
-            else ButtonSpec("Stop")
+        private fun stopButtonSpec(strings: android.content.res.Resources, isStopPending: Boolean): ButtonSpec =
+            if (isStopPending) ButtonSpec(strings.getString(R.string.ui_stopping), enabled = false)
+            else ButtonSpec(strings.getString(R.string.ui_stop))
     }
 }
 

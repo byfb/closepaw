@@ -1,5 +1,7 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.R
+
 import ai.closepaw.protocol.PlatformMode
 
 /**
@@ -56,8 +58,8 @@ internal fun virtualDisplayCardState(
     if (gatePending) {
         return VirtualDisplayCardState(
             status = ToolStatusUi(
-                label = "Setting up…",
-                subtitle = "Checking Shizuku…",
+                label = R.string.ui_setting_up,
+                subtitle = R.string.ui_checking_shizuku,
                 tone = ToolStatusTone.Neutral,
                 showSpinner = true,
             ),
@@ -71,7 +73,7 @@ internal fun virtualDisplayCardState(
     if (gateError != null && persistedMode == PlatformMode.ACCESSIBILITY) {
         return VirtualDisplayCardState(
             status = ToolStatusUi(
-                label = "Needs Setup",
+                label = R.string.ui_needs_setup,
                 subtitle = gateError.message(),
                 tone = ToolStatusTone.Warning,
                 showSpinner = false,
@@ -85,13 +87,13 @@ internal fun virtualDisplayCardState(
     // Rows 4–5: persisted ACCESSIBILITY
     if (persistedMode == PlatformMode.ACCESSIBILITY) {
         val subtitle = if (effectiveMode == PlatformMode.VIRTUAL_DISPLAY) {
-            "Current session is still on a virtual display; next session will use your current screen."
+            R.string.ui_virtual_display_ending
         } else {
-            "Agent runs on your current screen."
+            R.string.ui_agent_runs_on_your_current_screen
         }
         return VirtualDisplayCardState(
             status = ToolStatusUi(
-                label = "Disabled",
+                label = R.string.ui_disabled,
                 subtitle = subtitle,
                 tone = ToolStatusTone.Neutral,
                 showSpinner = false,
@@ -110,8 +112,8 @@ internal fun virtualDisplayCardState(
                 // Row 8
                 VirtualDisplayCardState(
                     status = ToolStatusUi(
-                        label = "Degraded",
-                        subtitle = "Lost Shizuku connection — the current virtual-display session may stop working. Restart Shizuku to recover.",
+                        label = R.string.ui_degraded,
+                        subtitle = R.string.ui_virtual_display_disconnected,
                         tone = ToolStatusTone.Warning,
                         showSpinner = false,
                     ),
@@ -123,8 +125,8 @@ internal fun virtualDisplayCardState(
                 // Row 6
                 VirtualDisplayCardState(
                     status = ToolStatusUi(
-                        label = "Not Available",
-                        subtitle = "Shizuku is not running. If a new session starts now, it will run on your current screen.",
+                        label = R.string.ui_virtual_display_unavailable,
+                        subtitle = R.string.ui_virtual_display_needs_shizuku,
                         tone = ToolStatusTone.Warning,
                         showSpinner = false,
                     ),
@@ -138,8 +140,8 @@ internal fun virtualDisplayCardState(
                 // Row 9
                 VirtualDisplayCardState(
                     status = ToolStatusUi(
-                        label = "Degraded",
-                        subtitle = "Shizuku permission revoked — the current virtual-display session may stop working.",
+                        label = R.string.ui_degraded,
+                        subtitle = R.string.ui_virtual_display_permission_lost,
                         tone = ToolStatusTone.Warning,
                         showSpinner = false,
                     ),
@@ -151,8 +153,8 @@ internal fun virtualDisplayCardState(
                 // Row 7
                 VirtualDisplayCardState(
                     status = ToolStatusUi(
-                        label = "Needs Setup",
-                        subtitle = "Grant Shizuku permission to use Virtual Display.",
+                        label = R.string.ui_needs_setup,
+                        subtitle = R.string.ui_grant_shizuku_permission_to_use_virtual_display,
                         tone = ToolStatusTone.Warning,
                         showSpinner = false,
                     ),
@@ -165,8 +167,8 @@ internal fun virtualDisplayCardState(
             PlatformMode.VIRTUAL_DISPLAY -> // Row 10
                 VirtualDisplayCardState(
                     status = ToolStatusUi(
-                        label = "Ready",
-                        subtitle = "Current session is configured for a virtual display.",
+                        label = R.string.ui_ready,
+                        subtitle = R.string.ui_current_session_is_configured_for_a_virtual_display,
                         tone = ToolStatusTone.Positive,
                         showSpinner = false,
                     ),
@@ -177,8 +179,8 @@ internal fun virtualDisplayCardState(
             PlatformMode.ACCESSIBILITY -> // Row 11
                 VirtualDisplayCardState(
                     status = ToolStatusUi(
-                        label = "Ready",
-                        subtitle = "Will switch to a virtual display on the next session.",
+                        label = R.string.ui_ready,
+                        subtitle = R.string.ui_will_switch_to_a_virtual_display_on_the_next_session,
                         tone = ToolStatusTone.Neutral,
                         showSpinner = false,
                     ),
@@ -189,8 +191,8 @@ internal fun virtualDisplayCardState(
             null -> // Row 12
                 VirtualDisplayCardState(
                     status = ToolStatusUi(
-                        label = "Ready",
-                        subtitle = "Will start on a virtual display.",
+                        label = R.string.ui_ready,
+                        subtitle = R.string.ui_will_start_on_a_virtual_display,
                         tone = ToolStatusTone.Positive,
                         showSpinner = false,
                     ),

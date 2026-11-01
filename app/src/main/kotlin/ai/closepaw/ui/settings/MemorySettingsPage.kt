@@ -1,5 +1,9 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import ai.closepaw.app.MemoryEditGate
 import ai.closepaw.memory.MemoryScope
 import ai.closepaw.memory.MemoryStore
@@ -44,6 +48,7 @@ internal fun MemorySettingsPage(
     onBack: () -> Unit,
     onClose: () -> Unit,
 ) {
+    val strings = uiResources()
     var openScopeWire by rememberSaveable { mutableStateOf<String?>(null) }
     val openScope = openScopeWire?.let { MemoryScope.fromWireValue(it) }
 
@@ -51,7 +56,7 @@ internal fun MemorySettingsPage(
 
     if (openScope != null) {
         MemoryFileEditorPage(
-            title = openScope.pageTitle(),
+            title = openScope.pageTitle(strings),
             memoryStore = memoryStore,
             scope = openScope,
             packageName = null,
@@ -65,7 +70,7 @@ internal fun MemorySettingsPage(
     val locked by gate.memoryEditLocked.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        PageMastheadDrillDown(title = "Memory", onBack = onBack, onClose = onClose)
+        PageMastheadDrillDown(title = strings.getString(R.string.ui_memory), onBack = onBack, onClose = onClose)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -75,21 +80,21 @@ internal fun MemorySettingsPage(
         ) {
             if (locked) {
                 SettingsAlertCard(
-                    message = MEMORY_EDIT_LOCKED_BANNER,
+                    message = strings.getString(MEMORY_EDIT_LOCKED_BANNER),
                     tone = AlertTone.Error,
                     modifier = Modifier.testTag(MEMORY_SETTINGS_BANNER_TAG),
                 )
             }
 
             SettingsNavigationRow(
-                title = "User Memory",
-                subtitle = "Facts and preferences shared across every session",
+                title = strings.getString(R.string.ui_user_memory),
+                subtitle = strings.getString(R.string.ui_facts_and_preferences_shared_across_every_session),
                 onClick = { openScopeWire = MemoryScope.USER.wireValue },
                 modifier = Modifier.testTag(MEMORY_SETTINGS_USER_ROW_TAG),
             )
             SettingsNavigationRow(
-                title = "Device Memory",
-                subtitle = "Facts, pitfalls, and verification notes about this device",
+                title = strings.getString(R.string.ui_device_memory),
+                subtitle = strings.getString(R.string.ui_facts_pitfalls_and_verification_notes_about_this_device),
                 onClick = { openScopeWire = MemoryScope.DEVICE.wireValue },
                 modifier = Modifier.testTag(MEMORY_SETTINGS_DEVICE_ROW_TAG),
             )
@@ -99,8 +104,8 @@ internal fun MemorySettingsPage(
     }
 }
 
-private fun MemoryScope.pageTitle(): String = when (this) {
-    MemoryScope.USER -> "User Memory"
-    MemoryScope.DEVICE -> "Device Memory"
-    MemoryScope.APP -> "App Memory"
+private fun MemoryScope.pageTitle(strings: android.content.res.Resources): String = when (this) {
+    MemoryScope.USER -> strings.getString(R.string.ui_user_memory)
+    MemoryScope.DEVICE -> strings.getString(R.string.ui_device_memory)
+    MemoryScope.APP -> strings.getString(R.string.ui_app_memory)
 }

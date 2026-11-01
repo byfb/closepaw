@@ -1,5 +1,7 @@
 package ai.closepaw.voice
 
+import ai.closepaw.R
+
 import ai.closepaw.ui.theme.ClosePawTheme
 import android.Manifest
 import android.content.Context
@@ -31,11 +33,12 @@ class GptLiveShortcutActivity : ComponentActivity() {
             .setAction(GptLiveService.ACTION_START).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 
+    private val strings get() = ai.closepaw.ui.theme.appResources(this)
     private var requested = false
-    private var message by mutableStateOf("Starting GPT-Live…")
+    private var message by mutableStateOf<String?>(null)
     private var failed by mutableStateOf(false)
     private val microphone = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) startVoice() else showSetup("Microphone access is required.")
+        if (granted) startVoice() else showSetup(strings.getString(R.string.ui_microphone_access_is_required))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,13 +48,13 @@ class GptLiveShortcutActivity : ComponentActivity() {
                 Surface(Modifier.fillMaxSize()) {
                     Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center) {
-                        Text(message, style = MaterialTheme.typography.titleLarge)
+                        Text(message ?: strings.getString(R.string.ui_starting_gpt_live), style = MaterialTheme.typography.titleLarge)
                         Spacer(Modifier.height(24.dp))
                         if (failed) Button(onClick = {
                             startActivity(GptLiveWidget.settingsIntent(this@GptLiveShortcutActivity)); finish()
-                        }) { Text("Open voice settings") }
+                        }) { Text(strings.getString(R.string.ui_open_voice_settings)) }
                         else CircularProgressIndicator()
-                        TextButton(onClick = { finish() }) { Text("Close") }
+                        TextButton(onClick = { finish() }) { Text(strings.getString(R.string.ui_close)) }
                     }
                 }
             }
@@ -74,20 +77,20 @@ class GptLiveShortcutActivity : ComponentActivity() {
                 val signedIn = withContext(Dispatchers.IO) {
                     ai.closepaw.app.AuthStoreHolder.get(applicationContext).has(ai.closepaw.llm.LLMProvider.OPENAI_CODEX)
                 }
-                if (!signedIn) { showSetup("Sign in to ChatGPT to use GPT-Live."); return@launch }
+                if (!signedIn) { showSetup(strings.getString(R.string.ui_sign_in_to_chatgpt_to_use_gpt_live)); return@launch }
                 val accessibilityReady = withTimeoutOrNull(3000) {
                     while (ai.closepaw.app.AgentService.instance == null) delay(100)
                     true
                 } == true
-                if (!accessibilityReady) { showSetup("Enable ClosePaw Accessibility first."); return@launch }
+                if (!accessibilityReady) { showSetup(strings.getString(R.string.ui_enable_closepaw_accessibility_first)); return@launch }
                 ContextCompat.startForegroundService(this@GptLiveShortcutActivity,
                     Intent(this@GptLiveShortcutActivity, GptLiveService::class.java).setAction(GptLiveService.ACTION_START))
                 val result = withTimeoutOrNull(5000) {
                     LiveVoiceRuntime.state.first { it.running || it.phase == LiveVoicePhase.Error }
                 }
                 if (result?.running == true) finish()
-                else showSetup(result?.error ?: "Could not start GPT-Live.")
-            } catch (_: Exception) { showSetup("Could not start GPT-Live. Open voice settings to retry.") }
+                else showSetup(result?.error ?: strings.getString(R.string.ui_could_not_start_gpt_live))
+            } catch (_: Exception) { showSetup(strings.getString(R.string.ui_could_not_start_gpt_live_open_voice_settings_to_retry)) }
         }
     }
 

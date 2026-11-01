@@ -1,5 +1,7 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.R
+
 /**
  * Possible CDP probe states the unified card needs to render. Wraps [ChromeCdpProbe.Result]
  * with an additional [Probing] state for the brief window the probe coroutine is in flight.
@@ -46,8 +48,8 @@ internal fun browserScriptStatusUi(
     if (gatePending) {
         return BrowserScriptStatusResult(
             status = ToolStatusUi(
-                label = "Setting up…",
-                subtitle = "Checking Shizuku…",
+                label = R.string.ui_setting_up,
+                subtitle = R.string.ui_checking_shizuku,
                 tone = ToolStatusTone.Neutral,
                 showSpinner = true,
             ),
@@ -57,7 +59,7 @@ internal fun browserScriptStatusUi(
     if (gateError != null) {
         return BrowserScriptStatusResult(
             status = ToolStatusUi(
-                label = "Needs Setup",
+                label = R.string.ui_needs_setup,
                 subtitle = gateError.message(),
                 tone = ToolStatusTone.Warning,
                 showSpinner = false,
@@ -68,8 +70,8 @@ internal fun browserScriptStatusUi(
     if (!enabledPref) {
         return BrowserScriptStatusResult(
             status = ToolStatusUi(
-                label = "Disabled",
-                subtitle = "Toggle to enable",
+                label = R.string.ui_disabled,
+                subtitle = R.string.ui_toggle_to_enable,
                 tone = ToolStatusTone.Neutral,
                 showSpinner = false,
             ),
@@ -79,8 +81,8 @@ internal fun browserScriptStatusUi(
     return when (probeResult) {
         BrowserScriptProbeState.Probing -> BrowserScriptStatusResult(
             status = ToolStatusUi(
-                label = "Checking…",
-                subtitle = "Checking Chrome devtools socket…",
+                label = R.string.ui_status_checking,
+                subtitle = R.string.ui_checking_chrome_devtools_socket,
                 tone = ToolStatusTone.Neutral,
                 showSpinner = true,
             ),
@@ -88,8 +90,8 @@ internal fun browserScriptStatusUi(
         )
         BrowserScriptProbeState.Bound -> BrowserScriptStatusResult(
             status = ToolStatusUi(
-                label = "Ready",
-                subtitle = "browser_script active",
+                label = R.string.ui_ready,
+                subtitle = R.string.ui_browser_script_active,
                 tone = ToolStatusTone.Positive,
                 showSpinner = false,
             ),
@@ -97,8 +99,8 @@ internal fun browserScriptStatusUi(
         )
         BrowserScriptProbeState.NotBound -> BrowserScriptStatusResult(
             status = ToolStatusUi(
-                label = "Needs Setup",
-                subtitle = "Chrome devtools socket not exposed. Enable the flag and restart Chrome.",
+                label = R.string.ui_needs_setup,
+                subtitle = R.string.ui_chrome_enable_flag,
                 tone = ToolStatusTone.Warning,
                 showSpinner = false,
             ),
@@ -106,8 +108,8 @@ internal fun browserScriptStatusUi(
         )
         BrowserScriptProbeState.Unknown -> BrowserScriptStatusResult(
             status = ToolStatusUi(
-                label = "Not available",
-                subtitle = "Cannot probe socket on this device — the agent will still try to connect when needed.",
+                label = R.string.ui_not_available,
+                subtitle = R.string.ui_chrome_probe_unavailable,
                 tone = ToolStatusTone.Warning,
                 showSpinner = false,
             ),

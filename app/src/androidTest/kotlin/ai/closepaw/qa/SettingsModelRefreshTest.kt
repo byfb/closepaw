@@ -70,6 +70,7 @@ class SettingsModelRefreshTest {
         val result = CompletableDeferred<Unit>()
         val store = AppSettingsStore(context)
         val repo = ModelCatalogRepository(context, store, ModelDiscoveryCache(context),
+            codexAccountScope = { "test-account" },
             codexHeaderSupplier = { CodexHeaders("fixture-token", "fixture-account", null) },
             discoverCodexFn = {
                 result.await()
@@ -104,8 +105,7 @@ class SettingsModelRefreshTest {
                 }
             }
         }
-        compose.onNodeWithText("Refresh models").performScrollTo().assertIsEnabled().performClick()
-        compose.onNodeWithText("Refreshing…").assertIsNotEnabled()
+        compose.onNodeWithText("Refreshing…").performScrollTo().assertIsNotEnabled()
         result.complete(Unit)
         compose.waitUntil(5_000) { repo.discoveryState.value.lastFetchedAt.containsKey(LLMProvider.OPENAI_CODEX) }
         compose.onNodeWithText("Search models").performScrollTo().performTextInput("Refresh Test")

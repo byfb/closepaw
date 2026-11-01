@@ -1,5 +1,7 @@
 package ai.closepaw.ui.chat.components
 
+import ai.closepaw.ui.theme.uiResources
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
@@ -41,14 +43,12 @@ import ai.closepaw.ui.theme.Fraunces
 import ai.closepaw.ui.theme.closePaw
 import kotlinx.coroutines.delay
 
-private data class Suggestion(val verb: String, val gloss: String) {
-    val full: String get() = "$verb $gloss"
-}
+private data class Suggestion(val verb: Int, val gloss: Int)
 
 private val SUGGESTIONS = listOf(
-    Suggestion("Get me", "a ride home"),
-    Suggestion("Catch me up", "on emails and messages"),
-    Suggestion("Search", "for nearby restaurants"),
+    Suggestion(R.string.ui_get_me, R.string.ui_a_ride_home),
+    Suggestion(R.string.ui_catch_me_up, R.string.ui_on_emails_and_messages),
+    Suggestion(R.string.ui_search, R.string.ui_for_nearby_restaurants),
 )
 
 /**
@@ -62,6 +62,7 @@ fun EmptyState(
     onSuggestionClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = uiResources()
     val spacing = MaterialTheme.closePaw.spacing
     Box(
         modifier = modifier
@@ -82,7 +83,7 @@ fun EmptyState(
         ) {
             StaggeredReveal(index = 0) {
                 Text(
-                    text = "What can I\nhelp you with?",
+                    text = strings.getString(R.string.ui_what_can_i_nhelp_you_with),
                     style = TextStyle(
                         fontFamily = Fraunces,
                         fontStyle = FontStyle.Italic,
@@ -108,9 +109,9 @@ fun EmptyState(
             SUGGESTIONS.forEachIndexed { i, s ->
                 StaggeredReveal(index = 2 + i) {
                     MarginaliaSuggestion(
-                        verb = s.verb,
-                        gloss = s.gloss,
-                        onClick = { onSuggestionClick(s.full) },
+                        verb = strings.getString(s.verb),
+                        gloss = strings.getString(s.gloss),
+                        onClick = { onSuggestionClick(strings.getString(R.string.suggested_request, strings.getString(s.verb), strings.getString(s.gloss))) },
                     )
                 }
             }

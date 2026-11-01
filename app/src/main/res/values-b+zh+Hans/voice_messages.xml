@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="live_error_signin">请重新登录 ChatGPT 以启动 GPT-Live。</string>
+    <string name="live_error_dns">找不到 GPT-Live 服务器。请检查 DNS 或 VPN 设置。</string>
+    <string name="live_error_timeout">GPT-Live 请求超时。请检查网络或 VPN 后重新连接。</string>
+    <string name="live_error_tls">无法与 GPT-Live 建立安全连接。请检查网络或 VPN 设置。</string>
+    <string name="live_error_unreachable">无法连接 GPT-Live 服务器。请检查网络或 VPN 后重新连接。</string>
+    <string name="live_error_invalid_answer">GPT-Live 返回了无效的音频连接。请重新连接。</string>
+    <string name="live_error_rejected">GPT-Live 已拒绝语音设置。请检查设置后重新连接。</string>
+    <string name="live_error_expired">ChatGPT 登录已过期。请重新登录。</string>
+    <string name="live_error_unavailable">此 ChatGPT 账号或登录方式无法使用 GPT-Live。</string>
+    <string name="live_error_limit">已达 GPT-Live 使用上限，请稍后再试。</string>
+    <string name="live_error_http">无法启动 GPT-Live（HTTP %1$d）。</string>
+    <string name="live_error_interrupted">GPT-Live 连接已中断。请重试。</string>
+</resources>

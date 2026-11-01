@@ -280,9 +280,9 @@ class CapsuleOverlayHost(
 
     fun flashSupplementConfirmation(isAgentMidTurn: Boolean) {
         val message = if (isAgentMidTurn) {
-            "✓ Received, will apply next step"
+            ai.closepaw.ui.theme.appResources(service).getString(ai.closepaw.R.string.ui_received_will_apply_next_step)
         } else {
-            "✓ Received"
+            ai.closepaw.ui.theme.appResources(service).getString(ai.closepaw.R.string.ui_received)
         }
         val durationMs = if (isAgentMidTurn) 2000L else 1500L
         transientThoughtJob?.cancel()

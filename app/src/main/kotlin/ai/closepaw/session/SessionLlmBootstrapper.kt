@@ -34,6 +34,9 @@ internal object SessionLlmBootstrapper {
     ): SessionLlmBootstrap {
         requireOffMainThread()
         val backend = config.llm.backendType
+        if (backend == LLMBackendType.OPENAI && ModelCatalog.isCodexSelection(config.mainModel)) {
+            kotlinx.coroutines.runBlocking { catalogRepository.refreshCodex(force = false) }
+        }
         val baseCatalog = catalogRepository.catalog.value
 
         val modelCatalog = baseCatalog.withBaseUrlOverrides(baseUrlOverrides)

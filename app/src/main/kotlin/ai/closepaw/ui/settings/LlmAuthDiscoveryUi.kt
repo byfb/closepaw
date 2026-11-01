@@ -1,5 +1,9 @@
 package ai.closepaw.ui.settings
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -68,6 +72,7 @@ internal fun SearchableGroupedModelPicker(
     selectedName: String,
     onSelect: (String) -> Unit,
 ) {
+    val strings = uiResources()
     val provider = entries.firstOrNull()?.provider
     var query by rememberSaveable(provider) { mutableStateOf("") }
     var expandedKeys by remember(entries) { mutableStateOf(setOf<String>()) }
@@ -90,7 +95,7 @@ internal fun SearchableGroupedModelPicker(
             onValueChange = { query = it },
             singleLine = true,
             leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-            label = { Text("Search models") },
+            label = { Text(strings.getString(R.string.ui_search_models)) },
             shape = MaterialTheme.shapes.small,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -113,7 +118,7 @@ internal fun SearchableGroupedModelPicker(
         ) {
             if (state.groups.isEmpty()) {
                 Text(
-                    text = if (state.isSearching) "No models match \"$query\"" else "No models available",
+                    text = if (state.isSearching) strings.getString(R.string.ui_no_models_match, query) else strings.getString(R.string.ui_no_models_available),
                     modifier = Modifier
                         .align(Alignment.Center)
                         .padding(MaterialTheme.closePaw.spacing.cardPadding),
@@ -160,13 +165,14 @@ private fun GroupHeaderRow(
     expanded: Boolean,
     onClick: () -> Unit,
 ) {
+    val strings = uiResources()
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .minimumInteractiveComponentSize()
             .clickable(role = Role.Button, onClick = onClick)
-            .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" }
+            .semantics { stateDescription = if (expanded) strings.getString(R.string.ui_state_expanded) else strings.getString(R.string.ui_state_collapsed) }
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(horizontal = MaterialTheme.closePaw.spacing.md, vertical = 10.dp),
     ) {
@@ -251,6 +257,7 @@ internal fun RefreshModelsRow(
     onRefresh: () -> Unit,
     signedIn: Boolean = false,
 ) {
+    val strings = uiResources()
     val gate = RefreshButtonGate.evaluate(
         provider = provider,
         apiKey = apiKey,
@@ -260,7 +267,7 @@ internal fun RefreshModelsRow(
     )
     val refreshing = provider in discoveryState.refreshing
     val enabled = gate is RefreshButtonGate.State.Enabled && !refreshing
-    val reason = (gate as? RefreshButtonGate.State.Disabled)?.reason
+    val reason = (gate as? RefreshButtonGate.State.Disabled)?.let { it.detail ?: strings.getString(it.reason) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         TextButton(onClick = onRefresh, enabled = enabled) {
@@ -270,17 +277,17 @@ internal fun RefreshModelsRow(
                     strokeWidth = 2.dp,
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("Refreshing…")
+                Text(strings.getString(R.string.ui_refreshing))
             } else {
                 Icon(Icons.Outlined.Refresh, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
-                Text("Refresh models")
+                Text(strings.getString(R.string.ui_refresh_models))
             }
         }
         val timestamp = discoveryState.lastFetchedAt[provider]
         if (timestamp != null) {
             Text(
-                text = "Last refreshed: ${formatTimestamp(timestamp)}",
+                text = strings.getString(R.string.ui_last_refreshed, formatTimestamp(timestamp)),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = MaterialTheme.closePaw.spacing.xs),
@@ -296,7 +303,7 @@ internal fun RefreshModelsRow(
             )
         } else if (reason != null) {
             Text(
-                text = "Refresh disabled: $reason",
+                text = strings.getString(R.string.ui_refresh_disabled, reason),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = MaterialTheme.closePaw.spacing.xs),

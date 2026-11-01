@@ -1,5 +1,7 @@
 package ai.closepaw.voice
 
+import ai.closepaw.R
+
 import ai.closepaw.auth.CodexHeaders
 import ai.closepaw.BuildConfig
 import android.util.Log
@@ -22,6 +24,7 @@ import okhttp3.Response
 
 /** ChatGPT's Codex WebRTC route. Credentials never enter the audio/data channel. */
 internal class LiveCallClient(
+    private val strings: android.content.res.Resources,
     private val client: OkHttpClient,
     private val headers: suspend () -> CodexHeaders,
     private val endpoint: String = ENDPOINT,
@@ -47,7 +50,7 @@ internal class LiveCallClient(
     suspend fun create(offer: String, sessionId: String): String {
         val auth = headers()
         val accountId = auth.chatgptAccountId?.takeIf { it.isNotBlank() }
-            ?: throw LiveVoiceException("Sign in to ChatGPT again to start GPT-Live.")
+            ?: throw LiveVoiceException(strings.getString(R.string.live_error_signin))
         val body = buildJsonObject {
             put("sdp", offer)
             putJsonObject("session") {
@@ -76,10 +79,10 @@ internal class LiveCallClient(
                     if (BuildConfig.DEBUG) Log.d("GptLiveCall", "Call request failed: ${e.javaClass.simpleName}")
                     if (continuation.isActive) continuation.resumeWithException(
                         LiveVoiceException(when (e) {
-                            is UnknownHostException -> "Could not find the GPT-Live server. Check your DNS or VPN settings."
-                            is InterruptedIOException -> "GPT-Live's server request timed out. Check your network or VPN and reconnect."
-                            is SSLException -> "Could not establish a secure GPT-Live connection. Check your network or VPN settings."
-                            else -> "Could not reach the GPT-Live server. Check your network or VPN and reconnect."
+                            is UnknownHostException -> strings.getString(R.string.live_error_dns)
+                            is InterruptedIOException -> strings.getString(R.string.live_error_timeout)
+                            is SSLException -> strings.getString(R.string.live_error_tls)
+                            else -> strings.getString(R.string.live_error_unreachable)
                         })
                     )
                 }
@@ -90,17 +93,17 @@ internal class LiveCallClient(
                             if (!continuation.isActive) return
                             if (answer != null && answer.startsWith("v=")) continuation.resume(answer)
                             else continuation.resumeWithException(LiveVoiceException(when (it.code) {
-                                in 200..299 -> "GPT-Live returned an invalid audio connection. Reconnect to try again."
-                                400 -> "GPT-Live rejected the voice setup. Check the voice settings and reconnect."
-                                401 -> "ChatGPT sign-in expired. Sign in again."
-                                403, 404 -> "GPT-Live is not available for this ChatGPT account or sign-in route."
-                                429 -> "GPT-Live usage limit reached. Try again later."
-                                else -> "GPT-Live could not start (HTTP ${it.code})."
+                                in 200..299 -> strings.getString(R.string.live_error_invalid_answer)
+                                400 -> strings.getString(R.string.live_error_rejected)
+                                401 -> strings.getString(R.string.live_error_expired)
+                                403, 404 -> strings.getString(R.string.live_error_unavailable)
+                                429 -> strings.getString(R.string.live_error_limit)
+                                else -> strings.getString(R.string.live_error_http, it.code)
                             }))
                         }
                     } catch (_: IOException) {
                         if (continuation.isActive) continuation.resumeWithException(
-                            LiveVoiceException("GPT-Live connection was interrupted. Try again.")
+                            LiveVoiceException(strings.getString(R.string.live_error_interrupted))
                         )
                     }
                 }

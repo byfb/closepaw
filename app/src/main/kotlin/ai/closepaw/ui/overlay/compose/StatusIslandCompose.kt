@@ -1,5 +1,9 @@
 package ai.closepaw.ui.overlay.compose
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
@@ -36,6 +40,7 @@ fun StatusIslandCompose(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = uiResources()
     val shape = MaterialTheme.shapes.large
     val spacing = MaterialTheme.closePaw.spacing
     val reducedMotion = ClosePawMotion.reducedMotion()
@@ -45,11 +50,11 @@ fun StatusIslandCompose(
             .clip(shape)
             .clickable(
                 role = Role.Button,
-                onClickLabel = "Show task details",
+                onClickLabel = strings.getString(R.string.ui_show_task_details),
                 onClick = onClick,
             )
             .semantics {
-                contentDescription = "Status: $text"
+                contentDescription = strings.getString(R.string.ui_status_description, text)
             },
         shape = shape,
         color = MaterialTheme.colorScheme.surface,

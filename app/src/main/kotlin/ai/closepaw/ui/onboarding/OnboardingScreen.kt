@@ -1,5 +1,9 @@
 package ai.closepaw.ui.onboarding
 
+import ai.closepaw.ui.theme.uiResources
+
+import ai.closepaw.R
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import ai.closepaw.onboarding.ApiKeyAuthMethod
@@ -46,6 +50,7 @@ fun OnboardingScreen(
     onGoToAuthStep: () -> Unit,
     onEffect: (OnboardingEffect) -> Unit
 ) {
+    val strings = uiResources()
     // Consume one-shot effects
     LaunchedEffect(Unit) {
         effects.collect { effect -> onEffect(effect) }
@@ -60,7 +65,7 @@ fun OnboardingScreen(
             OnboardingShell(
                 stepIndex = 1,
                 totalSteps = totalSteps,
-                title = "Let ClosePaw control your phone"
+                title = strings.getString(R.string.ui_let_closepaw_control_your_phone)
             ) {
                 PermissionStepContent(
                     step = WizardStep.Accessibility,
@@ -76,7 +81,7 @@ fun OnboardingScreen(
             OnboardingShell(
                 stepIndex = 2,
                 totalSteps = totalSteps,
-                title = "See controls while the agent works",
+                title = strings.getString(R.string.ui_see_controls_while_the_agent_works),
                 onBack = backAction
             ) {
                 PermissionStepContent(
@@ -93,7 +98,7 @@ fun OnboardingScreen(
             OnboardingShell(
                 stepIndex = 3,
                 totalSteps = totalSteps,
-                title = "Keep long tasks alive",
+                title = strings.getString(R.string.ui_keep_long_tasks_alive),
                 onBack = backAction
             ) {
                 PermissionStepContent(
@@ -110,7 +115,7 @@ fun OnboardingScreen(
             OnboardingShell(
                 stepIndex = 4,
                 totalSteps = totalSteps,
-                title = "Connect your model",
+                title = strings.getString(R.string.ui_connect_your_model),
                 onBack = backAction
             ) {
                 ApiKeyStepContent(
@@ -133,7 +138,7 @@ fun OnboardingScreen(
             OnboardingShell(
                 stepIndex = 5,
                 totalSteps = totalSteps,
-                title = "Try a safe demo",
+                title = strings.getString(R.string.ui_try_a_safe_demo),
                 onBack = backAction
             ) {
                 DemoStepContent(
@@ -149,7 +154,7 @@ fun OnboardingScreen(
             OnboardingShell(
                 stepIndex = totalSteps,
                 totalSteps = totalSteps,
-                title = "You're All Set!",
+                title = strings.getString(R.string.ui_you_re_all_set),
                 onBack = backAction
             ) {
                 CompleteStepContent(
