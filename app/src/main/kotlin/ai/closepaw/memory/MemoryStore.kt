@@ -6,6 +6,10 @@ import java.io.IOException
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Persistent markdown-based memory store. Read is side-effect-free (raw file
@@ -27,7 +31,17 @@ class MemoryStore(
         private const val DEVICE_FILE = "device.md"
         private val SAFE_PACKAGE_PATTERN = Regex("^[a-zA-Z0-9_.]+$")
         private val TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z")
+        // Core, Live and Settings construct separate stores for the same directory.
+        // Share only context-free synchronization and revisions, never an Android Context.
+        private val directories = ConcurrentHashMap<String, SharedState>()
+        private val ENTRY_PREFIX = Regex("^\\s*[-*+]\\s+(?:\\[\\d{4}-\\d{2}-\\d{2} [^]]+]\\s*)?")
     }
+
+    private class SharedState {
+        val revision = MutableStateFlow(0L)
+    }
+    private val shared = directories.getOrPut(memoryDir.absoluteFile.normalize().path) { SharedState() }
+    val revision: StateFlow<Long> = shared.revision.asStateFlow()
 
     private data class DocumentSpec(
         val scope: MemoryScope,
@@ -41,8 +55,7 @@ class MemoryStore(
 
     fun hasWrittenThisSession(): Boolean = writtenThisSession.get()
 
-    @Synchronized
-    fun read(scope: MemoryScope, packageName: String? = null): String? {
+    fun read(scope: MemoryScope, packageName: String? = null): String? = synchronized(shared) {
         val spec = buildSpec(scope, packageName) ?: return null
         if (!spec.file.exists()) return null
         return try {
@@ -53,8 +66,7 @@ class MemoryStore(
         }
     }
 
-    @Synchronized
-    fun write(scope: MemoryScope, packageName: String? = null, content: String): SaveResult {
+    fun write(scope: MemoryScope, packageName: String? = null, content: String): SaveResult = synchronized(shared) {
         val spec = buildSpec(scope, packageName) ?: return SaveResult.InvalidScope
         val bytes = content.toByteArray(Charsets.UTF_8)
         if (bytes.size > maxFileBytes) return SaveResult.TooLarge
@@ -68,15 +80,35 @@ class MemoryStore(
         }
     }
 
-    @Synchronized
-    fun delete(scope: MemoryScope, packageName: String? = null): Boolean {
-        val spec = buildSpec(scope, packageName) ?: return false
-        if (!spec.file.exists()) return true
-        return spec.file.delete()
+    fun writeIfUnchanged(scope: MemoryScope, packageName: String?, expected: String?, content: String): SaveResult =
+        synchronized(shared) {
+            compareAndSave(scope, packageName, expected) { write(scope, packageName, content) }
+        }
+
+    fun deleteIfUnchanged(scope: MemoryScope, packageName: String?, expected: String?): SaveResult =
+        synchronized(shared) {
+            compareAndSave(scope, packageName, expected) {
+                if (delete(scope, packageName)) SaveResult.Success else SaveResult.IoError("Delete failed")
+            }
+        }
+
+    private fun compareAndSave(scope: MemoryScope, packageName: String?, expected: String?, save: () -> SaveResult): SaveResult {
+        val spec = buildSpec(scope, packageName) ?: return SaveResult.InvalidScope
+        return try {
+            val current = if (spec.file.exists()) spec.file.readText() else null
+            if (current != expected) SaveResult.Conflict else save()
+        } catch (e: IOException) {
+            SaveResult.IoError(e.message ?: "Read failed")
+        }
     }
 
-    @Synchronized
-    fun listAppPackages(): List<String> {
+    fun delete(scope: MemoryScope, packageName: String? = null): Boolean = synchronized(shared) {
+        val spec = buildSpec(scope, packageName) ?: return false
+        if (!spec.file.exists()) return true
+        return spec.file.delete().also { if (it) shared.revision.value++ }
+    }
+
+    fun listAppPackages(): List<String> = synchronized(shared) {
         val appsDir = File(memoryDir, APPS_DIR)
         if (!appsDir.isDirectory) return emptyList()
         return appsDir.listFiles { f -> f.isFile && f.name.endsWith(".md") }
@@ -88,13 +120,12 @@ class MemoryStore(
             .orEmpty()
     }
 
-    @Synchronized
     fun append(
         scope: MemoryScope,
         section: MemorySection,
         content: String,
         packageName: String? = null
-    ): Boolean {
+    ): Boolean = synchronized(shared) {
         if (!MemorySchema.isSectionAllowed(scope, section)) {
             Log.w(TAG, "Rejected invalid memory section $section for scope $scope")
             return false
@@ -117,6 +148,10 @@ class MemoryStore(
                         Log.w(TAG, "Memory read failed during append: ${spec.file.name}", e)
                         return false
                     }
+                if (entryLines(existing, section).any { entryText(it.second) == sanitized }) {
+                    writtenThisSession.set(true)
+                    return true
+                }
                 insertEntry(existing, section, entry)
             }
         val bytes = newContent.toByteArray(Charsets.UTF_8)
@@ -131,6 +166,57 @@ class MemoryStore(
         } catch (e: IOException) {
             Log.w(TAG, "Memory write failed: ${spec.file.name}", e)
             false
+        }
+    }
+
+    /** Replace/delete one complete entry. An exact, unique match rejects stale or ambiguous edits. */
+    fun update(
+        scope: MemoryScope,
+        section: MemorySection,
+        operation: MemoryOperation,
+        content: String,
+        existingContent: String?,
+        packageName: String? = null,
+    ): SaveResult = synchronized(shared) {
+        if (!MemorySchema.isSectionAllowed(scope, section)) return SaveResult.InvalidScope
+        val spec = buildSpec(scope, packageName) ?: return SaveResult.InvalidScope
+        if (operation == MemoryOperation.APPEND) {
+            // Keep append's public Boolean contract for existing callers.
+            return if (append(scope, section, content, packageName)) SaveResult.Success
+            else SaveResult.IoError("Memory could not be appended (empty content, file limit or IO error)")
+        }
+        val old = existingContent?.trim()?.takeIf { it.isNotEmpty() } ?: return SaveResult.Conflict
+        val replacement = sanitizeContent(content)
+        if (operation == MemoryOperation.REPLACE && replacement.isEmpty()) return SaveResult.Conflict
+        return try {
+            if (!spec.file.exists()) return SaveResult.Conflict
+            val existing = spec.file.readText()
+            val matches = entryLines(existing, section).filter { (_, line) ->
+                line.trim() == old || entryText(line) == old
+            }
+            val index = matches.singleOrNull()?.first ?: return SaveResult.Conflict
+            val lines = existing.split("\n").toMutableList()
+            if (operation == MemoryOperation.DELETE) lines.removeAt(index)
+            else lines[index] = formatEntry(replacement)
+            write(scope, packageName, lines.joinToString("\n"))
+        } catch (e: IOException) {
+            SaveResult.IoError(e.message ?: "Memory update failed")
+        }
+    }
+
+    private fun entryText(line: String): String = line.replace(ENTRY_PREFIX, "").trim()
+
+    private fun entryLines(existing: String, section: MemorySection): List<Pair<Int, String>> {
+        val lines = existing.split("\n")
+        val hasSections = lines.any { it.trimStart().startsWith("## ") }
+        var inSection = !hasSections // Legacy free-text files remain editable.
+        return buildList {
+            lines.forEachIndexed { index, line ->
+                val trimmed = line.trim()
+                if (trimmed.startsWith("## ")) inSection = trimmed == "## ${section.heading}"
+                else if (inSection && trimmed.isNotEmpty() && !trimmed.startsWith("#") && !trimmed.startsWith(">"))
+                    add(index to line)
+            }
         }
     }
 
@@ -275,5 +361,6 @@ class MemoryStore(
             tmpFile.delete()
             throw IOException("Failed to replace ${target.name}")
         }
+        shared.revision.value++
     }
 }

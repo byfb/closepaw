@@ -224,6 +224,7 @@
     <string name="ui_memory_files_cap_at_bytes_trim_and_try_again">记忆文件上限为 %1$d 字节，请缩短内容后重试。</string>
     <string name="ui_invalid_memory_target">无效的记忆位置。</string>
     <string name="ui_save_failed">保存失败：%1$s</string>
+    <string name="ui_memory_edit_conflict">记忆已更新。请舍弃编辑以载入最新内容。</string>
     <string name="ui_delete_failed">删除失败。</string>
     <string name="ui_memory_file_content">记忆文件内容</string>
     <string name="ui_no_memory_yet">尚无记忆。</string>
@@ -519,4 +520,5 @@
     <string name="ui_could_not_access_storage_retry_from_settings">无法存取%1$s的保存空间。请在设置中重试。</string>
     <string name="ui_could_not_clear_retry_from_settings">无法清除%1$s。请在设置中重试。</string>
     <string name="ui_could_not_clear_because_storage_access_was_denied">未获保存空间权限，无法清除%1$s。</string>
+    <string name="ui_live_idle_reminder">如果没有其他事，我就先挂断了。</string>
 </resources>

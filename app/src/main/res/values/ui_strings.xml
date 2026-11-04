@@ -224,6 +224,7 @@
     <string name="ui_memory_files_cap_at_bytes_trim_and_try_again">Memory files cap at %1$d bytes. Trim and try again.</string>
     <string name="ui_invalid_memory_target">Invalid memory target.</string>
     <string name="ui_save_failed">Save failed: %1$s</string>
+    <string name="ui_memory_edit_conflict">Memory changed. Discard edits to reload the latest content.</string>
     <string name="ui_delete_failed">Delete failed.</string>
     <string name="ui_memory_file_content">Memory file content</string>
     <string name="ui_no_memory_yet">No memory yet.</string>
@@ -519,4 +520,5 @@
     <string name="ui_could_not_access_storage_retry_from_settings">Could not access %1$s storage. Retry from Settings.</string>
     <string name="ui_could_not_clear_retry_from_settings">Could not clear %1$s. Retry from Settings.</string>
     <string name="ui_could_not_clear_because_storage_access_was_denied">Could not clear %1$s because storage access was denied.</string>
+    <string name="ui_live_idle_reminder">If there is nothing else, I will end the call shortly.</string>
 </resources>

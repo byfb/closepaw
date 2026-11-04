@@ -12,6 +12,18 @@ data class LiveVoicePreferences(
     fun instructions(): String = ai.closepaw.protocol.CustomInstructions.appendTo(
         "${language.instruction}\n${tone.instruction}", customInstructions,
     )
+
+    internal fun idleReminderInstructions(reminder: String, hasUserSpeech: Boolean, appLanguage: String): String {
+        val replyLanguage = when {
+            language != LiveLanguage.AUTO -> language.instruction
+            hasUserSpeech -> "Use the language of the user's most recent utterance."
+            appLanguage == "zh" -> LiveLanguage.MANDARIN.instruction
+            else -> LiveLanguage.ENGLISH.instruction
+        }
+        return "$replyLanguage Say this idle reminder once: $reminder " +
+            "Then wait for the user. The phone will disconnect after 20 more seconds of inactivity. " +
+            "Do not delegate a task or claim the call has already ended."
+    }
 }
 
 enum class LiveVoice(val id: String, val label: String) {

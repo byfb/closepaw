@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -77,6 +78,29 @@ class MemoryFileEditorTest {
     }
 
     private fun userFile(): File = File(memoryDir, "user.md")
+
+    @Test fun live_updates_refresh_view_and_cannot_be_overwritten_by_a_dirty_draft() {
+        memoryStore.write(MemoryScope.USER, content = "Original")
+        compose.setContent {
+            ClosePawTheme { MemoryFileEditor(memoryStore, MemoryScope.USER, null, gate, bounded = false) }
+        }
+        compose.waitUntil(5_000) {
+            !gate.memoryEditLocked.value && compose.onAllNodesWithText("Original").fetchSemanticsNodes().isNotEmpty()
+        }
+        val live = MemoryStore(memoryDir)
+        live.write(MemoryScope.USER, content = "Live update")
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Live update").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag(MEMORY_EDITOR_EDIT_TAG).performClick()
+        compose.onNodeWithTag(MEMORY_EDITOR_TEXTFIELD_TAG).performTextReplacement("Unsaved draft")
+        live.write(MemoryScope.USER, content = "Newer live update")
+        compose.waitForIdle()
+        compose.onNodeWithTag(MEMORY_EDITOR_TEXTFIELD_TAG).assertTextEquals("Unsaved draft")
+        compose.onNodeWithTag(MEMORY_EDITOR_SAVE_TAG).performClick()
+        compose.waitForIdle()
+        assertEquals("Newer live update", live.read(MemoryScope.USER))
+        compose.onNodeWithTag(MEMORY_EDITOR_DISCARD_TAG).performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Newer live update").fetchSemanticsNodes().isNotEmpty() }
+    }
 
     // ------------------------------------------------------------
     // (1) Bounded: 8 KB content remains editable; tier selector
@@ -305,6 +329,7 @@ class MemoryFileEditorTest {
         val state = MutableStateFlow<SessionState>(SessionState.Running)
         coordinator.attachSession(fakeSession(state))
         compose.waitUntil(5_000) { gate.memoryEditLocked.value }
+        compose.onNodeWithTag(MEMORY_EDITOR_BANNER_TAG).assertIsDisplayed()
 
         // Agent appends to disk while we're locked (simulate via direct write).
         userFile().writeText("hello world\n## agent appended this")
@@ -420,6 +445,7 @@ class MemoryFileEditorTest {
         val state = MutableStateFlow<SessionState>(SessionState.Running)
         coordinator.attachSession(fakeSession(state))
         compose.waitUntil(5_000) { gate.memoryEditLocked.value }
+        compose.onNodeWithTag(MEMORY_EDITOR_BANNER_TAG).assertIsDisplayed()
 
         // Agent appends to disk while locked.
         userFile().writeText("on disk post-session")
@@ -495,7 +521,9 @@ private class ParkingDispatcher : CoroutineDispatcher() {
     fun releaseAll() {
         while (true) {
             val r = queue.poll() ?: break
-            r.run()
+            // Compose's test continuation interceptor resumes inline here;
+            // release on the Android UI looper, as UI callbacks require.
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().runOnMainSync(r)
         }
     }
 

@@ -88,7 +88,8 @@ class LiveCallClientTest {
     }
 
     @Test fun `DNS failure identifies network setup without disclosing the exception`() = runBlocking {
-        val dnsClient = http.newBuilder().dns { throw java.net.UnknownHostException("private network details") }.build()
+        val dnsClient = http.newBuilder().proxy(java.net.Proxy.NO_PROXY)
+            .dns { throw java.net.UnknownHostException("private network details") }.build()
         val calls = LiveCallClient(ai.closepaw.ui.resourceLabels(), dnsClient, { CodexHeaders("token", "account", null) }, "https://unresolvable.example/calls")
         try {
             val error = runCatching { calls.create("v=0", "voice") }.exceptionOrNull()!!

@@ -138,8 +138,9 @@ disconnects have a 12-second recovery window; native failure or a closed event
 channel requests a replacement voice connection. The UI stays in Connecting
 until `session.started` arrives (a data channel alone is insufficient). A response
 watchdog waits 30 seconds after transcribed speech or sustained local microphone
-activity ends. Assistant output or delegation clears the wait; ordinary silence
-and worker execution do not start a timer. The energy detector discards samples
+activity ends. Assistant output or delegation clears the response wait; ordinary
+silence and worker execution do not start that watchdog. The separate idle timer
+is described below. The energy detector discards samples
 immediately and is not a speech recognizer.
 
 After an established call fails, the service makes at most two automatic reconnect
@@ -157,20 +158,45 @@ receiver work and event-driven RemoteViews updates, with no periodic polling.
 `LiveConversation` handles transcripts, explicit `delegation.created` events,
 duplicate delegation suppression, and UTF-8-safe feedback chunks. Transcription
 alone never starts a phone task or ends voice. For each completed user utterance,
-Android sends just that turn to the selected ChatGPT model (or an available
-account model when the selection uses another provider). The request offers one
-function, `end_gpt_live_call`. A completed function call carrying the active call ID
+Android sends that turn plus current long-term memory as reference data to the
+selected ChatGPT model (or an available account model when the selection uses
+another provider). The request offers `end_gpt_live_call` and
+`remember_experience`. A completed function call carrying the active call ID
 ends this GPT-Live conversation. Assistant speech, partial transcripts and
 historical context cannot execute the function. Selection runs alongside voice
 playback. A phone handoff for the same utterance waits for the decision, with a
 bounded timeout. New speech and disconnects invalidate pending decisions.
 
-Only the phone-side voice controller receives the tool. The task agent can see
+Only the phone-side voice controller receives the end-call tool. The task agent can see
 earlier turns when it carries out a delegation, so giving it the tool would let
 an old hang-up request end a new conversation. Executing the tool releases the
 peer, microphone and foreground notification and leaves the running phone task
 intact. The notification, widget and Quick Settings tile also work when a model
 request is unavailable.
+
+Live and the task agent share durable user, device and current-app memory.
+`remember_experience` can add facts, replace an exact old entry, or forget an
+entry. Existing facts are supplied to the selector so corrections can replace
+outdated values. The same validation and app security policy apply in both paths.
+Memory changes finish before releasing a related task handoff. Each connection
+loads current memory and subscribes to updates from Live, Core and Settings;
+the latest snapshot takes precedence over older conversation context. Memory-only
+requests consume a redundant voice handoff after successful persistence. A
+live-only Boolean in the native tool schema keeps mixed memory + phone-operation
+requests eligible for the task agent; failed writes also allow that fallback.
+Voice preview does not load or write memory.
+
+Idle calls give one spoken reminder after 40 seconds and disconnect around 60
+seconds, with at least 20 seconds between scheduling the reminder and hanging up.
+Fresh user speech cancels that countdown. Normal assistant replies and running
+phone tasks postpone idle timing; the reminder's own speech does not. Waiting for
+user input counts as idle. Audio interruptions pause timing, and reconnections
+start a fresh timer. Voice preview is excluded. The timer starts when the call is
+ready, so an ordinary silent startup follows the same 40/60-second rule.
+With Follow conversation selected and no previous user speech, the reminder uses
+the app language (Chinese or English); an explicit voice language takes priority.
+The separate response watchdog still handles input that gets no reply. Ambient
+noise strong enough to count as microphone activity may renew the idle timer.
 
 A bounded text handoff is saved locally: the initial user brief, up to 12 recent
 turns (8,000 characters total), the latest phone request, progress/result, and
@@ -288,3 +314,14 @@ interruption exercised automatic reconnection. Manual reconnect testing recalled
 an earlier spoken fact without repeating it, including after process restart.
 These checks used the existing signed-in emulator and unchanged ProtonVPN
 configuration; physical-device audio behavior was not part of this acceptance.
+
+The shared-memory and idle-call update passed 2,182 JVM tests and Lint with no
+errors. Eight memory-editor device tests cover live refresh, stale drafts and
+session locking. Account-backed native-function tests cover add/correct/forget,
+memory-only versus mixed phone requests, and hang-up intent with saved history.
+On the signed emulator release, the idle reminder was spoken, fresh speech
+cancelled the original deadline, a stated preference was saved without an explicit
+remember command, forgetting avoided a duplicate task, and voice hang-up released
+the recorder. A silent-call check confirmed automatic teardown after roughly 60
+seconds of inactivity. Separate voice testing recalled a Core-saved fact in a new
+chat, corrected it, recalled the new value, and removed it.

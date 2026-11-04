@@ -30,7 +30,7 @@ Core components:
 | Component | Role | File |
 |-----------|------|------|
 | **MemorySchema** | Shared scope/section vocabulary + `SaveResult` sealed class | `memory/MemorySchema.kt` |
-| **MemoryStore** | Raw markdown read/write + schema-aware append | `memory/MemoryStore.kt` |
+| **MemoryStore** | Raw markdown read/write, append and targeted correction/deletion | `memory/MemoryStore.kt` |
 | **MemoryRecaller** | Deterministic prompt recall | `memory/MemoryRecaller.kt` |
 | **RememberExperienceTool** | Typed agent-side write path for durable learnings | `tool/impl/RememberExperienceTool.kt` |
 | **MemoryEditGate** | Single-writer lock for Settings-side edits | `app/MemoryEditGate.kt` |
@@ -120,15 +120,15 @@ contents intact.
 | `listAppPackages(): List<String>` | Sorted list of `apps/<pkg>.md` package names that pass `[a-zA-Z0-9_.]+` validation. Drives App Access content chips. |
 | `append(scope, section, content, packageName?): Boolean` | Schema-aware insertion under the named heading. See rules below. |
 
-`SaveResult` is a sealed class (`Success`, `TooLarge`, `InvalidScope`,
+`SaveResult` is a sealed class (`Success`, `TooLarge`, `InvalidScope`, `Conflict`,
 `IoError(message)`) so Settings can render outcome-specific feedback. The legacy
 canonicalizer and the one-off `user_prefs.md → user.md` migration are deleted.
 
 ### Append insertion rules
 
-`append()` is the only write path the agent uses (via `RememberExperienceTool`
-and the failure auto-retain in `Agent.kt`). The model never sees the raw file —
-it just names a `scope`, `section`, and content sentence:
+`append()` is the default write path; `update()` also supports replacing or
+deleting a single existing entry. Recalled memory supplies the existing text
+to the model. Append takes a `scope`, `section`, and content sentence:
 
 1. **Sanitize** the input: fold `\r\n\t` to single spaces, strip Unicode `Cc`
    control characters, collapse runs of whitespace, trim, then truncate to
@@ -146,6 +146,7 @@ it just names a `scope`, `section`, and content sentence:
    appended without reshaping the rest of the file.
 6. **Duplicate heading** → insert under the **last** occurrence. A warning is
    logged but the write proceeds.
+7. **Exact existing fact in the section** → succeed without adding another entry.
 
 After every step `append()` re-checks the UTF-8 byte size against the 8 KB cap
 and refuses the write if it would push the file over.
@@ -157,7 +158,9 @@ stays as a dedicated memory tool. Parameters:
 
 - `scope`: `user`, `device`, or `app`
 - `section`: one of the fixed sections allowed for that scope
-- `content`: 1-2 durable sentences
+- `operation`: `append` (default), `replace`, or `delete`
+- `content`: 1-2 durable sentences; required for append/replace, omitted for delete
+- `existing_content`: complete old entry, required for replace/delete; bullet and timestamp are optional
 - `package_name`: required only for `scope=app`
 
 Allowed section matrix:
@@ -167,6 +170,24 @@ Allowed section matrix:
 | `user` | `facts`, `preferences` |
 | `device` | `facts`, `pitfalls`, `verification` |
 | `app` | `app_skill_overrides`, `preferences`, `operational_notes` |
+
+Replacement/deletion requires exactly one matching complete line in the named
+section. A missing, stale, partial or ambiguous match returns `Conflict` without
+changing the file. Legacy files without section headings also support exact-line
+updates. Other lines and headings are preserved. Replacement refreshes the entry's
+timestamp. The model is instructed to correct contradictory entries rather than
+append both versions, and to reread after a conflict.
+
+Core and GPT-Live use the same tool, files and foreground/target-app security
+policy. Live offers it in the existing per-utterance function-selection request;
+only completed native function calls can write. Long-term recall is loaded on
+connection/reconnection and refreshed after changes, separately from recent voice
+conversation context.
+
+All store instances for a directory share a lock and revision flow. Settings
+refreshes clean views on revisions. A dirty draft remains visible, but saving or
+deleting compares the previously loaded text atomically and rejects a stale edit.
+Discard reloads the latest file. Core's session edit lock remains in place.
 
 **2. Failure auto-retain** — when a task fails and the model never called
 `remember_experience`, `Agent.kt` writes one fallback entry into the current
@@ -206,9 +227,10 @@ There is no vector search, SQLite, or cross-app recall.
 ## Single-Writer Model: `MemoryEditGate`
 
 Both the running agent and the Settings UI can write `apps/<pkg>.md`, and the
-agent can `append` to `user.md` / `device.md` at any time. Without coordination
-a Settings save could clobber an agent append (or vice versa). The fix is a
-single-writer lock keyed off session liveness.
+agent can update `user.md` / `device.md` at any time. Core sessions lock the
+editor by session liveness. Live updates additionally use shared store locking,
+revision notifications and compare-and-save, so a stale Settings draft cannot
+overwrite an update when no task session is open.
 
 `SessionCoordinator` exposes:
 

@@ -157,4 +157,28 @@ class RememberExperienceToolTest {
             override fun isCancelled(): Boolean = false
         }
     }
+
+    @Test fun `live and core correct and forget through the same tool`() = runTest {
+        store.appendUserPreference("Prefers tea")
+        val correction = JSONObject().put("scope", "user").put("section", "preferences")
+            .put("operation", "replace").put("existing_content", "Prefers tea").put("content", "Prefers coffee")
+        assertThat(tool.invoke(correction, "ai.closepaw")).isInstanceOf(ToolExecutionResult.Success::class.java)
+        assertThat(tool.createInvocation(correction).execute(buildContext())).isInstanceOf(ToolExecutionResult.Failure::class.java)
+        val deletion = JSONObject().put("scope", "user").put("section", "preferences")
+            .put("operation", "delete").put("existing_content", "Prefers coffee")
+        assertThat(tool.validate(deletion)).isEqualTo(ValidationResult.Valid)
+        assertThat(tool.createInvocation(deletion).execute(buildContext())).isInstanceOf(ToolExecutionResult.Success::class.java)
+        assertThat(store.read(MemoryScope.USER)).doesNotContain("Prefers")
+    }
+
+    @Test fun `live corrections use the same foreground policy and validate old content`() = runTest {
+        val guarded = RememberExperienceTool(store, AppClassifier(mapOf("bank" to AppTier.BLOCKED)))
+        val params = JSONObject().put("scope", "user").put("section", "facts").put("operation", "replace")
+            .put("content", "New fact")
+        assertThat(guarded.validate(params)).isInstanceOf(ValidationResult.Invalid::class.java)
+        params.put("existing_content", "Old fact")
+        store.appendUserFact("Old fact")
+        assertThat(guarded.invoke(params, "bank")).isInstanceOf(ToolExecutionResult.Failure::class.java)
+        assertThat(store.read(MemoryScope.USER)).contains("Old fact")
+    }
 }

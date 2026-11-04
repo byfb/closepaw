@@ -29,7 +29,16 @@ sealed class SaveResult {
     object Success : SaveResult()
     object TooLarge : SaveResult()
     object InvalidScope : SaveResult()
+    object Conflict : SaveResult()
     data class IoError(val message: String) : SaveResult()
+}
+
+enum class MemoryOperation(val wireValue: String) {
+    APPEND("append"), REPLACE("replace"), DELETE("delete");
+
+    companion object {
+        fun fromWireValue(value: String): MemoryOperation? = entries.firstOrNull { it.wireValue == value }
+    }
 }
 
 object MemorySchema {

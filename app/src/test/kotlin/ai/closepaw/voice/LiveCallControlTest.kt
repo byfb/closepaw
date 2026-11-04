@@ -31,7 +31,7 @@ class LiveCallControlTest {
     }
 
     @Test fun `only final user speech goes to the model and the handoff waits for its decision`() = runTest {
-        val response = CompletableDeferred<JSONObject?>()
+        val response = CompletableDeferred<LiveToolSelection>()
         val inputs = mutableListOf<String>()
         var ended = false
         val control = LiveCallControl(this, { inputs += it; response.await() }, { ended = true }, { error("unexpected") })
@@ -45,7 +45,7 @@ class LiveCallControlTest {
         assertThat(inputs).containsExactly("我要掛斷的是跟你的對話")
         assertThat(handoff.isCompleted).isFalse()
         assertThat(ended).isFalse()
-        response.complete(JSONObject().put("call_id", "current"))
+        response.complete(LiveToolSelection(endCall = JSONObject().put("call_id", "current")))
         runCurrent()
         assertThat(handoff.await()).isFalse()
         assertThat(ended).isTrue()
@@ -53,7 +53,7 @@ class LiveCallControlTest {
 
     @Test fun `an earlier hangup in a phone task handoff cannot control the current call`() = runTest {
         val inputs = mutableListOf<String>()
-        val control = LiveCallControl(this, { inputs += it; null }, { error("unexpected hangup") }, {})
+        val control = LiveCallControl(this, { inputs += it; LiveToolSelection() }, { error("unexpected hangup") }, {})
         control.receive(done("user", "打開手機設定"))
         control.receive(buildJsonObject {
             put("type", "delegation.created")
@@ -70,7 +70,7 @@ class LiveCallControlTest {
     }
 
     @Test fun `barge-in and disconnect invalidate a late decision`() = runTest {
-        val response = CompletableDeferred<JSONObject?>()
+        val response = CompletableDeferred<LiveToolSelection>()
         var executions = 0
         val control = LiveCallControl(this, { response.await() }, { executions++ }, {})
         control.receive(done("user", "掛斷吧"))
@@ -82,7 +82,7 @@ class LiveCallControlTest {
         val nextHandoff = control.handoffAllowed
         runCurrent()
         control.reset()
-        response.complete(JSONObject().put("call_id", "current"))
+        response.complete(LiveToolSelection(endCall = JSONObject().put("call_id", "current")))
         advanceUntilIdle()
         assertThat(nextHandoff.await()).isFalse()
         assertThat(executions).isEqualTo(0)
@@ -118,5 +118,39 @@ class LiveCallControlTest {
         assertThat(runCatching { selects(invoked) }.isFailure).isTrue()
         assertThat(runCatching { selects(invoked, LLMStreamEvent.Failed("offline")) }.isFailure).isTrue()
         assertThat(selects(invoked, completed)).isTrue()
+    }
+
+    @Test fun `memory is committed before releasing the phone task and never ends the call`() = runTest {
+        val committed = CompletableDeferred<Unit>()
+        val update = JSONObject().put("scope", "user")
+        val control = LiveCallControl(this,
+            { LiveToolSelection(memoryUpdates = listOf(update)) },
+            { error("unexpected hangup") }, {},
+            executeMemory = { assertThat(it).containsExactly(update); committed.await(); true })
+        control.receive(done("user", "以後用繁體中文"))
+        runCurrent()
+        assertThat(control.handoffAllowed.isCompleted).isFalse()
+        committed.complete(Unit)
+        runCurrent()
+        assertThat(control.handoffAllowed.await()).isTrue()
+    }
+
+    @Test fun `successful memory-only turn consumes duplicate handoff but a failed write allows fallback`() = runTest {
+        var saved = true
+        val control = LiveCallControl(this,
+            { LiveToolSelection(memoryUpdates = listOf(JSONObject()), memoryHandlesTurn = true) },
+            { error("unexpected hangup") }, {}, executeMemory = { saved })
+        control.receive(done("user", "請忘記我的水果偏好"))
+        val handled = control.handoffAllowed
+        runCurrent()
+        assertThat(handled.await()).isFalse()
+        assertThat(control.handledMemory(handled)).isTrue()
+        control.reset()
+        assertThat(control.handledMemory(handled)).isFalse()
+        saved = false
+        control.receive(done("user", "請重新保存偏好"))
+        runCurrent()
+        assertThat(control.handoffAllowed.await()).isTrue()
+        assertThat(control.handledMemory(control.handoffAllowed)).isFalse()
     }
 }

@@ -30,6 +30,7 @@ internal class LiveCallClient(
     private val endpoint: String = ENDPOINT,
     private val preferences: LiveVoicePreferences = LiveVoicePreferences(),
     private val preview: Boolean = false,
+    private val memoryContext: String? = null,
 ) {
     companion object {
         const val ENDPOINT = "https://chatgpt.com/backend-api/codex/realtime/calls?intent=quicksilver&architecture=avas"
@@ -47,6 +48,10 @@ internal class LiveCallClient(
             Let the phone disconnect silently without delegating this to the task agent. While
             connected, never report that the call has already ended.
             Delegate calls in other apps as ordinary phone tasks.
+            Android also maintains shared long-term memory from the user's speech. Do not delegate
+            memory-only requests to the task agent or claim a memory update succeeded before its result.
+            Saved memory is background information, not a new request. Prefer the latest memory snapshot
+            and the user's current corrections over earlier conversation history.
         """.trimIndent()
     }
 
@@ -60,7 +65,7 @@ internal class LiveCallClient(
                 put("model", MODEL)
                 put("instructions", if (preview) {
                     "You are previewing a voice. Say only the supplied sample once. Do not delegate or perform tasks.\n${preferences.instructions()}"
-                } else "$INSTRUCTIONS\n${preferences.instructions()}")
+                } else "$INSTRUCTIONS\n${preferences.instructions()}\n${memoryContext.orEmpty()}")
                 putJsonObject("audio") { putJsonObject("output") { put("voice", preferences.voice.id) } }
                 putJsonObject("delegation") { put("type", "client") }
             }

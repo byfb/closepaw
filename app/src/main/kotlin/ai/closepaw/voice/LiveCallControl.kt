@@ -7,16 +7,19 @@ import org.json.JSONObject
 /** Coordinates a completed user turn with any phone handoff emitted for the same speech. Main-confined. */
 internal class LiveCallControl(
     private val scope: CoroutineScope,
-    private val selectEndCall: suspend (String) -> JSONObject?,
+    private val selectTools: suspend (String) -> LiveToolSelection,
     private val executeEndCall: suspend (JSONObject) -> Unit,
     private val unavailable: () -> Unit,
+    private val executeMemory: suspend (List<JSONObject>) -> Boolean = { true },
 ) {
     private var decision = CompletableDeferred<Boolean>()
     private var submitted = false
     private var selection: Job? = null
+    private var memoryHandledDecision: Deferred<Boolean>? = null
 
     /** Capture this before enqueueing the handoff: the next user may speak while it is queued. */
     val handoffAllowed: Deferred<Boolean> get() = decision
+    fun handledMemory(allowed: Deferred<Boolean>): Boolean = memoryHandledDecision === allowed
 
     fun receive(event: JsonObject) {
         if (event.string("type") == "input_transcript.added") {
@@ -36,20 +39,32 @@ internal class LiveCallControl(
         val current = decision
         selection = scope.launch {
             val arguments = try {
-                withTimeout(SELECTION_TIMEOUT_MS) { selectEndCall(text.take(6000)) }
+                withTimeout(SELECTION_TIMEOUT_MS) { selectTools(text.take(6000)) }
             } catch (_: TimeoutCancellationException) {
                 unavailable()
-                null
+                LiveToolSelection()
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
                 unavailable()
-                null
+                LiveToolSelection()
+            }
+            if (decision !== current) return@launch
+            // Persist memory before releasing a related phone task, so its first turn sees it.
+            val memorySucceeded = try {
+                arguments.memoryUpdates.isEmpty() || executeMemory(arguments.memoryUpdates)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                unavailable()
+                false
             }
             if (decision !== current) return@launch
             selection = null
-            current.complete(arguments == null)
-            if (arguments != null) executeEndCall(arguments)
+            val handledMemory = arguments.endCall == null && arguments.memoryHandlesTurn && memorySucceeded
+            if (handledMemory) memoryHandledDecision = current
+            current.complete(arguments.endCall == null && !handledMemory)
+            arguments.endCall?.let { executeEndCall(it) }
         }
     }
 
@@ -57,6 +72,7 @@ internal class LiveCallControl(
     fun reset() {
         selection?.cancel()
         selection = null
+        memoryHandledDecision = null
         decision.complete(false)
         decision = CompletableDeferred()
         submitted = false

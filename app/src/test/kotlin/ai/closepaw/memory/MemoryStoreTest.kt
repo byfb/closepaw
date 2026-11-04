@@ -19,6 +19,64 @@ class MemoryStoreTest {
         store = MemoryStore(memoryDir)
     }
 
+    @Test fun `correction replaces one old entry and keeps other sections unchanged`() {
+        store.write(MemoryScope.USER, content = "# User Memory\n## Facts\n- Lives in Hong Kong\n## Preferences\n- Prefers tea\n")
+        val live = MemoryStore(memoryDir)
+        assertThat(live.update(MemoryScope.USER, MemorySection.PREFERENCES, MemoryOperation.REPLACE,
+            "Prefers coffee", "Prefers tea")).isEqualTo(SaveResult.Success)
+        val recalled = MemoryRecaller(store).recall(null)!!
+        assertThat(recalled).contains("Lives in Hong Kong")
+        assertThat(recalled).contains("Prefers coffee")
+        assertThat(recalled).doesNotContain("Prefers tea")
+        assertThat(store.revision.value).isEqualTo(live.revision.value)
+    }
+
+    @Test fun `missing ambiguous wrong-section and partial corrections leave file intact`() {
+        val original = "# User Memory\n## Facts\n- Original\n## Preferences\n- Tea\n- Tea\n"
+        store.write(MemoryScope.USER, content = original)
+        for (old in listOf("Missing", "Tea", "Original", "Te")) {
+            assertThat(store.update(MemoryScope.USER, MemorySection.PREFERENCES, MemoryOperation.REPLACE,
+                "Coffee", old)).isEqualTo(SaveResult.Conflict)
+            assertThat(store.read(MemoryScope.USER)).isEqualTo(original)
+        }
+    }
+
+    @Test fun `legacy entry correction and targeted forgetting preserve other text`() {
+        store.write(MemoryScope.USER, content = "# My notes\nPrefers tea\nLives in Hong Kong\n")
+        assertThat(store.update(MemoryScope.USER, MemorySection.PREFERENCES, MemoryOperation.REPLACE,
+            "Prefers coffee", "Prefers tea")).isEqualTo(SaveResult.Success)
+        val completeLine = store.read(MemoryScope.USER)!!.lines().first { it.contains("Prefers coffee") }
+        assertThat(store.update(MemoryScope.USER, MemorySection.PREFERENCES, MemoryOperation.DELETE,
+            "", completeLine)).isEqualTo(SaveResult.Success)
+        assertThat(store.read(MemoryScope.USER)).isEqualTo("# My notes\nLives in Hong Kong\n")
+    }
+
+    @Test fun `repeated facts are not appended and stale manual saves and deletes conflict`() {
+        store.appendUserPreference("Prefers tea")
+        val original = store.read(MemoryScope.USER)
+        val revision = store.revision.value
+        val live = MemoryStore(memoryDir)
+        live.appendUserPreference("Prefers tea")
+        assertThat(store.read(MemoryScope.USER)).isEqualTo(original)
+        assertThat(store.revision.value).isEqualTo(revision)
+        live.update(MemoryScope.USER, MemorySection.PREFERENCES, MemoryOperation.REPLACE, "Prefers coffee", "Prefers tea")
+        assertThat(store.writeIfUnchanged(MemoryScope.USER, null, original, "stale draft")).isEqualTo(SaveResult.Conflict)
+        assertThat(store.deleteIfUnchanged(MemoryScope.USER, null, original)).isEqualTo(SaveResult.Conflict)
+        assertThat(store.read(MemoryScope.USER)).contains("Prefers coffee")
+    }
+
+    @Test fun `concurrent stores serialize writes without losing entries`() {
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(4)
+        try {
+            val jobs = (1..30).map { index -> pool.submit<Boolean> {
+                MemoryStore(memoryDir).appendUserFact("Fact $index")
+            } }
+            assertThat(jobs.map { it.get() }).doesNotContain(false)
+            val text = store.read(MemoryScope.USER)!!
+            assertThat(text.lines().count { it.startsWith("- [") }).isEqualTo(30)
+        } finally { pool.shutdownNow() }
+    }
+
     @Test
     fun `appendAppOperationalNote creates canonical app file`() {
         store.appendAppOperationalNote("com.example.app", "Open settings via gear icon")

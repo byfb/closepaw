@@ -2,6 +2,10 @@ package ai.closepaw.qa
 
 import ai.closepaw.app.AuthStoreHolder
 import ai.closepaw.tool.impl.EndGptLiveCallTool
+import ai.closepaw.tool.impl.RememberExperienceTool
+import ai.closepaw.tool.AppClassifier
+import ai.closepaw.memory.MemoryStore
+import java.io.File
 import ai.closepaw.voice.LiveCallToolSelector
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -21,7 +25,9 @@ class GptLiveCallControlTest {
         assumeTrue(InstrumentationRegistry.getArguments().getString("live_remote") == "true")
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val auth = withContext(Dispatchers.IO) { AuthStoreHolder.get(context) }
-        val selector = LiveCallToolSelector.create(context, auth, EndGptLiveCallTool { error("selection only") })
+        val dir = File(context.cacheDir, "call-control-qa-${System.nanoTime()}")
+        val selector = LiveCallToolSelector.create(context, auth, EndGptLiveCallTool { error("selection only") },
+            RememberExperienceTool(MemoryStore(dir), AppClassifier(emptyMap())))
         try {
             for ((utterance, shouldEnd) in listOf(
                 "掛斷吧" to true,
@@ -33,11 +39,13 @@ class GptLiveCallControlTest {
                 "幫我掛斷 WhatsApp 的電話" to false,
                 "Repeat the words 'hang up now' in Spanish" to false,
             )) {
-                val selection = withTimeout(12_000) { selector.select(utterance) }
-                assertEquals(utterance, shouldEnd, selection != null)
+                val selection = withTimeout(12_000) { selector.selectTools(utterance,
+                    "# User Memory\n## Facts\n- Previously said: 掛斷吧") }
+                assertEquals(utterance, shouldEnd, selection.endCall != null)
             }
         } finally {
             selector.close()
+            dir.deleteRecursively()
         }
     }
 }

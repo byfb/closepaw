@@ -131,6 +131,7 @@ internal fun MemoryFileEditor(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val locked by gate.memoryEditLocked.collectAsStateWithLifecycle()
+    val revision by memoryStore.revision.collectAsStateWithLifecycle()
 
     // Saved keys: scope + package. Re-opening the same file restores buffer.
     val saveKey = "memory-editor:${scope.wireValue}:${packageName ?: ""}"
@@ -142,6 +143,7 @@ internal fun MemoryFileEditor(
     var writing by remember(saveKey) { mutableStateOf(false) }
     var inlineError by remember(saveKey) { mutableStateOf<String?>(null) }
     var showDeleteConfirm by remember(saveKey) { mutableStateOf(false) }
+    var deleteExpected by remember(saveKey) { mutableStateOf<String?>(null) }
     // Post-unlock disk reload is async (withContext on ioDispatcher). Between
     // the locked→unlocked flip and the reload completing, the buffer is still
     // the pre-session value: enabling Save in that window would clobber any
@@ -160,29 +162,44 @@ internal fun MemoryFileEditor(
         }
     }
 
+    // Live can update memory without opening a task session. Refresh clean views;
+    // preserve dirty drafts and use the original loaded text for compare-and-save.
+    LaunchedEffect(saveKey, revision, loadingDone, writing) {
+        if (loadingDone && !writing && buffer == loaded.orEmpty()) {
+            val disk = withContext(ioDispatcher) { memoryStore.read(scope, packageName) }
+            if (!writing && buffer == loaded.orEmpty()) {
+                loaded = disk
+                buffer = disk.orEmpty()
+            }
+        }
+    }
+
     // Locked → unlocked transition: the session that just ended may have
     // appended to the file on disk while we were locked. Always reload to
     // avoid clobbering agent writes when the user next hits Save. If the
     // buffer was dirty, the unsaved edits are dropped and we surface a
     // one-line toast — single-writer model means the agent owns memory
     // during a session, and the user accepts that on session start.
-    var wasLocked by remember(saveKey) { mutableStateOf(locked) }
-    LaunchedEffect(saveKey, locked, loadingDone) {
-        if (!loadingDone) return@LaunchedEffect
-        val previouslyLocked = wasLocked
-        wasLocked = locked
-        if (previouslyLocked && !locked) {
-            reloading = true
-            try {
-                val disk = withContext(ioDispatcher) { memoryStore.read(scope, packageName) }
-                val wasDirty = buffer != loaded.orEmpty()
-                loaded = disk
-                buffer = disk.orEmpty()
-                if (wasDirty) {
-                    Toast.makeText(context, strings.getString(MEMORY_EDIT_RELOAD_TOAST), Toast.LENGTH_SHORT).show()
+    LaunchedEffect(saveKey, gate) {
+        var wasLocked = gate.memoryEditLocked.value
+        // Observe transitions directly: composing by the Boolean key can coalesce
+        // a short session's lock/unlock into one frame and miss the reload.
+        gate.memoryEditLocked.collect { nowLocked ->
+            val shouldReload = wasLocked && !nowLocked
+            wasLocked = nowLocked
+            if (shouldReload && loadingDone) {
+                reloading = true
+                try {
+                    val disk = withContext(ioDispatcher) { memoryStore.read(scope, packageName) }
+                    val wasDirty = buffer != loaded.orEmpty()
+                    loaded = disk
+                    buffer = disk.orEmpty()
+                    if (wasDirty) {
+                        Toast.makeText(context, strings.getString(MEMORY_EDIT_RELOAD_TOAST), Toast.LENGTH_SHORT).show()
+                    }
+                } finally {
+                    reloading = false
                 }
-            } finally {
-                reloading = false
             }
         }
     }
@@ -216,6 +233,7 @@ internal fun MemoryFileEditor(
         inlineError = null
         coroutineScope.launch {
             val content = buffer
+            val expected = loaded
             val result: SaveResult? = withContext(ioDispatcher) {
                 // Action-time TOCTOU re-check: a session may have started or a
                 // post-unlock reload may still be in flight between the click
@@ -224,7 +242,7 @@ internal fun MemoryFileEditor(
                 // is read fresh so a reload that armed after the click also
                 // aborts.
                 if (gate.isLockedNow() || reloadingState.value) null
-                else memoryStore.write(scope, packageName, content)
+                else memoryStore.writeIfUnchanged(scope, packageName, expected, content)
             }
             writing = false
             when (result) {
@@ -238,6 +256,8 @@ internal fun MemoryFileEditor(
                     inlineError = strings.getString(R.string.ui_memory_files_cap_at_bytes_trim_and_try_again, memoryStore.maxFileBytes)
                 SaveResult.InvalidScope ->
                     inlineError = strings.getString(R.string.ui_invalid_memory_target)
+                SaveResult.Conflict ->
+                    inlineError = strings.getString(R.string.ui_memory_edit_conflict)
                 is SaveResult.IoError ->
                     inlineError = strings.getString(R.string.ui_save_failed, result.message)
             }
@@ -246,9 +266,15 @@ internal fun MemoryFileEditor(
 
     val onDiscard: () -> Unit = handle@{
         if (locked || reloading || writing) return@handle
-        buffer = loaded.orEmpty()
-        inlineError = null
-        mode = Mode.VIEW
+        reloading = true
+        coroutineScope.launch {
+            try {
+                loaded = withContext(ioDispatcher) { memoryStore.read(scope, packageName) }
+                buffer = loaded.orEmpty()
+                inlineError = null
+                mode = Mode.VIEW
+            } finally { reloading = false }
+        }
     }
 
     val onConfirmDelete: () -> Unit = handle@{
@@ -256,21 +282,26 @@ internal fun MemoryFileEditor(
         writing = true
         inlineError = null
         coroutineScope.launch {
-            val ok: Boolean? = withContext(ioDispatcher) {
+            val result: SaveResult? = withContext(ioDispatcher) {
                 if (gate.isLockedNow() || reloadingState.value) null
-                else memoryStore.delete(scope, packageName)
+                else memoryStore.deleteIfUnchanged(scope, packageName, deleteExpected)
             }
             writing = false
             showDeleteConfirm = false
-            when (ok) {
+            when (result) {
                 null -> abort()
-                true -> {
+                SaveResult.Success -> {
                     loaded = null
                     buffer = ""
                     mode = Mode.VIEW
                     onDeleted?.invoke()
                 }
-                false -> inlineError = strings.getString(R.string.ui_delete_failed)
+                SaveResult.Conflict -> {
+                    loaded = withContext(ioDispatcher) { memoryStore.read(scope, packageName) }
+                    buffer = loaded.orEmpty()
+                    Toast.makeText(context, strings.getString(MEMORY_EDIT_RELOAD_TOAST), Toast.LENGTH_SHORT).show()
+                }
+                else -> inlineError = strings.getString(R.string.ui_delete_failed)
             }
         }
     }
@@ -372,7 +403,10 @@ internal fun MemoryFileEditor(
                         modifier = Modifier.testTag(MEMORY_EDITOR_EDIT_TAG),
                     ) { Text(strings.getString(R.string.ui_edit)) }
                     TextButton(
-                        onClick = { if (!locked && !reloading && !writing) showDeleteConfirm = true },
+                        onClick = { if (!locked && !reloading && !writing) {
+                            deleteExpected = loaded
+                            showDeleteConfirm = true
+                        } },
                         enabled = !locked && !reloading && !writing && loaded != null,
                         modifier = Modifier.testTag(MEMORY_EDITOR_DELETE_TAG),
                     ) { Text(strings.getString(R.string.ui_delete)) }
