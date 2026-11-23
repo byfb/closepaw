@@ -1,6 +1,0 @@
-<resources>
-    <color name="live_widget_paper">#242321</color>
-    <color name="live_widget_ink">#F5F1EA</color>
-    <color name="live_widget_accent">#9DCDC1</color>
-    <color name="live_widget_on_accent">#153C34</color>
-</resources>

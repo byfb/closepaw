@@ -41,12 +41,12 @@ used after permission or sign-in changes, the service rechecks prerequisites and
 refreshes the widget; the next tap opens setup. The service does not launch an
 Activity from the background.
 
-The widget displays connection, microphone, playback, and worker states. **End
-voice** releases the call and leaves delegated work running. Worker completion,
-failure, or cancellation continues to update the widget from `AgentService`;
-tapping the status opens the app and its recorded results. Widgets contain no
-transcripts, task text, credentials, or captured screen data. Runtime status is
-in memory and resets after process death; saved task results remain in history.
+The entire widget is one button. Tap anywhere to start voice, end the current
+call, or open setup when needed. Its background and large label identify the
+current state, including green for **Listening**, purple for **Replying**, and
+amber for **Needs your input**. TalkBack announces the state and tap action together.
+Ending a call leaves delegated work running. The widget continues to show its
+outcome, and the chat history holds the result.
 
 Voice preferences are shared by the app and widget:
 

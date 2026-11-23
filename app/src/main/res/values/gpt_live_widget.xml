@@ -1,11 +1,16 @@
 <resources>
     <string name="gpt_live_widget_name" translatable="false">GPT-Live</string>
     <string name="gpt_live_widget_description">Talk to ClosePaw from your home screen</string>
-    <string name="gpt_live_widget_settings">GPT-Live settings</string>
-    <string name="gpt_live_widget_ready">Ready</string>
-    <string name="gpt_live_widget_start">Start voice</string>
-    <color name="live_widget_paper">#F5F1EA</color>
-    <color name="live_widget_ink">#292724</color>
-    <color name="live_widget_accent">#295F57</color>
-    <color name="live_widget_on_accent">#FFFFFF</color>
+    <string name="gpt_live_widget_preview">Ready\nStart voice</string>
+    <string name="gpt_live_widget_accessibility">GPT-Live. %1$s. %2$s.</string>
+    <color name="live_dark_ink">#12202A</color>
+    <color name="live_ready">#27364B</color>
+    <color name="live_connecting">#A6DCFF</color>
+    <color name="live_listening">#75E3A6</color>
+    <color name="live_replying">#572981</color>
+    <color name="live_working">#184B92</color>
+    <color name="live_attention">#FFD166</color>
+    <color name="live_muted">#535761</color>
+    <color name="live_done">#075B53</color>
+    <color name="live_error">#891833</color>
 </resources>

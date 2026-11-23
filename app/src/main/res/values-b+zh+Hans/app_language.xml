@@ -6,8 +6,7 @@
     <string name="live_english">英语</string>
     <string name="gpt_live_start">启动 GPT-Live</string>
     <string name="gpt_live_widget_description">从主屏幕与 ClosePaw 语音对话</string>
-    <string name="gpt_live_widget_settings">GPT-Live 设置</string>
-    <string name="gpt_live_widget_ready">就绪</string>
-    <string name="gpt_live_widget_start">开始语音</string>
+    <string name="gpt_live_widget_preview">就绪\n开始语音</string>
+    <string name="gpt_live_widget_accessibility">GPT-Live。%1$s。%2$s。</string>
     <string name="accessibility_service_description">ClosePaw 是在设备上运行的自动化助手。经你授权后，仅在你启动任务时读取屏幕，执行点按、滑动和文字输入。它不会在后台运行或监控其他应用。</string>
 </resources>

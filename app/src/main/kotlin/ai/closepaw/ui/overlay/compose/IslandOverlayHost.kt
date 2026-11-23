@@ -12,7 +12,6 @@ import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.WindowManager
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.LifecycleOwner
@@ -21,10 +20,12 @@ import ai.closepaw.platform.OverlayTouchGate
 import ai.closepaw.voice.GptLiveService
 import ai.closepaw.voice.LiveVoiceRuntime
 import ai.closepaw.voice.voiceStatus
-import ai.closepaw.ui.capsule.surface.toStatusColor
+import ai.closepaw.voice.LiveStatus
+import ai.closepaw.voice.LiveTaskStatus
+import ai.closepaw.voice.liveStatus
+import androidx.compose.ui.res.colorResource
 import ai.closepaw.ui.overlay.CapsuleStateHolder
 import ai.closepaw.ui.overlay.model.CapsuleMode
-import ai.closepaw.ui.overlay.model.deriveGlowState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -86,19 +87,28 @@ class IslandOverlayHost(
             if (holder == null) {
                 StatusIslandCompose(
                     text = uiResources().getString(R.string.ui_worker_progress),
-                    dotColor = MaterialTheme.colorScheme.primary,
-                    pulsing = true,
+                    color = colorResource(LiveStatus.WORKING.background),
+                    ink = colorResource(LiveStatus.WORKING.ink),
                     onClick = onExpandCapsule,
                 )
             } else {
                 val mode by holder.mode.collectAsState(initial = CapsuleMode.Hidden)
-                val turnPhase by holder.turnPhase.collectAsState(initial = null)
                 val isExpanded by expanded.collectAsState()
                 val voice by LiveVoiceRuntime.state.collectAsState()
                 val task by LiveVoiceRuntime.task.collectAsState()
                 val strings = uiResources()
                 val text = if (mode is CapsuleMode.Hidden) voiceStatus(strings, voice, task) else modeText(mode, strings)
-                val glowState = deriveGlowState(mode, turnPhase)
+                val status = when (mode) {
+                    is CapsuleMode.Hidden -> liveStatus(voice, task)
+                    is CapsuleMode.Running -> LiveStatus.WORKING
+                    is CapsuleMode.Done -> when (task) {
+                        LiveTaskStatus.FAILED -> LiveStatus.FAILED
+                        LiveTaskStatus.STOPPED -> LiveStatus.STOPPED
+                        else -> LiveStatus.DONE
+                    }
+                    is CapsuleMode.Error -> LiveStatus.FAILED
+                    else -> LiveStatus.WAITING
+                }
                 if (isExpanded) FloatingSummaryCompose(
                     mode = mode,
                     voice = voice,
@@ -110,8 +120,8 @@ class IslandOverlayHost(
                     onEndVoice = { voiceControl(GptLiveService.ACTION_STOP) },
                 ) else StatusIslandCompose(
                     text = if (text.isBlank()) uiResources().getString(R.string.ui_worker_progress) else text,
-                    dotColor = glowState.toStatusColor(),
-                    pulsing = mode is CapsuleMode.Running,
+                    color = colorResource(status.background),
+                    ink = colorResource(status.ink),
                     onClick = onExpandCapsule,
                 )
             }

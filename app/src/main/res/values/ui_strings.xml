@@ -351,7 +351,7 @@
     <string name="ui_replying">Replying</string>
     <string name="ui_microphone_muted">Microphone muted</string>
     <string name="ui_voice_listening">Listening</string>
-    <string name="ui_voice_disconnected">Voice disconnected</string>
+    <string name="ui_voice_disconnected">Disconnected</string>
     <string name="ui_end_voice">End voice</string>
     <string name="ui_start_voice">Start voice</string>
     <string name="ui_set_up_voice">Set up voice</string>

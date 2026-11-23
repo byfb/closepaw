@@ -14,7 +14,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.widget.RemoteViews
-import android.util.SizeF
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.RelativeSizeSpan
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
@@ -63,39 +65,38 @@ class GptLiveWidget : AppWidgetProvider() {
                 AgentService.instance == null -> strings.getString(R.string.ui_enable_accessibility)
                 else -> null
             }
-            val voice = LiveVoiceRuntime.state.value
-            val openSettings = PendingIntent.getActivity(context, 7303, settingsIntent(context),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-            val openApp = PendingIntent.getActivity(context, 7304, Intent(context, MainActivity::class.java),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            manager.updateAppWidget(ids, views(context, LiveVoiceRuntime.state.value, LiveVoiceRuntime.task.value, setup))
+        } }
+
+        internal fun views(context: Context, voice: LiveVoiceState, task: LiveTaskStatus, setup: String?): RemoteViews {
+            val strings = ai.closepaw.ui.theme.appResources(context)
+            val needsSetup = !voice.running && setup != null
+            val status = if (needsSetup) LiveStatus.SETUP else liveStatus(voice, task)
+            val statusText = if (needsSetup) requireNotNull(setup) else strings.getString(status.label)
+            val label = strings.getString(when {
+                voice.running -> if (voice.preview) R.string.ui_stop_preview else R.string.ui_end_voice
+                needsSetup -> R.string.ui_set_up_voice
+                status == LiveStatus.DISCONNECTED -> R.string.ui_retry
+                else -> R.string.ui_start_voice
+            })
             val action = when {
                 voice.running -> PendingIntent.getService(context, 7305,
                     Intent(context, GptLiveService::class.java).setAction(GptLiveService.ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
-                setup != null -> openSettings
+                needsSetup -> PendingIntent.getActivity(context, 7303, settingsIntent(context),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
                 else -> PendingIntent.getForegroundService(context, 7306,
                     Intent(context, GptLiveService::class.java).setAction(GptLiveService.ACTION_START), PendingIntent.FLAG_IMMUTABLE)
             }
-            fun views(compact: Boolean) = RemoteViews(context.packageName,
-                if (compact) R.layout.gpt_live_widget_compact else R.layout.gpt_live_widget).apply {
-                setTextViewText(R.id.live_widget_status, if (!voice.running && setup != null && LiveVoiceRuntime.task.value == LiveTaskStatus.NONE) setup
-                    else voiceStatus(strings, voice, LiveVoiceRuntime.task.value))
-                val label = when {
-                    voice.running -> if (voice.preview) strings.getString(R.string.ui_stop_preview) else strings.getString(R.string.ui_end_voice)
-                    setup != null -> strings.getString(R.string.ui_set_up_voice)
-                    else -> strings.getString(R.string.ui_start_voice)
-                }
-                if (compact) setImageViewResource(R.id.live_widget_action,
-                    if (voice.running) R.drawable.ic_live_stop else R.drawable.ic_live_microphone)
-                else setTextViewText(R.id.live_widget_action, label)
-                setContentDescription(R.id.live_widget_action, label)
-                setOnClickPendingIntent(R.id.live_widget_action, action)
-                setOnClickPendingIntent(R.id.live_widget_settings, openSettings)
-                setOnClickPendingIntent(android.R.id.background, openApp)
+            val button = android.R.id.background
+            return RemoteViews(context.packageName, R.layout.gpt_live_widget).apply {
+                val text = if (needsSetup) label else SpannableStringBuilder(statusText).append('\n')
+                    .append(label, RelativeSizeSpan(0.78f), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                setTextViewText(button, text)
+                setTextColor(button, context.getColor(status.ink))
+                setColorStateList(button, "setBackgroundTintList", status.background)
+                setContentDescription(button, strings.getString(R.string.gpt_live_widget_accessibility, statusText, label))
+                setOnClickPendingIntent(button, action)
             }
-            manager.updateAppWidget(ids, RemoteViews(mapOf(
-                SizeF(180f, 80f) to views(compact = true),
-                SizeF(180f, 152f) to views(compact = false),
-            )))
-        } }
+        }
     }
 }
