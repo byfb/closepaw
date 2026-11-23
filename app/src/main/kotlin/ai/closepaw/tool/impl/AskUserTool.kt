@@ -6,6 +6,7 @@ import ai.closepaw.session.UserResponseChannel
 import ai.closepaw.tool.ToolExecutionContext
 import ai.closepaw.tool.ToolExecutionResult
 import ai.closepaw.tool.ToolInvocation
+import ai.closepaw.tool.ToolName
 import ai.closepaw.tool.ToolSpec
 import ai.closepaw.tool.ValidationResult
 import kotlinx.coroutines.CancellationException
@@ -17,26 +18,26 @@ import org.json.JSONObject
  * AskUserTool — agent asks the user for help.
  *
  * Two types:
- * - **question**: Agent needs a text answer. Capsule shows text input.
+ * - **question**: The selected tool asks through the capsule or GPT Live.
  * - **action**: Agent needs user to operate the phone. Capsule shows instruction.
  *
- * The tool suspends via [UserResponseChannel] until the user responds or
- * the 5-minute timeout expires.
+ * Spoken questions wait until answered or cancelled. On-screen requests time out after five minutes.
  */
 class AskUserTool(
     private val responseChannel: UserResponseChannel,
-    private val eventDispatcher: AgentEventDispatcher
+    private val eventDispatcher: AgentEventDispatcher,
+    private val byVoice: Boolean = false,
 ) : ToolSpec {
 
     companion object {
         internal const val TIMEOUT_MS = 5 * 60 * 1000L // 5 minutes
     }
 
-    override val name = "ask_user"
+    override val name = if (byVoice) ToolName.AskByVoice.raw else ToolName.AskUser.raw
 
     override val description = """
 Ask the user for help. Two types:
-- question: text answer.
+- question: ${if (byVoice) "GPT Live will ask aloud and wait for the user's spoken answer." else "text answer."}
 - action: physical intervention (CAPTCHA, biometric, login).
 
 Use only when truly blocked by missing info or required physical action. The system handles per-app approval automatically — do not duplicate it.
@@ -52,7 +53,7 @@ Use only when truly blocked by missing info or required physical action. The sys
             put("type", JSONObject().apply {
                 put("type", "string")
                 put("enum", JSONArray(listOf("question", "action")))
-                put("description", "Type of request: question (need text answer) or action (need user to operate phone)")
+                put("description", "Use question for missing information or action for a physical step the user must complete.")
             })
             put("message", JSONObject().apply {
                 put("type", "string")
@@ -70,7 +71,7 @@ Use only when truly blocked by missing info or required physical action. The sys
         if (params.optString("message", "").isBlank())
             return ValidationResult.Invalid("message is required")
         if (responseChannel.hasPending)
-            return ValidationResult.Invalid("Another ask_user request is already pending")
+            return ValidationResult.Invalid("Another user request is already pending")
         return ValidationResult.Valid
     }
 
@@ -78,7 +79,9 @@ Use only when truly blocked by missing info or required physical action. The sys
         return AskUserInvocation(
             params = params,
             responseChannel = responseChannel,
-            eventDispatcher = eventDispatcher
+            eventDispatcher = eventDispatcher,
+            byVoice = byVoice,
+            toolName = name,
         )
     }
 }
@@ -89,10 +92,10 @@ Use only when truly blocked by missing info or required physical action. The sys
 private class AskUserInvocation(
     override val params: JSONObject,
     private val responseChannel: UserResponseChannel,
-    private val eventDispatcher: AgentEventDispatcher
+    private val eventDispatcher: AgentEventDispatcher,
+    private val byVoice: Boolean,
+    override val toolName: String,
 ) : ToolInvocation {
-
-    override val toolName = "ask_user"
 
     override fun getDescription(): String {
         val thought = params.optString("agent_thought", "").trim()
@@ -103,24 +106,23 @@ private class AskUserInvocation(
     override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
         val typeStr = params.getString("type")
         val type = when (typeStr) {
-            "question" -> AskUserType.QUESTION
+            "question" -> if (byVoice) AskUserType.VOICE_QUESTION else AskUserType.QUESTION
             "action" -> AskUserType.ACTION
-            else -> return ToolExecutionResult.Failure("Invalid ask_user type: $typeStr")
+            else -> return ToolExecutionResult.Failure("Invalid $toolName type: $typeStr")
         }
         val message = params.getString("message")
         val callId = context.callId ?: java.util.UUID.randomUUID().toString()
 
-        // Emit AskUser event → capsule transitions to WaitingFor* state
-        eventDispatcher.emitAskUser(type, message, callId)
-
         return try {
-            val response = withTimeoutOrNull(AskUserTool.TIMEOUT_MS) {
-                responseChannel.awaitResponse(callId)
+            suspend fun awaitReply() = responseChannel.awaitResponse(UserResponseChannel.Prompt(callId, type, message)) {
+                eventDispatcher.emitAskUser(type, message, callId)
             }
+            val response = if (type == AskUserType.VOICE_QUESTION) awaitReply()
+                else withTimeoutOrNull(AskUserTool.TIMEOUT_MS) { awaitReply() }
 
             if (response != null) {
                 val observation = when (type) {
-                    AskUserType.QUESTION -> "User answered: $response"
+                    AskUserType.QUESTION, AskUserType.VOICE_QUESTION -> "User answered: $response"
                     AskUserType.ACTION -> "User completed the requested action. Capture fresh screen to see result."
                 }
                 ToolExecutionResult.Success(
@@ -133,7 +135,7 @@ private class AskUserInvocation(
                 )
             }
         } catch (e: CancellationException) {
-            ToolExecutionResult.Cancelled("ask_user cancelled")
+            ToolExecutionResult.Cancelled("$toolName cancelled")
         }
     }
 }

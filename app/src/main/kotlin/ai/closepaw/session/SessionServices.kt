@@ -106,7 +106,8 @@ class SessionServices internal constructor(
         val agentSkillManager: AgentSkillManager = AgentSkillManager(java.io.File("")),
         val userResponseChannel: UserResponseChannel = UserResponseChannel(),
         val memoryStore: MemoryStore = MemoryStore(java.io.File("")),
-        val memoryRecaller: MemoryRecaller = MemoryRecaller(memoryStore)
+        val memoryRecaller: MemoryRecaller = MemoryRecaller(memoryStore),
+        internal val onScreenQuestionsEnabled: () -> Boolean = { true },
 ) {
     companion object {
         private const val TAG = "SessionServices"
@@ -208,6 +209,7 @@ class SessionServices internal constructor(
             Log.i(TAG, "SessionServices created successfully")
 
             return SessionServices(
+                    onScreenQuestionsEnabled = settingsStore::loadOnScreenQuestions,
                     toolRegistry = toolRegistry,
                     toolRouter = toolRouter,
                     historyManager = historyManager,
@@ -354,6 +356,7 @@ class SessionServices internal constructor(
             memoryRecaller: MemoryRecaller = this.memoryRecaller
     ): SessionServices {
         return SessionServices(
+                onScreenQuestionsEnabled = onScreenQuestionsEnabled,
                 toolRegistry = toolRegistry,
                 toolRouter = toolRouter,
                 historyManager = historyManager,

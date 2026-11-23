@@ -12,6 +12,7 @@ import ai.closepaw.tool.impl.EndGptLiveCallTool
 import ai.closepaw.tool.impl.RememberExperienceTool
 import ai.closepaw.tool.AppClassifierHolder
 import ai.closepaw.tool.ToolExecutionResult
+import ai.closepaw.tool.ToolName
 import ai.closepaw.memory.MemoryStore
 import ai.closepaw.memory.MemoryRecaller
 import android.Manifest
@@ -61,6 +62,11 @@ class GptLiveService : Service() {
     )
     private var agentObserver: Job? = null
     private var observedSession: AgentSession? = null
+    private val voiceQuestions = LiveVoiceQuestions(
+        pendingPrompt = { observedSession?.getServices()?.userResponseChannel?.pendingPrompt },
+        speak = { connectionReady && !state.value.preview && sendContext(delegationId, it, spoken = true) },
+        submit = { prompt, answer -> observedSession?.submit(Op.UserResponse(prompt.callId, answer)) },
+    )
     private var delegationId: String? = null
     private var conversation = LiveConversation()
     private var generation = 0
@@ -152,6 +158,7 @@ class GptLiveService : Service() {
                         RememberExperienceTool(memoryStore, AppClassifierHolder.get(applicationContext))
                     }
                     callControl = LiveCallControl(scope,
+                        captureVoiceAnswer = voiceQuestions::captureAnswer,
                         selectTools = { utterance ->
                             val activeSelector = selector ?: LiveCallToolSelector.create(applicationContext, auth, tool, remember)
                                 .also { selector = it }
@@ -219,6 +226,11 @@ class GptLiveService : Service() {
                 }
                 coroutineScope {
                     if (!preview) launch {
+                        AgentService.instance?.activeSession?.collect { session ->
+                            if (session !== observedSession) observe(session)
+                        }
+                    }
+                    if (!preview) launch {
                         for ((origin, request, allowed) in delegations) {
                             val proceed = withTimeoutOrNull(LiveCallControl.HANDOFF_TIMEOUT_MS) { allowed.await() }
                             if (origin == generation && state.value.running) {
@@ -280,7 +292,10 @@ class GptLiveService : Service() {
                             initialMuted = state.value.muted || state.value.audioInterrupted,
                             onPlaybackChanged = { speaking -> scope.launch {
                                 if (run == generation && state.value.running) {
-                                    if (speaking) watchdog.playback()
+                                    if (speaking) {
+                                        watchdog.playback()
+                                        voiceQuestions.heardSpeech()
+                                    }
                                     idle.playback(speaking, android.os.SystemClock.elapsedRealtime())
                                     mutableState.value = state.value.copy(speaking = speaking)
                                 }
@@ -319,8 +334,9 @@ class GptLiveService : Service() {
                             val updates = pendingUpdates.toList()
                             pendingUpdates.clear()
                             updates.forEach { (text, spoken) -> append(null, text, spoken) }
-                            if (reconnects > 0) append(null,
+                            if (reconnects > 0 && !voiceQuestions.waiting) append(null,
                                 "Tell the user voice has reconnected and previous conversation context is restored. Running phone tasks continue.", true)
+                            voiceQuestions.announce()
                             updateNotification()
                             if (preview) {
                                 append(null, "Say this sample once: ${preferences.language.sample}", true)
@@ -331,10 +347,13 @@ class GptLiveService : Service() {
                             while (!lost.isCompleted) {
                                 delay(1000)
                                 val now = android.os.SystemClock.elapsedRealtime()
+                                if (!state.value.audioInterrupted) voiceQuestions.checkPlayback {
+                                    lost.complete(strings.getString(R.string.ui_gpt_live_could_not_receive_the_task_update))
+                                }
                                 val workerBusy = observedSession?.state?.value == SessionState.Running &&
-                                    LiveVoiceRuntime.task.value != LiveTaskStatus.WAITING
+                                    !LiveVoiceRuntime.task.value.waiting
                                 if (state.value.muted || state.value.audioInterrupted) idle.microphone(false, now)
-                                when (idle.poll(now, busy = workerBusy || state.value.audioInterrupted)) {
+                                when (idle.poll(now, busy = workerBusy || voiceQuestions.waiting || state.value.audioInterrupted)) {
                                     LiveIdleTimeout.Action.REMIND -> {
                                         android.util.Log.i("GptLiveService", "Idle voice reminder after 40 seconds")
                                         append(null, preferences.idleReminderInstructions(
@@ -363,6 +382,7 @@ class GptLiveService : Service() {
                             (e as? LiveVoiceException)?.message ?: strings.getString(R.string.ui_gpt_live_could_not_connect)
                         } finally {
                             connectionReady = false
+                            voiceQuestions.reset()
                             generation++
                             callControl?.reset()
                             transport = null
@@ -393,6 +413,7 @@ class GptLiveService : Service() {
                 delegations.cancel()
                 agentObserver?.cancel(); agentObserver = null
                 observedSession = null; delegationId = null
+                voiceQuestions.reset()
                 withContext(NonCancellable) {
                     selector?.close()
                     memoryObserver?.cancelAndJoin()
@@ -486,7 +507,13 @@ class GptLiveService : Service() {
         // Preview never reaches the worker, even if the server emits a delegation.
         if (state.value.preview) return
         val control = callControl ?: return
+        when (event.string("type")) {
+            "input_transcript.added", "output_transcript.added" ->
+                if (!event.obj("item")?.string("text").isNullOrBlank()) voiceQuestions.heardSpeech()
+            "turn.done" -> if (!event.obj("turn")?.string("transcript").isNullOrBlank()) voiceQuestions.heardSpeech()
+        }
         control.receive(event)
+        if (voiceQuestions.waiting) return
         if (request != null && !requests.trySend(PendingDelegation(generation, request, control.handoffAllowed)).isSuccess)
             append(request.id, "The phone agent is busy. Please wait and repeat the request.", spoken = true)
     }
@@ -501,12 +528,16 @@ class GptLiveService : Service() {
             val session = service.getOrCreateLiveSession()
             if (observedSession !== session) observe(session)
             contextEpoch?.let { epoch -> withContext(Dispatchers.IO) { contextStore.attachChat(epoch, session.sessionId.value) } }
-            delegationId = request.id.takeIf { origin == generation && connectionReady }
-            val questionId = session.getServices().userResponseChannel.pendingCallId
+            if (origin != generation || !connectionReady || service.getActiveSession() !== session) return
+            val prompt = session.getServices().userResponseChannel.pendingPrompt
+            if (prompt?.type == AskUserType.VOICE_QUESTION) return
+            delegationId = request.id
             when {
-                questionId != null -> {
-                    session.submit(Op.UserResponse(questionId, request.text))
+                prompt?.type == AskUserType.ACTION && session.getServices().toolRegistry.contains(ToolName.AskByVoice.raw) -> {
+                    append(request.id, "The user must complete the physical step and tap Done in ClosePaw.", true)
+                    return
                 }
+                prompt != null -> session.submit(Op.UserResponse(prompt.callId, request.text))
                 session.state.value == SessionState.Running -> session.submit(Op.Supplement(request.text))
                 session.state.value == SessionState.Paused || session.state.value == SessionState.TakeoverPending -> {
                     append(request.id.takeIf { origin == generation && connectionReady }, "The user has taken control. Ask them to tap Resume in ClosePaw before continuing.", true)
@@ -524,16 +555,20 @@ class GptLiveService : Service() {
         }
     }
 
-    private fun observe(session: AgentSession) {
+    private fun observe(session: AgentSession?) {
         agentObserver?.cancel()
         observedSession = session
+        delegationId = null
+        voiceQuestions.reset()
+        if (session == null) return
         val replay = session.events.replayCache.size
         agentObserver = scope.launch(start = CoroutineStart.UNDISPATCHED) {
             session.events.drop(replay).collect { event ->
                 val id = delegationId
                 when (event) {
                     is ThoughtUpdate -> append(id, event.compact, false)
-                    is AskUser -> append(id, event.message, true)
+                    is AskUser -> if (event.type == AskUserType.VOICE_QUESTION) voiceQuestions.announce()
+                        else append(id, event.message, true)
                     is ApprovalRequired -> append(id, "Approval needed in ClosePaw: ${event.description}. Ask the user to use the approval buttons.", true)
                     is TaskCompleted -> append(id, "Task outcome: ${event.outcome}. ${event.result.orEmpty()}", true)
                     is SessionError -> append(id, "The phone agent encountered an error: ${event.message}", true)
@@ -542,24 +577,26 @@ class GptLiveService : Service() {
                 }
             }
         }
+        voiceQuestions.announce()
     }
 
     private fun append(id: String?, text: String, spoken: Boolean) {
         // Only bounded text enters voice; no screen captures or full tool traces.
         val bounded = text.take(if (id == null && !spoken) MemoryStore.DEFAULT_MAX_FILE_BYTES * 3 + 1024 else 1800)
-        if (!connectionReady) {
+        if (!connectionReady || !sendContext(id, bounded, spoken)) {
             pendingUpdates.addLast(bounded to spoken)
             while (pendingUpdates.size > 12) pendingUpdates.removeFirst()
-            return
         }
-        for (event in conversation.append(id, bounded, spoken)) {
+    }
+
+    private fun sendContext(id: String?, text: String, spoken: Boolean): Boolean {
+        for (event in conversation.append(id, text, spoken)) {
             if (transport?.send(event) != true) {
-                pendingUpdates.addLast(bounded to spoken)
-                while (pendingUpdates.size > 12) pendingUpdates.removeFirst()
                 connectionFailure?.complete(strings.getString(R.string.ui_gpt_live_could_not_receive_the_task_update))
-                break
+                return false
             }
         }
+        return true
     }
 
     private fun acquireAudio() {

@@ -101,14 +101,14 @@ data class CapsuleRenderSpec(
 
                 is CapsuleMode.WaitingForInput -> CapsuleRenderSpec(
                     dot = null,
-                    thought = ThoughtSpec(strings.getString(R.string.ui_awaiting_response)),
+                    thought = ThoughtSpec(strings.getString(if (mode.byVoice) R.string.ui_waiting_for_voice else R.string.ui_awaiting_response)),
                     expandedBody = mode.question,
                     buttons = ButtonsSpec(
                         primary = null,
                         stop = stopButtonSpec(strings, isStopPending),
                         layout = ControlLayout.RequiredActionsOnly,
                     ),
-                    input = InputSpec(
+                    input = if (mode.byVoice) null else InputSpec(
                         hint = strings.getString(R.string.ui_type_your_response),
                         submitLabel = strings.getString(R.string.ui_send),
                         clearDraft = previousMode != null

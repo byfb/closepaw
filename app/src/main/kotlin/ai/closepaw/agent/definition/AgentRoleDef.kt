@@ -27,11 +27,14 @@ internal data class AgentRoleDef(
 ) {
     fun resolve(
         snapshot: TermuxCapabilitySnapshot,
-        excludedTools: Set<ToolName> = emptySet()
+        excludedTools: Set<ToolName> = emptySet(),
+        voiceQuestions: Boolean = false,
     ): ResolvedAgentRole {
         val excludedToolNames = excludedTools.map { it.canonical }.toSet()
+        val replaceQuestions = voiceQuestions && ToolName.AskUser.canonical !in excludedToolNames
         val baseTools = allowedTools
             .map { ToolName.from(it) }
+            .map { if (replaceQuestions && it == ToolName.AskUser) ToolName.AskByVoice else it }
             .filter { it.canonical !in excludedToolNames }
 
         val canExposeTermux =
@@ -62,7 +65,8 @@ internal data class AgentRoleDef(
             name = name,
             executionRole = executionRole,
             allowedTools = resolvedTools,
-            systemPrompt = prompt,
+            systemPrompt = if (ToolName.AskByVoice in resolvedTools)
+                prompt.replace(ToolName.AskUser.raw, ToolName.AskByVoice.raw) else prompt,
             timeoutMs = resolvedTimeoutMs,
             delegatable = delegatable,
             description = description

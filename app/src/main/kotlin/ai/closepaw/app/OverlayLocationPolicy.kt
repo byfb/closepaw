@@ -154,7 +154,7 @@ internal fun deriveOverlayVisibility(
         }
         PlatformMode.VIRTUAL_DISPLAY -> {
             val needsUserAttention = mode is CapsuleMode.WaitingForApproval ||
-                mode is CapsuleMode.WaitingForInput ||
+                (mode is CapsuleMode.WaitingForInput && (!mode.byVoice || !hasLiveVoice)) ||
                 mode is CapsuleMode.WaitingForAction ||
                 mode is CapsuleMode.Error
 

@@ -18,8 +18,8 @@ sealed interface CapsuleMode {
     /** User has control. Agent paused. Shows dimmed thought + [Resume][Stop]. */
     data class Takeover(val lastThought: String) : CapsuleMode
 
-    /** Agent asked a question, waiting for text answer. Capsule expanded. */
-    data class WaitingForInput(val question: String, val callId: String) : CapsuleMode
+    /** The worker is waiting for the user to answer this specific question. */
+    data class WaitingForInput(val question: String, val callId: String, val byVoice: Boolean = false) : CapsuleMode
 
     /** Agent asked user to do something on phone. Capsule expanded. */
     data class WaitingForAction(val instruction: String, val callId: String) : CapsuleMode

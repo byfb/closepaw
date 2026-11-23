@@ -34,9 +34,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import ai.closepaw.protocol.ApprovalDecision
 import ai.closepaw.protocol.ApprovalScope
@@ -45,6 +47,8 @@ import ai.closepaw.ui.overlay.model.CapsuleMode
 import ai.closepaw.ui.overlay.model.CapsuleRenderSpec
 import ai.closepaw.ui.overlay.model.NavSpec
 import ai.closepaw.ui.theme.closePaw
+import ai.closepaw.voice.GptLiveShortcutActivity
+import ai.closepaw.voice.LiveVoiceRuntime
 
 /**
  * CapsuleControlBar — the row beneath the status line / detail body.
@@ -127,6 +131,17 @@ private fun ActionButtonCluster(
         if (requiredActionsOnly) Modifier.minimumInteractiveComponentSize() else Modifier
     val spacing = MaterialTheme.closePaw.spacing.sm
     val actionButtons: @Composable () -> Unit = {
+        if (mode is CapsuleMode.WaitingForInput && mode.byVoice) {
+            val voice = LiveVoiceRuntime.state.collectAsState().value
+            if (!voice.running || voice.preview) {
+                val context = LocalContext.current
+                FilledTonalButton(
+                    onClick = { context.startActivity(GptLiveShortcutActivity.startIntent(context)) },
+                    modifier = actionModifier,
+                    enabled = !voice.running,
+                ) { Text(uiResources().getString(R.string.ui_answer_by_voice)) }
+            }
+        }
         buttons.primary?.let { btn ->
             FilledTonalButton(
                 onClick = {

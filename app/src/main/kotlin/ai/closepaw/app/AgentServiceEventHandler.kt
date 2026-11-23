@@ -176,6 +176,7 @@ internal class AgentServiceEventHandler(
                 recordingService?.markAwaitingUser()
                 overlay?.onAskUser(event.type, event.message, event.callId)
             }
+            is UserResponded -> overlay?.onUserResponded(event.callId)
             is ApprovalRequired -> {
                 Log.i(logTag, "ApprovalRequired: callId=${event.details.callId}")
                 recordingService?.markAwaitingUser()

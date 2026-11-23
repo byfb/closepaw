@@ -32,7 +32,8 @@ AgentEvent (sealed interface)
 ├── ApprovalDomainEvent
 │   └── ApprovalRequired(description, details: ApprovalDetails)
 ├── AskUserDomainEvent
-│   └── AskUser(type: AskUserType, message, callId)
+│   ├── AskUser(type: AskUserType, message, callId)
+│   └── UserResponded(callId)
 ├── ThoughtDomainEvent
 │   └── ThoughtUpdate(full, compact)
 ├── SubAgentDomainEvent
@@ -55,6 +56,7 @@ AgentEvent (sealed interface)
 | `ThoughtUpdate` | Agent selects tool with `agent_thought` | `full`, `compact` |
 | `ActionExecuted` | Tool completes | `actionId`, `toolName`, `outcome` |
 | `AskUser` | Agent needs user help | `type`, `message`, `callId` |
+| `UserResponded` | A pending request accepts its answer | `callId` |
 | `SupplementReceived` | User sent mid-task supplement | `text` |
 | `SessionTakeover` | User takes over (after agent pauses) | — |
 | `TaskCompleted` | Task ends | `taskId`, `result`, `outcome`, `handoff?` (VD only; carries foreground `appPackage` + `appLabel` so chat can render an `Open <App>` CTA) |
@@ -62,7 +64,7 @@ AgentEvent (sealed interface)
 
 ## Enums
 
-**AskUserType**: `QUESTION` (user types text answer), `ACTION` (user performs physical action, taps "Done").
+`AskUserType` distinguishes `QUESTION` for an on-screen answer, `VOICE_QUESTION` for a spoken answer through GPT Live, and `ACTION` for a physical step the user confirms with **Done**.
 
 **ActionOutcome**: `SUCCESS`, `FAILED`, `SKIPPED`.
 

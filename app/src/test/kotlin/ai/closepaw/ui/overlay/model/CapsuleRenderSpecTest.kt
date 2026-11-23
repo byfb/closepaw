@@ -4,6 +4,14 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 class CapsuleRenderSpecTest {
+    @Test fun `voice question shows the question without a keyboard or a send action`() {
+        val mode = CapsuleMode.WaitingForInput("Which station?", "c1", byVoice = true)
+        val spec = CapsuleRenderSpec.from(strings, mode)
+        assertThat(spec.input).isNull()
+        assertThat(spec.expandedBody).isEqualTo("Which station?")
+        assertThat(spec.buttons.stop).isNotNull()
+    }
+
     private val strings = ai.closepaw.ui.resourceLabels()
 
 

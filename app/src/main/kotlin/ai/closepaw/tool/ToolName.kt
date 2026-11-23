@@ -12,7 +12,7 @@ sealed class ToolName(
         get() =
             when (this) {
                 MobileAction, OpenApp, SystemButton, DelegateTask, BrowserScript -> true
-                Wait, CompleteTask, WriteTodos, Scratchpad, RememberExperience, AskUser,
+                Wait, CompleteTask, WriteTodos, Scratchpad, RememberExperience, AskUser, AskByVoice,
                 Shell, TermuxShell, ActivateSkill -> false
                 is Unknown -> true
             }
@@ -67,6 +67,7 @@ sealed class ToolName(
         canonical = "ask_user",
         displayName = "Ask user"
     )
+    data object AskByVoice : ToolName("ask_by_voice", "ask_by_voice", "Ask by voice")
     data object Shell : ToolName(
         raw = "shell",
         canonical = "shell",
@@ -106,6 +107,7 @@ sealed class ToolName(
                 DelegateTask.canonical -> DelegateTask
                 RememberExperience.canonical -> RememberExperience
                 AskUser.canonical -> AskUser
+                AskByVoice.canonical -> AskByVoice
                 Shell.canonical -> Shell
                 TermuxShell.canonical -> TermuxShell
                 ActivateSkill.canonical -> ActivateSkill

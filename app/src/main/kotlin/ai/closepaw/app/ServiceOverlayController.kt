@@ -408,6 +408,10 @@ class ServiceOverlayController(
         applyVisibility()
     }
 
+    fun onUserResponded(callId: String) {
+        if (stateHolder.onUserResponseSent(callId)) applyVisibility()
+    }
+
     fun onApprovalRequired(details: ApprovalDetails) {
         val appLabel = resolveAppLabel(details.packageName) ?: run {
             Log.w(logTag, "Approval package label unavailable: ${details.packageName}")

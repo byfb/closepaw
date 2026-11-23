@@ -8,3 +8,10 @@ data class AskUser(
         val message: String,
         val callId: String
 ) : AskUserDomainEvent
+
+/** A matching request accepted its reply. The answer stays in the tool result. */
+data class UserResponded(
+        override val sessionId: SessionId,
+        override val timestamp: Long,
+        val callId: String,
+) : AskUserDomainEvent

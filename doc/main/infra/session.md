@@ -211,7 +211,7 @@ Bridges `AgentSession` and runtime `Agent`:
 - Chooses the main agent definition via `AgentDefRegistry.main`
 - Builds `AgentExecutionConfig` from selected definition (prompt + allowed tools + execution role)
 - Registers `delegate_task` when the resolved main-agent allowlist includes it
-- Always registers `ask_user` with `UserResponseChannel` and event emitter
+- Registers the selected question tool, `ask_user` or `ask_by_voice`, when allowed. Both wait on the session’s `UserResponseChannel`.
 - Handles lifecycle (`start`, `pause`, `resume`, `stop`, `cancelJob`, `shutdown`)
 - Wires the single delegatable `DefaultRoleDef` + `IsolatedSubAgentRunner`
 

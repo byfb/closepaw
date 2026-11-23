@@ -4,12 +4,15 @@ import ai.closepaw.llm.LLMClient
 import ai.closepaw.llm.LLMStreamEvent
 import ai.closepaw.llm.LLMToolCall
 import ai.closepaw.tool.impl.EndGptLiveCallTool
+import ai.closepaw.protocol.AskUserType
+import ai.closepaw.session.UserResponseChannel
 import com.google.common.truth.Truth.assertThat
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -28,6 +31,99 @@ class LiveCallControlTest {
     private fun partial(text: String) = buildJsonObject {
         put("type", "input_transcript.added")
         putJsonObject("item") { put("text", text) }
+    }
+
+    @Test fun `only the final spoken answer resumes the waiting worker without a delegation`() = runTest {
+        val channel = UserResponseChannel()
+        val spoken = mutableListOf<String>()
+        val questions = LiveVoiceQuestions({ channel.pendingPrompt }, { spoken.add(it) },
+            { prompt, answer -> assertThat(channel.deliver(prompt.callId, answer)).isTrue() })
+        val prompt = UserResponseChannel.Prompt("q1", AskUserType.VOICE_QUESTION, "Which station?")
+        val result = async { channel.awaitResponse(prompt, questions::announce) }
+        runCurrent()
+        questions.announce()
+        assertThat(spoken).hasSize(1)
+        assertThat(spoken.single()).contains(prompt.message)
+        val control = LiveCallControl(this, { LiveToolSelection() }, { error("unexpected hangup") }, {},
+            captureVoiceAnswer = questions::captureAnswer)
+        val handoff = control.handoffAllowed
+        control.receive(done("assistant", "Which station?"))
+        control.receive(partial("Central"))
+        runCurrent()
+        assertThat(result.isCompleted).isFalse()
+        control.receive(done("user", "Central Station"))
+        runCurrent()
+        assertThat(result.await()).isEqualTo("Central Station")
+        assertThat(handoff.await()).isFalse()
+        assertThat(control.handoffAllowed.await()).isFalse()
+        assertThat(questions.waiting).isFalse()
+    }
+
+    @Test fun `reconnection reasks only an outstanding voice question and rejects stale speech`() = runTest {
+        var pending: UserResponseChannel.Prompt? = null
+        var connected = false
+        val spoken = mutableListOf<String>()
+        val answers = mutableListOf<String>()
+        val questions = LiveVoiceQuestions({ pending }, { connected && spoken.add(it) }, { _, text -> answers += text })
+        val first = UserResponseChannel.Prompt("1", AskUserType.VOICE_QUESTION, "First question")
+        pending = first
+        questions.announce()
+        assertThat(questions.captureAnswer()).isNull()
+        connected = true
+        questions.announce()
+        val stale = requireNotNull(questions.captureAnswer())
+        questions.reset()
+        questions.announce()
+        assertThat(spoken).hasSize(2)
+        pending = first.copy(callId = "2", message = "Next question")
+        questions.announce()
+        stale("Old reply")
+        requireNotNull(questions.captureAnswer())("Fresh reply")
+        assertThat(answers).containsExactly("Fresh reply")
+        questions.reset()
+        for (type in listOf(AskUserType.QUESTION, AskUserType.ACTION)) {
+            pending = first.copy(type = type)
+            questions.announce()
+            assertThat(questions.captureAnswer()).isNull()
+        }
+        pending = null
+        questions.announce()
+        assertThat(spoken).hasSize(3)
+    }
+
+    @Test fun `hangup while answering leaves the worker question pending`() = runTest {
+        var ended = false
+        val control = LiveCallControl(this, { LiveToolSelection(endCall = JSONObject()) }, { ended = true }, {},
+            captureVoiceAnswer = { { error("Hangup is not an answer") } })
+        control.receive(done("user", "End this call"))
+        runCurrent()
+        assertThat(ended).isTrue()
+        assertThat(control.handoffAllowed.await()).isFalse()
+    }
+
+    @Test fun `a silent connection gets one repeat and reconnects only while the question is unheard`() {
+        val pending = UserResponseChannel.Prompt("q", AskUserType.VOICE_QUESTION, "Which station?")
+        var now = 0L
+        var spoken = 0
+        var reconnects = 0
+        val questions = LiveVoiceQuestions({ pending }, { spoken++; true }, { _, _ -> }, now = { now })
+        questions.announce()
+        now += 10_000
+        questions.checkPlayback { reconnects++ }
+        questions.checkPlayback { reconnects++ }
+        assertThat(spoken).isEqualTo(2)
+        assertThat(reconnects).isEqualTo(0)
+        now += 12_000
+        questions.checkPlayback { reconnects++ }
+        questions.checkPlayback { reconnects++ }
+        assertThat(reconnects).isEqualTo(1)
+        questions.reset()
+        questions.announce()
+        questions.heardSpeech()
+        now += 30_000
+        questions.checkPlayback { reconnects++ }
+        assertThat(spoken).isEqualTo(3)
+        assertThat(reconnects).isEqualTo(1)
     }
 
     @Test fun `only final user speech goes to the model and the handoff waits for its decision`() = runTest {

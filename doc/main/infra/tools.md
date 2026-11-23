@@ -141,6 +141,7 @@ Classifies Android packages into security tiers.
 | `scratchpad` | JSON-backed memory | `action`, `content` (JSON string for write) |
 | `delegate_task` | Subagent delegation (routes to the default role with subagent runtime exclusions) | `query`, `important_notes` |
 | `ask_user` | Request user help mid-task | `type` (`question`/`action`), `message` |
+| `ask_by_voice` | Ask through GPT Live when on-screen questions are disabled | `type` (`question`/`action`), `message` |
 | `shell` | Execute file-related shell commands | `command`, optional `timeout_ms` |
 | `termux_shell` | Execute full Linux bash through the Termux bridge | `command`, optional `cwd`, `timeout_seconds`, `env` |
 | `remember_experience` | Save reusable learning to long-term memory | `category`, `content`, optional `package_name` |
@@ -148,7 +149,7 @@ Classifies Android packages into security tiers.
 
 `delegate_task` is registered lazily only when the selected agent definition requires delegation.
 
-`ask_user` is registered lazily in `SessionAgentRunner.start()`. It suspends the agent coroutine via `UserResponseChannel` (CompletableDeferred) until the user responds through the capsule UI, or times out after 5 minutes. See [session.md](session.md) for `UserResponseChannel` details.
+At the start of each task, `SessionAgentRunner` reads **Settings → GPT-Live → On-screen questions** and registers the selected question tool. On-screen requests time out after five minutes. With the switch off, GPT Live speaks the pending question and the worker waits for a completed spoken reply or cancellation. If the call is closed, the user can start it from the widget or **Answer by voice**. Physical steps still have a **Done** button. [Session details](session.md)
 
 `shell` executes shell commands on the device via `ProcessBuilder("sh", "-c", command)` with a 10s timeout. Two layers of validation: (1) **metacharacter rejection** — `;`, `|`, `&`, `` ` ``, `>`, `<`, `$`, newline, and CR are rejected at validation time to prevent chaining/bypass; (2) **blocklist** — first token checked against `am`, `pm`, `reboot`, `su`, `env`, `xargs`, `find`. Output is capped at `MAX_OUTPUT_CHARS` (4096) with a truncation indicator when exceeded. Password field text is suppressed at the perception layer (Perceptor checks `AccessibilityNodeInfo.isPassword()`).
 

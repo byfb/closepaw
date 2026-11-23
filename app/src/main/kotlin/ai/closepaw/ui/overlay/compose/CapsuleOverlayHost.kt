@@ -200,7 +200,7 @@ class CapsuleOverlayHost(
                             inputFocused.value = false
                             setOverlayFocusable(false)
                         },
-                        autoFocusInput = mode is CapsuleMode.WaitingForInput,
+                        autoFocusInput = (mode as? CapsuleMode.WaitingForInput)?.byVoice == false,
                         voice = if (liveVoiceActive) null else voiceDeps,
                     )
                 }
@@ -298,7 +298,7 @@ class CapsuleOverlayHost(
         focusJob = scope.launch {
             combine(stateHolder.mode, inputFocused) { mode, focused ->
                 when (mode) {
-                    is CapsuleMode.WaitingForInput -> true
+                    is CapsuleMode.WaitingForInput -> !mode.byVoice
                     is CapsuleMode.Takeover -> focused
                     else -> false
                 }

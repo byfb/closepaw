@@ -160,7 +160,7 @@ class IslandOverlayHost(
         is CapsuleMode.Running -> mode.thought
         is CapsuleMode.TakeoverPending -> strings.getString(R.string.ui_takeover_pending)
         is CapsuleMode.Takeover -> strings.getString(R.string.ui_paused)
-        is CapsuleMode.WaitingForInput -> strings.getString(R.string.ui_awaiting_response)
+        is CapsuleMode.WaitingForInput -> strings.getString(if (mode.byVoice) R.string.ui_waiting_for_voice else R.string.ui_awaiting_response)
         is CapsuleMode.WaitingForAction -> strings.getString(R.string.ui_action_needed)
         is CapsuleMode.WaitingForApproval -> strings.getString(R.string.ui_allow_closepaw_to_operate, mode.appLabel)
         is CapsuleMode.Done -> strings.getString(R.string.ui_task_done_summary, mode.message.take(18))

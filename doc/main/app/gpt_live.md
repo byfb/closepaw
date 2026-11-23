@@ -44,9 +44,15 @@ Activity from the background.
 The entire widget is one button. Tap anywhere to start voice, end the current
 call, or open setup when needed. Its background and large label identify the
 current state, including green for **Listening**, purple for **Replying**, and
-amber for **Needs your input**. TalkBack announces the state and tap action together.
+amber for **Your turn**. TalkBack announces the state and tap action together.
 Ending a call leaves delegated work running. The widget continues to show its
 outcome, and the chat history holds the result.
+
+Turn off **On-screen questions** in **Settings → GPT-Live** to answer by voice
+starting with the next task. GPT Live asks the question aloud and waits for the
+spoken answer. If the call is closed, tap **Answer by voice** in the capsule
+or tap the widget to hear the pending question. A physical step uses **Done**
+and an app approval uses its approval buttons.
 
 Voice preferences are shared by the app and widget:
 
@@ -189,8 +195,9 @@ Voice preview does not load or write memory.
 Idle calls give one spoken reminder after 40 seconds and disconnect around 60
 seconds, with at least 20 seconds between scheduling the reminder and hanging up.
 Fresh user speech cancels that countdown. Normal assistant replies and running
-phone tasks postpone idle timing; the reminder's own speech does not. Waiting for
-user input counts as idle. Audio interruptions pause timing, and reconnections
+phone tasks postpone idle timing; the reminder's own speech does not. An outstanding
+voice question also postpones the idle countdown. On-screen requests follow
+the usual idle timer. Audio interruptions pause timing, and reconnections
 start a fresh timer. Voice preview is excluded. The timer starts when the call is
 ready, so an ordinary silent startup follows the same 40/60-second rule.
 With Follow conversation selected and no previous user speech, the reminder uses

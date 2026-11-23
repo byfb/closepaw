@@ -74,7 +74,7 @@ Delegation always routes to the single delegatable role. The delegated query sho
 
 > See: `session/SessionAgentRunner.kt`
 
-`SessionAgentRunner` resolves `AgentDefRegistry.main`, registers `delegate_task` when the resolved main-agent allowlist includes it, and registers `ask_user`.
+`SessionAgentRunner` resolves `AgentDefRegistry.main`, registers `delegate_task` when allowed, and selects the question tool for the task from the user’s on-screen questions setting.
 
 When `delegate_task` runs, `DelegateTaskTool` emits `SubAgentStarted`, creates an `IsolatedSubAgentRunner`, waits for its result, emits `SubAgentCompleted`, and returns the compact result to the parent as the tool observation.
 

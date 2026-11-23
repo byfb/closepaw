@@ -9,6 +9,7 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.HourglassEmpty
 import androidx.compose.material.icons.rounded.Keyboard
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.SwipeVertical
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.UnfoldMore
@@ -42,6 +43,7 @@ private fun resolveToolDisplay(toolName: String): ToolDisplay {
         ToolName.DelegateTask -> ToolDisplay(tool.displayName, Icons.Rounded.Apps)
         ToolName.RememberExperience -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
         ToolName.AskUser -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
+        ToolName.AskByVoice -> ToolDisplay(tool.displayName, Icons.Rounded.Mic)
         ToolName.Shell -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
         ToolName.TermuxShell -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
         ToolName.ActivateSkill -> ToolDisplay(tool.displayName, Icons.Rounded.Build)

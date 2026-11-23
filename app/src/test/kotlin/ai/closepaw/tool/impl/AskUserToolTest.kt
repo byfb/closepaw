@@ -3,6 +3,8 @@ package ai.closepaw.tool.impl
 import com.google.common.truth.Truth.assertThat
 import ai.closepaw.agent.AgentEventDispatcher
 import ai.closepaw.protocol.SessionId
+import ai.closepaw.protocol.AskUser
+import ai.closepaw.protocol.AskUserType
 import ai.closepaw.session.UserResponseChannel
 import ai.closepaw.test.FakeAndroidPlatform
 import ai.closepaw.tool.ToolExecutionContext
@@ -12,6 +14,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import org.json.JSONObject
 import org.junit.Test
 
@@ -33,6 +37,25 @@ class AskUserToolTest {
     private fun validParams() = JSONObject()
         .put("type", "question")
         .put("message", "What is your name?")
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `voice question is pending before publication and waits past the typing timeout`() = runTest {
+        val channel = UserResponseChannel()
+        val dispatcher = AgentEventDispatcher(SessionId("test-session")) { event ->
+            val ask = event as AskUser
+            assertThat(ask.type).isEqualTo(AskUserType.VOICE_QUESTION)
+            assertThat(channel.pendingPrompt).isEqualTo(UserResponseChannel.Prompt(ask.callId, ask.type, ask.message))
+        }
+        val tool = AskUserTool(channel, dispatcher, byVoice = true)
+        assertThat(tool.name).isEqualTo("ask_by_voice")
+        val result = async { tool.createInvocation(validParams()).execute(buildContext()) }
+        advanceTimeBy(AskUserTool.TIMEOUT_MS + 1)
+        assertThat(result.isCompleted).isFalse()
+        channel.deliver("call-1", "Alice")
+        runCurrent()
+        assertThat((result.await() as ToolExecutionResult.Success).output).isEqualTo("User answered: Alice")
+        assertThat(channel.pendingPrompt).isNull()
+    }
 
     @Test
     fun `second ask_user request rejected while first is pending`() = runTest {

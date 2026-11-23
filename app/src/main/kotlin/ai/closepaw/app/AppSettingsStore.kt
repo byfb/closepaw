@@ -59,6 +59,7 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_OTHER_MODEL_ID = "other_model_id"
         private const val KEY_DISABLED_AGENT_SKILLS = "disabled_agent_skills"
         private const val KEY_APPROVAL_MODE = "approval_mode"
+        private const val KEY_ON_SCREEN_QUESTIONS = "on_screen_questions"
 
         const val DEFAULT_MODEL = ModelCatalog.DEFAULT_MODEL
         const val DEFAULT_DEBUG_MODE = false
@@ -170,6 +171,7 @@ class AppSettingsStore(private val context: Context) {
     fun loadLiveVoice(): ai.closepaw.voice.LiveVoicePreferences {
         val saved = prefs()
         return ai.closepaw.voice.LiveVoicePreferences(
+            onScreenQuestions = loadOnScreenQuestions(),
             voice = ai.closepaw.voice.LiveVoice.entries.firstOrNull { it.id == saved.getString("live_voice", null) }
                 ?: ai.closepaw.voice.LiveVoice.COVE,
             language = ai.closepaw.voice.LiveLanguage.entries.firstOrNull { it.name == saved.getString("live_language", null) }
@@ -182,9 +184,12 @@ class AppSettingsStore(private val context: Context) {
 
     fun saveLiveVoice(value: ai.closepaw.voice.LiveVoicePreferences) {
         prefs().edit().putString("live_voice", value.voice.id)
+            .putBoolean(KEY_ON_SCREEN_QUESTIONS, value.onScreenQuestions)
             .putString("live_language", value.language.name).putString("live_tone", value.tone.name)
             .putString("live_instructions", value.customInstructions.take(ai.closepaw.protocol.CustomInstructions.MAX_LENGTH)).apply()
     }
+
+    fun loadOnScreenQuestions(): Boolean = prefs().getBoolean(KEY_ON_SCREEN_QUESTIONS, true)
 
     fun loadCoreInstructions(): String =
         prefs().getString("core_instructions", "").orEmpty().take(ai.closepaw.protocol.CustomInstructions.MAX_LENGTH)

@@ -1,45 +1,37 @@
 package ai.closepaw.session
 
+import ai.closepaw.protocol.AskUserType
 import kotlinx.coroutines.CompletableDeferred
 import java.util.concurrent.atomic.AtomicReference
 
-/**
- * UserResponseChannel — suspension bridge between ask_user tool and UI.
- *
- * The ask_user tool suspends on [awaitResponse]. The session delivers the
- * user's answer via [deliver] when Op.UserResponse arrives. Only one
- * pending request is allowed at a time.
- *
- * ## Timeout vs Cancellation
- *
- * Two exit paths exist:
- * - **Timeout**: `AskUserInvocation` wraps `awaitResponse` in `withTimeoutOrNull`.
- *   On timeout, the coroutine returns `null`, the `finally` block clears pending
- *   state, and the tool returns a "timed out" success result.
- * - **Cancellation**: [cancel] is called on stop/shutdown. It cancels the deferred,
- *   which throws `CancellationException` in the awaiting coroutine. The `finally`
- *   block clears state. `AskUserInvocation` catches this and returns `Cancelled`.
- */
+/** Holds the one outstanding user request. The session delivers a matching reply via [deliver]
+ * or calls [cancel] when the task stops. The question tool owns any on-screen timeout. */
 class UserResponseChannel {
 
+    data class Prompt(val callId: String, val type: AskUserType, val message: String)
+
     private data class PendingRequest(
-        val callId: String,
+        val prompt: Prompt,
         val deferred: CompletableDeferred<String>
     )
 
     private val pending = AtomicReference<PendingRequest?>(null)
 
+    suspend fun awaitResponse(callId: String): String =
+        awaitResponse(Prompt(callId, AskUserType.QUESTION, "")) {}
+
     /**
-     * Suspend until the user responds. Called by the ask_user tool.
+     * Register the request before notifying observers so an immediate answer can be delivered.
      *
      * @throws IllegalStateException if another request is already pending
      * @throws kotlinx.coroutines.CancellationException if cancelled (stop/timeout)
      */
-    suspend fun awaitResponse(callId: String): String {
+    suspend fun awaitResponse(prompt: Prompt, onPending: suspend () -> Unit): String {
         val deferred = CompletableDeferred<String>()
-        val request = PendingRequest(callId = callId, deferred = deferred)
+        val request = PendingRequest(prompt, deferred)
         check(pending.compareAndSet(null, request)) { "Only one pending ask_user request allowed" }
         return try {
+            onPending()
             deferred.await()
         } finally {
             pending.compareAndSet(request, null)
@@ -53,7 +45,7 @@ class UserResponseChannel {
      */
     fun deliver(callId: String, response: String): Boolean {
         val request = pending.get() ?: return false
-        if (request.callId != callId) return false
+        if (request.prompt.callId != callId) return false
         if (!pending.compareAndSet(request, null)) return false
         return request.deferred.complete(response)
     }
@@ -63,7 +55,8 @@ class UserResponseChannel {
         pending.getAndSet(null)?.deferred?.cancel()
     }
 
-    val pendingCallId: String? get() = pending.get()?.callId
+    val pendingPrompt: Prompt? get() = pending.get()?.prompt
+    val pendingCallId: String? get() = pendingPrompt?.callId
 
     val hasPending: Boolean get() = pending.get() != null
 }

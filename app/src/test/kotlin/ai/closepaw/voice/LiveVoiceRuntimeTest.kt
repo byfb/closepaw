@@ -9,6 +9,16 @@ class LiveVoiceRuntimeTest {
 
     private val session = SessionId("test")
 
+    @Test fun `a late response cannot change the color of a newer voice question`() {
+        LiveVoiceRuntime.onAgentEvent(AskUser(session, 1, AskUserType.VOICE_QUESTION, "Which day?", "day"))
+        LiveVoiceRuntime.onAgentEvent(AskUser(session, 2, AskUserType.VOICE_QUESTION, "What time?", "time"))
+        LiveVoiceRuntime.onAgentEvent(UserResponded(session, 3, "day"))
+        assertThat(LiveVoiceRuntime.task.value).isEqualTo(LiveTaskStatus.WAITING_FOR_VOICE)
+        LiveVoiceRuntime.onAgentEvent(UserResponded(session, 4, "time"))
+        assertThat(LiveVoiceRuntime.task.value).isEqualTo(LiveTaskStatus.RUNNING)
+        LiveVoiceRuntime.onAgentUnavailable()
+    }
+
     @Test fun `connecting status identifies the current stage`() {
         assertThat(voiceStatus(strings, LiveVoiceState(phase = LiveVoicePhase.Connecting,
             connectionStage = "Connecting audio…"), LiveTaskStatus.NONE)).isEqualTo("Connecting audio…")

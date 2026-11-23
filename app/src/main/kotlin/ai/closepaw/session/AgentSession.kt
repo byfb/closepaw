@@ -571,6 +571,7 @@ private constructor(
     private suspend fun handleUserResponse(callId: String, response: String) {
         val delivered = services.userResponseChannel.deliver(callId, response)
         if (delivered) {
+            emit(UserResponded(sessionId, now(), callId))
             Log.i(TAG, "UserResponse delivered: callId=$callId")
         } else {
             Log.w(TAG, "UserResponse not delivered (no matching pending request): callId=$callId")

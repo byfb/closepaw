@@ -16,6 +16,7 @@ import android.content.ComponentName
 import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -26,6 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -75,6 +77,14 @@ internal fun GptLiveSettingsPage(
                     Text(strings.getString(R.string.ui_enable_accessibility))
                 }
             }
+            ListItem(
+                headlineContent = { Text(strings.getString(R.string.ui_on_screen_questions)) },
+                supportingContent = { Text(strings.getString(R.string.ui_on_screen_questions_hint)) },
+                trailingContent = { Switch(checked = preferences.onScreenQuestions, onCheckedChange = null) },
+                modifier = Modifier.fillMaxWidth().toggleable(value = preferences.onScreenQuestions, role = Role.Switch) {
+                    onPreferencesChange(preferences.copy(onScreenQuestions = it))
+                }.testTag("qa-on-screen-questions"),
+            )
             SettingsDropdown(label = strings.getString(R.string.ui_voice), value = preferences.voice.label, leadingIcon = Icons.Rounded.GraphicEq,
                 options = LiveVoice.entries, isSelected = { it == preferences.voice },
                 onOptionSelected = { onPreferencesChange(preferences.copy(voice = it)) }, optionText = { Text(it.label) })

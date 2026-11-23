@@ -22,7 +22,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
 
 private val SUBAGENT_EXCLUDED_TOOL_NAMES =
-    setOf(ToolName.DelegateTask.raw, ToolName.RememberExperience.raw)
+    setOf(ToolName.DelegateTask.raw, ToolName.RememberExperience.raw, ToolName.AskByVoice.raw)
 
 /**
  * Sub-agent primitives used by `delegate_task`.
@@ -73,9 +73,11 @@ internal class IsolatedSubAgentRunner(
     override suspend fun run(request: SubAgentRequest): SubAgentResult {
         val childTaskId = "sub-${roleDef.name}-${System.currentTimeMillis()}"
         val childSessionId = SessionId("${parentSessionId.value}::$childTaskId")
+        val voiceQuestions = parentServices.toolRegistry.contains(ToolName.AskByVoice.raw)
         val resolvedRoleDef: ResolvedAgentRole = roleDef.resolve(
             snapshot = parentServices.termuxSnapshot,
-            excludedTools = parentServices.config.excludedTools.toToolNames()
+            excludedTools = parentServices.config.excludedTools.toToolNames(),
+            voiceQuestions = voiceQuestions,
         )
         // delegate_task: prevent runaway recursion — a subagent must not spawn another subagent.
         // remember_experience: long-term memory writes stay scoped to the main agent. The subagent's
@@ -100,6 +102,10 @@ internal class IsolatedSubAgentRunner(
         val childModelName = parentServices.config.mainModel
 
         val childCompactor = buildChildCompactor(childServices, childModelName)
+        // The parent can wait for speech beyond this child's execution deadline.
+        val prompt = if (voiceQuestions) resolvedRoleDef.systemPrompt +
+            "\nFor this delegated subtask, return any question or required physical step to the parent in your result. " +
+            "The parent owns ask_by_voice and waits for the user." else resolvedRoleDef.systemPrompt
 
         val childAgent = Agent(
             config = AgentExecutionConfig(
@@ -109,7 +115,7 @@ internal class IsolatedSubAgentRunner(
                 uiSettleDelayMs = parentServices.config.actionDelayMs,
                 debugMode = parentServices.config.debugMode,
                 systemPrompt = ai.closepaw.protocol.CustomInstructions.appendTo(
-                    resolvedRoleDef.systemPrompt, parentServices.config.customInstructions,
+                    prompt, parentServices.config.customInstructions,
                 ),
                 allowedToolNames = childAllowedToolNames,
                 agentId = childSessionId.value,

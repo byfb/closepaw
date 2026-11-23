@@ -3,6 +3,10 @@
     <string name="gpt_live_widget_description">Talk to ClosePaw from your home screen</string>
     <string name="gpt_live_widget_preview">Ready\nStart voice</string>
     <string name="gpt_live_widget_accessibility">GPT-Live. %1$s. %2$s.</string>
+    <string name="ui_on_screen_questions">On-screen questions</string>
+    <string name="ui_on_screen_questions_hint">Turn off to have GPT Live ask aloud and wait for your voice reply. Applies to your next task.</string>
+    <string name="ui_waiting_for_voice">Your turn</string>
+    <string name="ui_answer_by_voice">Answer by voice</string>
     <color name="live_dark_ink">#12202A</color>
     <color name="live_ready">#27364B</color>
     <color name="live_connecting">#A6DCFF</color>

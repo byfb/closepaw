@@ -8,6 +8,21 @@ import org.junit.Test
 
 class AgentRoleResolveTest {
 
+    @Test fun `voice questions replace the on-screen tool and respect explicit tool exclusions`() {
+        val normal = DefaultRoleDef.resolve(unavailableSnapshot)
+        val voice = DefaultRoleDef.resolve(unavailableSnapshot, voiceQuestions = true)
+        assertThat(normal.allowedTools).contains(ToolName.AskUser)
+        assertThat(normal.allowedTools).doesNotContain(ToolName.AskByVoice)
+        assertThat(voice.allowedTools).contains(ToolName.AskByVoice)
+        assertThat(voice.allowedTools).doesNotContain(ToolName.AskUser)
+        assertThat(voice.systemPrompt).contains(ToolName.AskByVoice.raw)
+        assertThat(voice.systemPrompt).doesNotContain(ToolName.AskUser.raw)
+        for (excluded in listOf(ToolName.AskUser, ToolName.AskByVoice)) {
+            val role = DefaultRoleDef.resolve(unavailableSnapshot, setOf(excluded), voiceQuestions = true)
+            assertThat(role.allowedTools).containsNoneOf(ToolName.AskUser, ToolName.AskByVoice)
+        }
+    }
+
     @Test
     fun `available snapshot exposes termux shell and workspace prompt`() {
         val resolved = DefaultRoleDef.resolve(availableSnapshot)

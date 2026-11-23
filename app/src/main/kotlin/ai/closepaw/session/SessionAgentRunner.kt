@@ -67,13 +67,14 @@ internal class SessionAgentRunner(
         // the original, pre-merge SessionConfig and would re-expose the gated tool to the LLM.
         val resolvedAgentDef: ResolvedAgentRole = agentDef.resolve(
             snapshot = services.termuxSnapshot,
-            excludedTools = services.config.excludedTools.toToolNames()
+            excludedTools = services.config.excludedTools.toToolNames(),
+            voiceQuestions = !services.onScreenQuestionsEnabled(),
         )
 
         if (ToolName.DelegateTask.raw in resolvedAgentDef.allowedToolNames) {
             ensureDelegationToolRegistered()
         }
-        ensureAskUserToolRegistered()
+        registerQuestionTool(resolvedAgentDef)
 
         val signal = CompletableDeferred<AgentStopReason>()
 
@@ -181,14 +182,15 @@ internal class SessionAgentRunner(
         services.toolRegistry.register(delegateTool)
     }
 
-    private fun ensureAskUserToolRegistered() {
-        if (services.toolRegistry.contains("ask_user")) return
-
-        val askUserTool = ai.closepaw.tool.impl.AskUserTool(
-            responseChannel = services.userResponseChannel,
-            eventDispatcher = eventDispatcher
-        )
-        services.toolRegistry.register(askUserTool)
+    private fun registerQuestionTool(role: ResolvedAgentRole) {
+        for (tool in listOf(ToolName.AskUser, ToolName.AskByVoice)) {
+            if (tool !in role.allowedTools) services.toolRegistry.unregister(tool.raw)
+            else if (!services.toolRegistry.contains(tool.raw)) {
+                services.toolRegistry.register(ai.closepaw.tool.impl.AskUserTool(
+                    services.userResponseChannel, eventDispatcher, byVoice = tool == ToolName.AskByVoice,
+                ))
+            }
+        }
     }
 
     private fun Set<String>.toToolNames(): Set<ToolName> = map { ToolName.from(it) }.toSet()

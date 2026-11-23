@@ -76,6 +76,7 @@ class GptLiveWidget : AppWidgetProvider() {
             val label = strings.getString(when {
                 voice.running -> if (voice.preview) R.string.ui_stop_preview else R.string.ui_end_voice
                 needsSetup -> R.string.ui_set_up_voice
+                task == LiveTaskStatus.WAITING_FOR_VOICE -> R.string.ui_answer_by_voice
                 status == LiveStatus.DISCONNECTED -> R.string.ui_retry
                 else -> R.string.ui_start_voice
             })

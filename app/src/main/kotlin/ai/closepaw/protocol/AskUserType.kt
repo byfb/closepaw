@@ -5,6 +5,9 @@ enum class AskUserType {
     /** Agent needs a text answer from the user. */
     QUESTION,
 
+    /** GPT Live asks aloud and waits for a completed user utterance. */
+    VOICE_QUESTION,
+
     /** Agent needs the user to perform a physical action on the phone. */
     ACTION
 }

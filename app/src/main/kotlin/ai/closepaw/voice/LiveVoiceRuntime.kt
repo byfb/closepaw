@@ -26,9 +26,10 @@ data class LiveVoiceState(
 
 enum class LiveTaskStatus(internal val status: LiveStatus) {
     NONE(LiveStatus.READY), RUNNING(LiveStatus.WORKING), WAITING(LiveStatus.WAITING),
-    DONE(LiveStatus.DONE), FAILED(LiveStatus.FAILED), STOPPED(LiveStatus.STOPPED);
+    WAITING_FOR_VOICE(LiveStatus.YOUR_TURN), DONE(LiveStatus.DONE), FAILED(LiveStatus.FAILED), STOPPED(LiveStatus.STOPPED);
 
     @get:StringRes val label: Int get() = status.label
+    internal val waiting get() = this == WAITING || this == WAITING_FOR_VOICE
 }
 
 /** Only small in-memory state lives here; no Context, microphone or service reference. */
@@ -37,9 +38,11 @@ object LiveVoiceRuntime {
     val state = mutableState.asStateFlow()
     private val mutableTask = MutableStateFlow(LiveTaskStatus.NONE)
     val task = mutableTask.asStateFlow()
+    private var waitingCall: Pair<SessionId, String>? = null
 
     fun onAgentUnavailable() {
-        if (mutableTask.value in listOf(LiveTaskStatus.RUNNING, LiveTaskStatus.WAITING)) {
+        waitingCall = null
+        if (mutableTask.value == LiveTaskStatus.RUNNING || mutableTask.value.waiting) {
             mutableTask.value = LiveTaskStatus.STOPPED
         }
     }
@@ -48,7 +51,12 @@ object LiveVoiceRuntime {
         val next = when (event) {
             is SessionStarted -> LiveTaskStatus.NONE
             is TaskStarted -> LiveTaskStatus.RUNNING
-            is AskUser, is ApprovalRequired, is SessionTakeover -> LiveTaskStatus.WAITING
+            is AskUser -> {
+                waitingCall = event.sessionId to event.callId
+                if (event.type == AskUserType.VOICE_QUESTION) LiveTaskStatus.WAITING_FOR_VOICE else LiveTaskStatus.WAITING
+            }
+            is ApprovalRequired, is SessionTakeover -> LiveTaskStatus.WAITING
+            is UserResponded -> if (waitingCall == (event.sessionId to event.callId)) LiveTaskStatus.RUNNING else return false
             is SessionResumed -> LiveTaskStatus.RUNNING
             is TaskCompleted -> when (event.outcome) {
                 TaskOutcome.GOAL_ACHIEVED -> LiveTaskStatus.DONE
@@ -57,9 +65,10 @@ object LiveVoiceRuntime {
             }
             is SessionError -> LiveTaskStatus.FAILED
             is ThoughtUpdate -> if (mutableTask.value == LiveTaskStatus.WAITING) LiveTaskStatus.RUNNING else return false
-            is SessionCompleted -> if (mutableTask.value in listOf(LiveTaskStatus.RUNNING, LiveTaskStatus.WAITING)) LiveTaskStatus.STOPPED else return false
+            is SessionCompleted -> if (mutableTask.value == LiveTaskStatus.RUNNING || mutableTask.value.waiting) LiveTaskStatus.STOPPED else return false
             else -> return false
         }
+        if (event !is AskUser) waitingCall = null
         if (next == mutableTask.value) return false
         mutableTask.value = next
         return true
@@ -79,6 +88,7 @@ internal enum class LiveStatus(@StringRes val label: Int, @ColorRes val backgrou
     INTERRUPTED(R.string.ui_audio_interrupted, R.color.live_attention, R.color.live_dark_ink),
     WORKING(R.string.ui_working, R.color.live_working),
     WAITING(R.string.ui_needs_your_input, R.color.live_attention, R.color.live_dark_ink),
+    YOUR_TURN(R.string.ui_waiting_for_voice, R.color.live_attention, R.color.live_dark_ink),
     DONE(R.string.ui_task_complete, R.color.live_done),
     FAILED(R.string.ui_task_failed, R.color.live_error),
     STOPPED(R.string.ui_task_stopped, R.color.live_muted),
@@ -92,7 +102,7 @@ internal fun liveStatus(voice: LiveVoiceState, task: LiveTaskStatus): LiveStatus
     voice.running && voice.preview -> LiveStatus.PREVIEW
     voice.running && voice.speaking -> LiveStatus.REPLYING
     voice.running && voice.muted -> LiveStatus.MUTED
-    voice.running && task != LiveTaskStatus.RUNNING && task != LiveTaskStatus.WAITING -> LiveStatus.LISTENING
+    voice.running && task != LiveTaskStatus.RUNNING && !task.waiting -> LiveStatus.LISTENING
     else -> task.status
 }
 

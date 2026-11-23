@@ -37,16 +37,20 @@ class AppSettingsStoreTest {
     fun `voice preferences survive reload independently of worker model and effort`() {
         val state = AppSettingsState(AppSettingsStore(context))
         state.load()
+        assertThat(state.liveVoice.onScreenQuestions).isTrue()
         state.updateModel("worker-model")
         state.updateReasoningEffort("high")
         val voice = ai.closepaw.voice.LiveVoicePreferences(
-            ai.closepaw.voice.LiveVoice.JUNIPER, ai.closepaw.voice.LiveLanguage.CANTONESE, ai.closepaw.voice.LiveTone.CALM)
+            ai.closepaw.voice.LiveVoice.JUNIPER, ai.closepaw.voice.LiveLanguage.CANTONESE, ai.closepaw.voice.LiveTone.CALM,
+            onScreenQuestions = false)
         state.updateLiveVoice(voice)
         val loaded = AppSettingsStore(context).load()
         assertThat(loaded.liveVoice).isEqualTo(voice)
         assertThat(loaded.selectedModel).isEqualTo("worker-model")
         assertThat(loaded.reasoningEfforts["worker-model"]).isEqualTo("high")
         assertThat(AppSettingsState(AppSettingsStore(context)).apply { load() }.liveVoice).isEqualTo(voice)
+        state.updateLiveVoice(voice.copy(onScreenQuestions = true))
+        assertThat(AppSettingsStore(context).loadOnScreenQuestions()).isTrue()
     }
 
     @Test

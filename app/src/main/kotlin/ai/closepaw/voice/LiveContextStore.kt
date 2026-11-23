@@ -74,7 +74,7 @@ internal class LiveContextStore(private val prefs: SharedPreferences) {
         private val lock = Any()
 
         fun records(event: AgentEvent): Boolean = when (event) {
-            is TaskStarted, is ThoughtUpdate, is AskUser, is TaskCompleted,
+            is TaskStarted, is ThoughtUpdate, is AskUser, is UserResponded, is TaskCompleted,
             is SessionError, is SessionCompleted, is SupplementReceived -> true
             else -> false
         }
@@ -114,6 +114,7 @@ internal class LiveContextStore(private val prefs: SharedPreferences) {
             is TaskStarted -> current.copy(taskRequest = event.input.substringBefore("\n\nVoice conversation context:").take(2000), taskUpdate = "Working", question = "")
             is ThoughtUpdate -> current.copy(taskUpdate = event.compact.take(1800))
             is AskUser -> current.copy(question = event.message.take(1200))
+            is UserResponded -> current.copy(question = "")
             is TaskCompleted -> current.copy(taskUpdate = "${event.outcome}: ${event.result.orEmpty()}".take(1800), question = "")
             is SessionError -> current.copy(taskUpdate = "Error: ${event.message}".take(1800), question = "")
             is SessionCompleted -> current.copy(question = "")

@@ -8,6 +8,7 @@ data class LiveVoicePreferences(
     val language: LiveLanguage = LiveLanguage.AUTO,
     val tone: LiveTone = LiveTone.NATURAL,
     val customInstructions: String = "",
+    val onScreenQuestions: Boolean = true,
 ) {
     fun instructions(): String = ai.closepaw.protocol.CustomInstructions.appendTo(
         "${language.instruction}\n${tone.instruction}", customInstructions,

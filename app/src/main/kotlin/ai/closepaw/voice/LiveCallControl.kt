@@ -11,11 +11,14 @@ internal class LiveCallControl(
     private val executeEndCall: suspend (JSONObject) -> Unit,
     private val unavailable: () -> Unit,
     private val executeMemory: suspend (List<JSONObject>) -> Boolean = { true },
+    private val captureVoiceAnswer: () -> (suspend (String) -> Unit)? = { null },
 ) {
     private var decision = CompletableDeferred<Boolean>()
     private var submitted = false
     private var selection: Job? = null
     private var memoryHandledDecision: Deferred<Boolean>? = null
+    private var speechStarted = false
+    private var voiceAnswer: (suspend (String) -> Unit)? = null
 
     /** Capture this before enqueueing the handoff: the next user may speak while it is queued. */
     val handoffAllowed: Deferred<Boolean> get() = decision
@@ -23,7 +26,10 @@ internal class LiveCallControl(
 
     fun receive(event: JsonObject) {
         if (event.string("type") == "input_transcript.added") {
-            if (submitted && !event.obj("item")?.string("text").isNullOrBlank()) reset()
+            if (!event.obj("item")?.string("text").isNullOrBlank()) {
+                if (submitted) reset()
+                beginSpeech()
+            }
             return
         }
         if (event.string("type") != "turn.done") return
@@ -32,8 +38,10 @@ internal class LiveCallControl(
         if (submitted) reset() // A completed turn can also arrive without any partials.
         submitted = true
         val text = turn.string("transcript").orEmpty().trim()
+        beginSpeech()
+        val answer = voiceAnswer
         if (text.isEmpty()) {
-            decision.complete(true)
+            decision.complete(answer == null)
             return
         }
         val current = decision
@@ -50,6 +58,14 @@ internal class LiveCallControl(
                 LiveToolSelection()
             }
             if (decision !== current) return@launch
+            if (answer != null) {
+                // A reply belongs only to the captured question, including when a redundant
+                // delegation arrives or the worker is cancelled during call-control selection.
+                selection = null
+                current.complete(false)
+                if (arguments.endCall != null) executeEndCall(arguments.endCall) else answer(text.take(6000))
+                return@launch
+            }
             // Persist memory before releasing a related phone task, so its first turn sees it.
             val memorySucceeded = try {
                 arguments.memoryUpdates.isEmpty() || executeMemory(arguments.memoryUpdates)
@@ -68,6 +84,13 @@ internal class LiveCallControl(
         }
     }
 
+    private fun beginSpeech() {
+        if (speechStarted) return
+        speechStarted = true
+        voiceAnswer = captureVoiceAnswer()
+        if (voiceAnswer != null) decision.complete(false)
+    }
+
     /** Superseded speech must neither hang up nor send its pending handoff to the worker. */
     fun reset() {
         selection?.cancel()
@@ -76,6 +99,8 @@ internal class LiveCallControl(
         decision.complete(false)
         decision = CompletableDeferred()
         submitted = false
+        speechStarted = false
+        voiceAnswer = null
     }
 
     companion object {

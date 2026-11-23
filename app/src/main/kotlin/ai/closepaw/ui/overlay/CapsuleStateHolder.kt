@@ -126,8 +126,8 @@ class CapsuleStateHolder(private val scope: CoroutineScope, private val label: (
     fun onAskUser(type: AskUserType, message: String, callId: String) {
         setMode(
             when (type) {
-                AskUserType.QUESTION -> CapsuleMode.WaitingForInput(
-                    question = message, callId = callId,
+                AskUserType.QUESTION, AskUserType.VOICE_QUESTION -> CapsuleMode.WaitingForInput(
+                    question = message, callId = callId, byVoice = type == AskUserType.VOICE_QUESTION,
                 )
                 AskUserType.ACTION -> CapsuleMode.WaitingForAction(
                     instruction = message, callId = callId,
