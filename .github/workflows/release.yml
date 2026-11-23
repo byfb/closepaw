@@ -10,6 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Fork release notes come from the annotated tag object.
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -18,18 +21,30 @@ jobs:
       - name: Decode keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
+        run: |
+          : "${KEYSTORE_BASE64:?Set the KEYSTORE_BASE64 repository secret}"
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/closepaw-release.keystore"
       - name: Build signed release APK
         env:
-          KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
+          KEYSTORE_PATH: ${{ runner.temp }}/closepaw-release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: closepaw
           KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        run: ./gradlew :app:assembleRelease
+        run: |
+          : "${KEYSTORE_PASSWORD:?Set the KEYSTORE_PASSWORD repository secret}"
+          ./gradlew :app:assembleRelease
+      - name: Verify release signature
+        run: |
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          "$apksigner" verify --print-certs app/build/outputs/apk/release/app-release.apk
       - name: Upload to Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${GITHUB_REF#refs/tags/}" \
-            --generate-notes \
+          notes=(--generate-notes)
+          if [[ "$GITHUB_REF_NAME" == *+byfb.* ]]; then
+            notes=(--notes-from-tag --title "ClosePaw Accessibility ${GITHUB_REF_NAME#v} (byfb fork)")
+          fi
+          gh release create "$GITHUB_REF_NAME" --verify-tag "${notes[@]}" \
             app/build/outputs/apk/release/app-release.apk
