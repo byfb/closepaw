@@ -16,6 +16,8 @@
 
 **A phone-use agent in your pocket — always close.**
 
+This is byfb’s accessibility fork of ClosePaw. It adds a high-contrast status widget and spoken answers to task questions through GPT Live. [Original project by imoonkey and the ClosePaw contributors](https://github.com/imoonkey/closepaw)
+
 ClosePaw is an open-source **agent harness for Android**. Give it a natural-language task ("book a table for two at the ramen place near me", "summarize the new Slack threads, then mute the noisy channel") and it operates your phone like you would — via Android's accessibility service, or in the background on a virtual display (with Shizuku).
 
 ## ✨ Features
@@ -76,15 +78,15 @@ ClosePaw is an open-source **agent harness for Android**. Give it a natural-lang
 
 ### Install the app
 
-**Recommended — signed release APK.** Download the latest APK from [GitHub Releases](https://github.com/imoonkey/closepaw/releases) and open it on your device to install.
+**Install the accessibility fork.** Download the signed APK and open it on your Android device. [byfb fork releases](https://github.com/byfb/closepaw/releases)
 
 > [!TIP]
-> **Help us ship to the Play Store sooner.** Google requires **12 closed testers active for 14 days** before we can promote to production. Become an authorized tester by joining the [closed-testing Google Group](https://groups.google.com/g/closepaw-closed-testers), then [join/install on Android](https://play.google.com/store/apps/details?id=ai.closepaw) or [join on the web](https://play.google.com/apps/testing/ai.closepaw). Please stay opted in for the full 14 days.
+> The original project maintains the Play Store testing program. [Upstream installation and testing instructions](https://github.com/imoonkey/closepaw#install-the-app)
 
 **Or build from source.** Useful if you want to hack on it or run the latest unreleased changes.
 
 ```bash
-git clone https://github.com/imoonkey/closepaw.git
+git clone https://github.com/byfb/closepaw.git
 cd closepaw
 ./gradlew assembleDebug
 adb install app/build/outputs/apk/debug/app-debug.apk
