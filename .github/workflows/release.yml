@@ -42,9 +42,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          apk=app/build/outputs/apk/release/app-release.apk
+          asset="$apk"
           notes=(--generate-notes)
           if [[ "$GITHUB_REF_NAME" == *+byfb.* ]]; then
-            notes=(--notes-from-tag --title "ClosePaw Accessibility ${GITHUB_REF_NAME#v} (byfb fork)")
+            version="${GITHUB_REF_NAME#v}"
+            asset="$RUNNER_TEMP/closepaw-accessibility-${version//[^a-zA-Z0-9._-]/-}.apk"
+            cp -- "$apk" "$asset"
+            notes=(--notes-from-tag --title "ClosePaw Accessibility $version (byfb fork)")
           fi
-          gh release create "$GITHUB_REF_NAME" --verify-tag "${notes[@]}" \
-            app/build/outputs/apk/release/app-release.apk
+          gh release create "$GITHUB_REF_NAME" --verify-tag "${notes[@]}" "$asset"
