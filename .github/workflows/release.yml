@@ -47,7 +47,7 @@ jobs:
           notes=(--generate-notes)
           if [[ "$GITHUB_REF_NAME" == *+byfb.* ]]; then
             version="${GITHUB_REF_NAME#v}"
-            asset="$RUNNER_TEMP/closepaw-accessibility-${version//[^a-zA-Z0-9._-]/-}.apk"
+            asset="$RUNNER_TEMP/closepaw-${version//[^a-zA-Z0-9._-]/-}.apk"
             cp -- "$apk" "$asset"
             notes=(--notes-from-tag --title "ClosePaw Accessibility $version (byfb fork)")
           fi
