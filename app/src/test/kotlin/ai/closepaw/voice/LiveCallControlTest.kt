@@ -15,6 +15,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.*
@@ -59,6 +60,22 @@ class LiveCallControlTest {
         assertThat(questions.waiting).isFalse()
     }
 
+    @Test fun `spoken approval rejects ambiguity and accepts a direct reply without waiting for call control`() = runTest {
+        val prompt = UserResponseChannel.Prompt("a", AskUserType.VOICE_QUESTION, "Approve opening Maps?", approval = true)
+        val spoken = mutableListOf<String>()
+        val replies = mutableListOf<String>()
+        val questions = LiveVoiceQuestions({ prompt }, { spoken.add(it) }, { _, answer -> replies += answer })
+        questions.announce()
+        questions.captureAnswer()!!.invoke("Maybe")
+        assertThat(replies).isEmpty()
+        assertThat(spoken.last()).contains("approve or deny")
+        val control = LiveCallControl(this, { error("unexpected tool selection") }, { error("unexpected hangup") }, {},
+            captureVoiceAnswer = questions::captureAnswer)
+        control.receive(done("user", "同意。"))
+        assertThat(replies).containsExactly("同意。")
+        assertThat(control.handoffAllowed.await()).isFalse()
+    }
+
     @Test fun `reconnection reasks only an outstanding voice question and rejects stale speech`() = runTest {
         var pending: UserResponseChannel.Prompt? = null
         var connected = false
@@ -93,12 +110,26 @@ class LiveCallControlTest {
 
     @Test fun `hangup while answering leaves the worker question pending`() = runTest {
         var ended = false
+        val prompt = UserResponseChannel.Prompt("q", AskUserType.VOICE_QUESTION, "Which station?")
         val control = LiveCallControl(this, { LiveToolSelection(endCall = JSONObject()) }, { ended = true }, {},
-            captureVoiceAnswer = { { error("Hangup is not an answer") } })
+            captureVoiceAnswer = { LiveVoiceQuestions.Answer(prompt) { error("Hangup is not an answer") } })
         control.receive(done("user", "End this call"))
         runCurrent()
         assertThat(ended).isTrue()
         assertThat(control.handoffAllowed.await()).isFalse()
+    }
+
+    @Test fun `transcript received before the deadline counts while call control finishes`() = runTest {
+        val channel = UserResponseChannel()
+        val prompt = UserResponseChannel.Prompt("q", AskUserType.VOICE_QUESTION, "Which station?")
+        val questions = LiveVoiceQuestions({ channel.pendingPrompt }, { true },
+            { request, answer -> channel.deliver(request.callId, answer) })
+        val result = async { channel.awaitSpoken(prompt, questions::announce) }
+        val control = LiveCallControl(this, { kotlinx.coroutines.delay(4_000); LiveToolSelection() }, {}, {},
+            captureVoiceAnswer = questions::captureAnswer, processingVoiceReply = channel::processingSpokenReply)
+        advanceTimeBy(59_000)
+        control.receive(done("user", "Central Station"))
+        assertThat(result.await()).isEqualTo("Central Station")
     }
 
     @Test fun `a silent connection gets one repeat and reconnects only while the question is unheard`() {

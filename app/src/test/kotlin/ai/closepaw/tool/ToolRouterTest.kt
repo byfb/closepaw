@@ -37,6 +37,18 @@ class ToolRouterTest {
     }
 
     @Test
+    fun `invocation preparation exceptions reach the planner and release the call`() = runTest {
+        val tool = object : ToolSpec by TestToolSpec() {
+            override fun createInvocation(params: JSONObject): ToolInvocation = error("invalid target format")
+        }
+        val registry = ToolRegistry().apply { register(tool) }
+        val router = ToolRouter(registry, PolicyEngine(appClassifier = defaultClassifier()))
+        val result = router.execute(tool.name, JSONObject(), SimpleToolRouterContext(FakeAndroidPlatform()), callId = "bad")
+        assertThat((result as ToolCallResult.Error).error).contains("invalid target format")
+        assertThat(router.getActiveCallIds()).isEmpty()
+    }
+
+    @Test
     fun `approval timeout returns cancelled`() = runTest {
         val registry = ToolRegistry().apply { register(TestToolSpec()) }
         val router = ToolRouter(registry, PolicyEngine(ApprovalMode.ALWAYS_ASK, defaultClassifier()))
@@ -109,7 +121,7 @@ class ToolRouterTest {
 
     @Test
     fun `open app approval uses destination package as approval subject`() = runTest {
-        val registry = ToolRegistry().apply { register(TestToolSpec(name = "open_app")) }
+        val registry = ToolRegistry().apply { register(ai.closepaw.tool.impl.OpenAppTool()) }
         val router = ToolRouter(registry, PolicyEngine(ApprovalMode.SMART, defaultClassifier()))
         val context = SimpleToolRouterContext(
             FakeAndroidPlatform(

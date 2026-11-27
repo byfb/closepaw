@@ -6,12 +6,17 @@ import ai.closepaw.model.ScreenSnapshot
 import ai.closepaw.perception.Perceptor
 import ai.closepaw.protocol.*
 import ai.closepaw.session.SessionServices
+import ai.closepaw.session.UserResponseChannel
+import ai.closepaw.session.spokenApproval
+import ai.closepaw.tool.ToolRouter
 import ai.closepaw.tool.SimpleToolRouterContext
 import ai.closepaw.tool.ToolCallResult
 import ai.closepaw.tool.ToolName
 import ai.closepaw.tool.ToolObservation
 import ai.closepaw.trace.AgentTrace
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.withTimeout
 
 /**
  * Executes selected tool calls for a turn and emits side effects (history, traces, UI events).
@@ -117,7 +122,7 @@ internal class TurnExecutionPhaseRunner(
                                         ),
                                 packageName = services.platform.getCurrentPackageName(),
                                 callId = toolCall.id,
-                                onApprovalRequired = { details -> emitApprovalRequired(details) }
+                                awaitApproval = ::awaitApproval
                         )
 
                 val observationCapture = resolveObservation(toolCall, toolResult)
@@ -179,11 +184,21 @@ internal class TurnExecutionPhaseRunner(
                 )
         }
 
-        private suspend fun emitApprovalRequired(details: ApprovalDetails) {
-                eventDispatcher.approvalRequired(
-                        description = details.description,
-                        details = details
-                )
+        private suspend fun awaitApproval(details: ApprovalDetails, decision: Deferred<ApprovalDecision>): ApprovalDecision {
+                if (config.agentRole == AgentExecutionRole.SUBAGENT) {
+                        throw ParentApprovalRequired(details.description, details.packageName)
+                }
+                services.questionRouting.onScreen {
+                        eventDispatcher.approvalRequired(details.description, details)
+                        withTimeout(ToolRouter.APPROVAL_TIMEOUT_MS) { decision.await() }
+                }?.let { return it }
+
+                val message = "Approve this action for ${details.packageName}? ${details.description}. Answer approve or deny."
+                val prompt = UserResponseChannel.Prompt(details.callId, AskUserType.VOICE_QUESTION, message, approval = true)
+                val reply = services.userResponseChannel.awaitSpoken(prompt) {
+                        eventDispatcher.emitAskUser(prompt.type, message, prompt.callId)
+                }
+                return spokenApproval(reply) ?: ApprovalDecision.DENIED
         }
 
         private suspend fun resolveObservation(

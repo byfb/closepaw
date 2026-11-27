@@ -3,10 +3,12 @@ package ai.closepaw.tool
 import android.util.Log
 import ai.closepaw.model.ScreenSnapshot
 import ai.closepaw.platform.AndroidPlatform
-import ai.closepaw.tool.impl.AppAliases
+import ai.closepaw.tool.impl.OpenAppInvocation
 import ai.closepaw.protocol.ApprovalDecision
 import ai.closepaw.protocol.ApprovalDetails
 import ai.closepaw.protocol.AppTier
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
@@ -36,7 +38,7 @@ class ToolRouter(
         private const val TAG = "ToolRouter"
         
         /** Timeout for user approval - if not responded within this time, action is cancelled */
-        private const val APPROVAL_TIMEOUT_MS = 60_000L  // 60 seconds
+        internal const val APPROVAL_TIMEOUT_MS = 60_000L  // 60 seconds
     }
     
     // Track active tool calls for cancellation and state queries
@@ -68,6 +70,7 @@ class ToolRouter(
         packageName: String? = null,
         callId: String? = null,
         onStateChange: ((ToolCallState) -> Unit)? = null,
+        awaitApproval: (suspend (ApprovalDetails, Deferred<ApprovalDecision>) -> ApprovalDecision)? = null,
         onApprovalRequired: (suspend (ApprovalDetails) -> Unit)? = null
     ): ToolCallResult {
         val resolvedCallId = callId ?: generateCallId()
@@ -80,35 +83,42 @@ class ToolRouter(
         var state: ToolCallState = ToolCallState.Validating(resolvedCallId, toolName, params)
         updateState(state, onStateChange)
         
-        // Check tool exists
-        val tool = registry.get(toolName)
-        if (tool == null) {
-            val errorState = ToolCallState.Error(resolvedCallId, toolName, params, "Unknown tool: $toolName")
-            updateState(errorState, onStateChange)
+        fun failPreparation(message: String, cause: Exception? = null): ToolCallResult.Error {
+            updateState(ToolCallState.Error(resolvedCallId, toolName, params, message, cause), onStateChange)
             cleanupCall(resolvedCallId)
-            return ToolCallResult.Error(resolvedCallId, "Unknown tool: $toolName")
+            return ToolCallResult.Error(resolvedCallId, message, cause)
         }
-        
-        // Validate parameters
-        val validation = tool.validate(params)
-        if (validation is ValidationResult.Invalid) {
-            val errorMsg = "Validation failed: ${validation.errors.joinToString(", ")}"
-            val errorState = ToolCallState.Error(resolvedCallId, toolName, params, errorMsg)
-            updateState(errorState, onStateChange)
+
+        val tool = registry.get(toolName) ?: return failPreparation("Unknown tool: $toolName")
+        val invocation = try {
+            val validation = tool.validate(params)
+            if (validation is ValidationResult.Invalid)
+                return failPreparation("Validation failed: ${validation.errors.joinToString(", ")}")
+            tool.createInvocation(params)
+        } catch (e: CancellationException) {
             cleanupCall(resolvedCallId)
-            return ToolCallResult.Error(resolvedCallId, errorMsg)
+            throw e
+        } catch (e: Exception) {
+            return failPreparation("Could not prepare $toolName: ${e.message ?: e.javaClass.simpleName}", e)
         }
-        
-        // Create invocation
-        val invocation = tool.createInvocation(params)
         
         // Track if approval was required (for snapshot refresh after approval wait)
         var approvalWasRequired = false
         
         // === POLICY CHECK ===
-        val destinationPackage = if (toolName == "open_app") {
-            resolveOpenAppDestination(params, context.platform)
-        } else null
+        val appInvocation = invocation as? OpenAppInvocation
+        if (appInvocation != null) {
+            val diagnostic = try {
+                appInvocation.resolve(context.platform)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                cleanupCall(resolvedCallId)
+                throw e
+            } catch (e: Exception) {
+                "Installed app lookup failed: ${e.message}"
+            }
+            if (diagnostic != null) return failPreparation(diagnostic)
+        }
+        val destinationPackage = appInvocation?.destinationPackage
         val approvalPackageName = destinationPackage ?: packageName
         val policyDecision = policyEngine.check(toolName, params, packageName, destinationPackage)
         Log.d(TAG, "Policy decision for $toolName: $policyDecision")
@@ -120,7 +130,7 @@ class ToolRouter(
                 )
                 updateState(cancelledState, onStateChange)
                 cleanupCall(resolvedCallId)
-                return ToolCallResult.Cancelled(resolvedCallId, "Policy denied: ${policyDecision.reason}")
+                return ToolCallResult.Cancelled(resolvedCallId, "Policy denied: ${policyDecision.reason}", replan = true)
             }
             
             is PolicyDecision.AskUser -> {
@@ -131,7 +141,7 @@ class ToolRouter(
                     )
                     updateState(cancelledState, onStateChange)
                     cleanupCall(resolvedCallId)
-                    return ToolCallResult.Cancelled(resolvedCallId, "Policy denied: approval package unknown")
+                    return ToolCallResult.Cancelled(resolvedCallId, "Policy denied: approval package unknown", replan = true)
                 }
 
                 // === STATE: AWAITING_APPROVAL ===
@@ -158,27 +168,11 @@ class ToolRouter(
                     appTier = policyDecision.appTier,
                     reason = policyDecision.reason
                 )
-                try {
-                    onApprovalRequired?.invoke(approvalDetails)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to request approval for $resolvedCallId", e)
-                    pendingApprovals.remove(resolvedCallId)
-                    val errorState = ToolCallState.Error(
-                        resolvedCallId,
-                        toolName,
-                        params,
-                        "Approval request failed: ${e.message}"
-                    )
-                    updateState(errorState, onStateChange)
-                    cleanupCall(resolvedCallId)
-                    return ToolCallResult.Error(resolvedCallId, "Approval request failed: ${e.message}")
-                }
-                
-                // Wait for approval with timeout
-                
                 val decision = try {
-                    withTimeout(APPROVAL_TIMEOUT_MS) {
-                        deferred.await()
+                    if (awaitApproval != null) awaitApproval(approvalDetails, deferred)
+                    else {
+                        onApprovalRequired?.invoke(approvalDetails)
+                        withTimeout(APPROVAL_TIMEOUT_MS) { deferred.await() }
                     }
                 } catch (e: TimeoutCancellationException) {
                     // Timeout: return directly with proper message (not reusing DENIED path)
@@ -190,6 +184,14 @@ class ToolRouter(
                     updateState(cancelledState, onStateChange)
                     cleanupCall(resolvedCallId)
                     return ToolCallResult.Cancelled(resolvedCallId, "Approval timed out")
+                } catch (e: CancellationException) {
+                    cleanupCall(resolvedCallId)
+                    throw e
+                } catch (e: Exception) {
+                    val message = "Approval request failed: ${e.message ?: e.javaClass.simpleName}"
+                    updateState(ToolCallState.Error(resolvedCallId, toolName, params, message, e), onStateChange)
+                    cleanupCall(resolvedCallId)
+                    return ToolCallResult.Error(resolvedCallId, message, e)
                 } finally {
                     pendingApprovals.remove(resolvedCallId)
                 }
@@ -226,7 +228,7 @@ class ToolRouter(
                             cleanupCall(resolvedCallId)
                             return ToolCallResult.Cancelled(
                                 resolvedCallId,
-                                "App changed during approval wait"
+                                "App changed during approval wait", replan = true
                             )
                         } else if (packageName == null && currentPkg != null) {
                             // Original package was unknown — now check if landed on a BLOCKED app
@@ -270,18 +272,11 @@ class ToolRouter(
         state = ToolCallState.Executing(resolvedCallId, toolName, params, invocation)
         updateState(state, onStateChange)
         
-        // Re-capture snapshot if approval was required (UI may have changed during wait)
-        val executionSnapshot = if (approvalWasRequired) {
-            Log.d(TAG, "Re-capturing snapshot after approval wait")
-            val raw = context.platform.captureScreen()
-            // Perception gate: mask if user navigated to BLOCKED app during approval wait
-            policyEngine.appClassifier.maskIfBlocked(raw, packageName)
-        } else {
-            context.currentSnapshot
-        }
-        
-        // Execute the tool (with finally block to ensure cleanup on abnormal exit - M1)
         val executionResult = try {
+            val executionSnapshot = if (approvalWasRequired) {
+                val raw = context.platform.captureScreen()
+                policyEngine.appClassifier.maskIfBlocked(raw, context.platform.getCurrentPackageName())
+            } else context.currentSnapshot
             val execContext = object : ToolExecutionContext {
                 override val callId: String = resolvedCallId
                 override val platform: AndroidPlatform = context.platform
@@ -290,6 +285,9 @@ class ToolRouter(
                 override fun isCancelled(): Boolean = context.isCancelled() || token.isCancelled()
             }
             invocation.execute(execContext)
+        } catch (e: CancellationException) {
+            cleanupCall(resolvedCallId)
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Tool execution failed: $toolName", e)
             ToolExecutionResult.Failure(e.message ?: "Execution failed", e)
@@ -339,8 +337,7 @@ class ToolRouter(
      */
     fun resolveApproval(callId: String, decision: ApprovalDecision): Boolean {
         val deferred = pendingApprovals[callId]
-        return if (deferred != null) {
-            deferred.complete(decision)
+        return if (deferred?.complete(decision) == true) {
             Log.d(TAG, "Resolved approval for $callId: $decision")
             true
         } else {
@@ -404,28 +401,6 @@ class ToolRouter(
     private fun cleanupCall(callId: String) {
         activeToolCalls.remove(callId)
         cancellationTokens.remove(callId)
-    }
-
-    /**
-     * Best-effort pre-flight resolution of open_app destination package.
-     * Returns null if unresolved (policy falls back to current-tier-only).
-     */
-    private suspend fun resolveOpenAppDestination(
-        params: JSONObject,
-        platform: AndroidPlatform
-    ): String? {
-        val appName = params.optString("app_name", "").trim().lowercase()
-        if (appName.isEmpty()) return null
-
-        // 1. Well-known alias (cheap, no I/O)
-        AppAliases.PACKAGE_MAP[appName]?.let { return it }
-
-        // 2. Installed apps lookup (same data OpenAppInvocation uses)
-        val apps = platform.getInstalledApps()
-        apps.find { it.label.equals(appName, ignoreCase = true) }?.let { return it.packageName }
-        apps.find { it.label.contains(appName, ignoreCase = true) }?.let { return it.packageName }
-
-        return null
     }
 
     private fun isValidApprovalPackageName(packageName: String): Boolean =

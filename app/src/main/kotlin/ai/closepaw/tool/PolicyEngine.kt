@@ -73,7 +73,8 @@ class PolicyEngine(
         //    override entry cannot reach this step. Still applies to EITHER current or
         //    destination ("stricter wins" rule for open_app).
         if (effectiveTier == AppTier.BLOCKED) {
-            return PolicyDecision.Deny("Blocked: financial/auth app ($packageName)")
+            val blockedPackage = if (currentTier == AppTier.BLOCKED) packageName else destinationPackage
+            return PolicyDecision.Deny("Blocked: financial/auth app ($blockedPackage)")
         }
 
         // 4. browser_script mutates the user's real Chrome profile through CDP. Chrome is a NORMAL

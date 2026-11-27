@@ -47,6 +47,9 @@ interface AndroidPlatform {
      * @return ScreenSnapshot containing UI elements and their properties
      */
     suspend fun captureScreen(): ScreenSnapshot
+
+    /** Capture one visual observation under the same display and privacy policy as ordinary reads. */
+    suspend fun captureScreenWithScreenshot(): ScreenSnapshot = captureScreen()
     
     /**
      * Perform an atomic UI action on the device.

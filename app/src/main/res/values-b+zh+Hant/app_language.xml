@@ -5,11 +5,13 @@
     <string name="live_mandarin">普通話</string>
     <string name="live_english">英語</string>
     <string name="gpt_live_start">啟動 GPT-Live</string>
+    <string name="ui_tree_first">文字樹優先</string>
+    <string name="ui_tree_first_description">先讀文字樹，需要看畫面時才截圖。</string>
     <string name="gpt_live_widget_description">從主畫面與 ClosePaw 語音對話</string>
-    <string name="gpt_live_widget_preview">就緒\n開始語音</string>
+    <string name="gpt_live_widget_preview">未啟用</string>
     <string name="gpt_live_widget_accessibility">GPT-Live。%1$s。%2$s。</string>
     <string name="ui_on_screen_questions">在畫面上提問</string>
-    <string name="ui_on_screen_questions_hint">關閉後，GPT Live 會以語音提問，並等你開口回答。從下一個任務開始生效。</string>
+    <string name="ui_on_screen_questions_hint">關閉後，語音任務會以語音提問和取得批准。文字聊天會在畫面上提問。</string>
     <string name="ui_waiting_for_voice">輪到你說話</string>
     <string name="ui_answer_by_voice">用語音回答</string>
     <string name="accessibility_service_description">ClosePaw 是在裝置上執行的自動化助理。經你授權後，只在你啟動任務時讀取畫面，並執行點按、滑動和文字輸入。它不會在背景運行或監控其他應用程式。</string>

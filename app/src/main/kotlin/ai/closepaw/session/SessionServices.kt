@@ -107,7 +107,7 @@ class SessionServices internal constructor(
         val userResponseChannel: UserResponseChannel = UserResponseChannel(),
         val memoryStore: MemoryStore = MemoryStore(java.io.File("")),
         val memoryRecaller: MemoryRecaller = MemoryRecaller(memoryStore),
-        internal val onScreenQuestionsEnabled: () -> Boolean = { true },
+        val questionRouting: TaskQuestionRouting = TaskQuestionRouting(),
 ) {
     companion object {
         private const val TAG = "SessionServices"
@@ -170,8 +170,14 @@ class SessionServices internal constructor(
             val effectiveConfig =
                     if (effectiveExcludedTools == config.excludedTools) config
                     else config.copy(excludedTools = effectiveExcludedTools)
+            // Memory system — eval hygiene is handled by the eval bridge clearing files/memory
+            // before each task launch.
+            val memoryDir = java.io.File(context.filesDir ?: java.io.File("/tmp"), "memory")
+            val memoryStore = MemoryStore(memoryDir)
+            val memoryRecaller = MemoryRecaller(memoryStore)
             val tooling = SessionToolingBootstrapper.create(
                 approvalMode = effectiveConfig.approvalMode,
+                memoryStore = memoryStore,
                 appClassifier = appClassifier,
                 agentSkillManager = agentSkillManager,
                 agentRoleDef = AgentDefRegistry.main,
@@ -199,17 +205,12 @@ class SessionServices internal constructor(
             val recordingService = history.recordingService
             val appSkillRepository = AssetAppSkillRepository(context.assets)
 
-            // Memory system — eval hygiene is handled by the eval bridge clearing files/memory
-            // before each task launch.
-            val memoryDir = java.io.File(context.filesDir ?: java.io.File("/tmp"), "memory")
-            val memoryStore = MemoryStore(memoryDir)
-            val memoryRecaller = MemoryRecaller(memoryStore)
             toolRegistry.register(RememberExperienceTool(memoryStore, appClassifier))
 
             Log.i(TAG, "SessionServices created successfully")
 
             return SessionServices(
-                    onScreenQuestionsEnabled = settingsStore::loadOnScreenQuestions,
+                    questionRouting = TaskQuestionRouting(settingsStore::loadOnScreenQuestions, settingsStore.onScreenQuestionChanges()),
                     toolRegistry = toolRegistry,
                     toolRouter = toolRouter,
                     historyManager = historyManager,
@@ -356,7 +357,7 @@ class SessionServices internal constructor(
             memoryRecaller: MemoryRecaller = this.memoryRecaller
     ): SessionServices {
         return SessionServices(
-                onScreenQuestionsEnabled = onScreenQuestionsEnabled,
+                questionRouting = questionRouting,
                 toolRegistry = toolRegistry,
                 toolRouter = toolRouter,
                 historyManager = historyManager,

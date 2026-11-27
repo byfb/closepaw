@@ -2,6 +2,7 @@ package ai.closepaw.voice
 
 import ai.closepaw.protocol.AskUserType
 import ai.closepaw.session.UserResponseChannel.Prompt
+import ai.closepaw.session.spokenApproval
 
 /** Binds speech to a currently suspended worker request across call and session changes. Main-confined. */
 internal class LiveVoiceQuestions(
@@ -46,13 +47,21 @@ internal class LiveVoiceQuestions(
     private fun questionInstructions(prompt: Prompt) =
         "Say this question to the user now, then listen for their answer: " + prompt.message.take(1600)
 
-    fun captureAnswer(): (suspend (String) -> Unit)? {
+    class Answer(val prompt: Prompt, val deliver: suspend (String) -> Unit) {
+        suspend operator fun invoke(text: String) = deliver(text)
+    }
+
+    fun captureAnswer(): Answer? {
         val prompt = announced ?: return null
         if (pendingPrompt() !== prompt) return null
-        return { answer ->
+        return Answer(prompt) { answer ->
             if (announced === prompt && pendingPrompt() === prompt) {
-                reset()
-                submit(prompt, answer)
+                if (prompt.approval && spokenApproval(answer) == null) {
+                    speak("Ask again in the user's language for an explicit approve or deny for this action: " + prompt.message)
+                } else {
+                    reset()
+                    submit(prompt, answer)
+                }
             }
         }
     }

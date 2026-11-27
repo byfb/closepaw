@@ -13,6 +13,9 @@ import ai.closepaw.tool.ValidationResult
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import ai.closepaw.session.TaskQuestionRouting
+import ai.closepaw.session.UnansweredVoiceQuestion
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -39,7 +42,7 @@ class AskUserToolTest {
         .put("message", "What is your name?")
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    @Test fun `voice question is pending before publication and waits past the typing timeout`() = runTest {
+    @Test fun `voice question accepts a spoken reply within the deadline`() = runTest {
         val channel = UserResponseChannel()
         val dispatcher = AgentEventDispatcher(SessionId("test-session")) { event ->
             val ask = event as AskUser
@@ -49,12 +52,77 @@ class AskUserToolTest {
         val tool = AskUserTool(channel, dispatcher, byVoice = true)
         assertThat(tool.name).isEqualTo("ask_by_voice")
         val result = async { tool.createInvocation(validParams()).execute(buildContext()) }
-        advanceTimeBy(AskUserTool.TIMEOUT_MS + 1)
+        advanceTimeBy(39_000)
         assertThat(result.isCompleted).isFalse()
         channel.deliver("call-1", "Alice")
         runCurrent()
         assertThat((result.await() as ToolExecutionResult.Success).output).isEqualTo("User answered: Alice")
         assertThat(channel.pendingPrompt).isNull()
+    }
+
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun `switching off screen questions moves the pending voice-origin question to speech`() = runTest {
+        val setting = MutableStateFlow(true)
+        val routing = TaskQuestionRouting({ setting.value }, setting).apply { fromLiveVoice = true }
+        val channel = UserResponseChannel()
+        val events = mutableListOf<AskUserType>()
+        val dispatcher = AgentEventDispatcher(SessionId("voice")) { events += (it as AskUser).type }
+        val tool = AskUserTool(channel, dispatcher, routing = routing)
+        val result = async { tool.createInvocation(validParams()).execute(buildContext()) }
+        runCurrent()
+        assertThat(channel.pendingPrompt?.type).isEqualTo(AskUserType.QUESTION)
+        setting.value = false
+        runCurrent()
+        assertThat(channel.pendingPrompt?.type).isEqualTo(AskUserType.VOICE_QUESTION)
+        assertThat(events).containsExactly(AskUserType.QUESTION, AskUserType.VOICE_QUESTION).inOrder()
+        assertThat(channel.deliver("call-1", "Alice")).isTrue()
+        assertThat((result.await() as ToolExecutionResult.Success).output).contains("Alice")
+    }
+
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun `physical handoffs are withdrawn for voice tasks and kept for text tasks`() = runTest {
+        val setting = MutableStateFlow(true)
+        val routing = TaskQuestionRouting({ setting.value }, setting).apply { fromLiveVoice = true }
+        val channel = UserResponseChannel()
+        val tool = AskUserTool(channel, buildDispatcher(), routing = routing)
+        val params = validParams().put("type", "action")
+        val pending = async { tool.createInvocation(params).execute(buildContext()) }
+        runCurrent()
+        setting.value = false
+        assertThat(pending.await()).isInstanceOf(ToolExecutionResult.Failure::class.java)
+        assertThat(channel.hasPending).isFalse()
+        assertThat(tool.validate(params)).isInstanceOf(ValidationResult.Invalid::class.java)
+
+        routing.fromLiveVoice = false
+        assertThat(tool.validate(params)).isEqualTo(ValidationResult.Valid)
+        val text = async { tool.createInvocation(params).execute(buildContext()) }
+        runCurrent()
+        assertThat(channel.pendingPrompt?.type).isEqualTo(AskUserType.ACTION)
+        channel.deliver("call-1", "done")
+        assertThat(text.await()).isInstanceOf(ToolExecutionResult.Success::class.java)
+    }
+
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun `unanswered spoken question emits one reminder and expires with the question`() = runTest {
+        val channel = UserResponseChannel()
+        val deadlines = mutableListOf<UserResponseChannel.VoiceDeadline>()
+        backgroundScope.launch { channel.voiceDeadlines.collect { deadlines += it } }
+        val tool = AskUserTool(channel, buildDispatcher(), byVoice = true)
+        val result = async { runCatching { tool.createInvocation(validParams()).execute(buildContext()) } }
+        advanceTimeBy(40_000)
+        runCurrent()
+        assertThat(deadlines.map { it.expired }).containsExactly(false)
+        assertThat(channel.hasPending).isTrue()
+        advanceTimeBy(20_000)
+        runCurrent()
+        assertThat(deadlines.map { it.expired }).containsExactly(false, true).inOrder()
+        val error = result.await().exceptionOrNull()
+        assertThat(error).isInstanceOf(UnansweredVoiceQuestion::class.java)
+        assertThat(error?.message).contains("What is your name?")
+        assertThat(channel.hasPending).isFalse()
     }
 
     @Test

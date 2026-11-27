@@ -65,7 +65,7 @@ class GptLiveService : Service() {
     private val voiceQuestions = LiveVoiceQuestions(
         pendingPrompt = { observedSession?.getServices()?.userResponseChannel?.pendingPrompt },
         speak = { connectionReady && !state.value.preview && sendContext(delegationId, it, spoken = true) },
-        submit = { prompt, answer -> observedSession?.submit(Op.UserResponse(prompt.callId, answer)) },
+        submit = { prompt, answer -> observedSession?.submit(Op.UserResponse(prompt.callId, answer, spoken = true)) },
     )
     private var delegationId: String? = null
     private var conversation = LiveConversation()
@@ -159,6 +159,9 @@ class GptLiveService : Service() {
                     }
                     callControl = LiveCallControl(scope,
                         captureVoiceAnswer = voiceQuestions::captureAnswer,
+                        processingVoiceReply = { prompt, job ->
+                            observedSession?.getServices()?.userResponseChannel?.processingSpokenReply(prompt, job)
+                        },
                         selectTools = { utterance ->
                             val activeSelector = selector ?: LiveCallToolSelector.create(applicationContext, auth, tool, remember)
                                 .also { selector = it }
@@ -184,7 +187,7 @@ class GptLiveService : Service() {
                         unavailable = {
                             android.util.Log.w("GptLiveService", "Voice call control unavailable for this turn")
                             append(null, "Voice call control is unavailable for this turn. If the user asked to disconnect, " +
-                                "tell them the call is still open and offer the End voice notification action. " +
+                                "tell them the call is still open. " +
                                 "Memory updates were not confirmed; do not claim they were saved.", false)
                         },
                     )
@@ -382,6 +385,8 @@ class GptLiveService : Service() {
                             (e as? LiveVoiceException)?.message ?: strings.getString(R.string.ui_gpt_live_could_not_connect)
                         } finally {
                             connectionReady = false
+                            if (run == generation && state.value.phase == LiveVoicePhase.Active)
+                                mutableState.value = state.value.copy(phase = LiveVoicePhase.Connecting, speaking = false)
                             voiceQuestions.reset()
                             generation++
                             callControl?.reset()
@@ -533,17 +538,16 @@ class GptLiveService : Service() {
             if (prompt?.type == AskUserType.VOICE_QUESTION) return
             delegationId = request.id
             when {
-                prompt?.type == AskUserType.ACTION && session.getServices().toolRegistry.contains(ToolName.AskByVoice.raw) -> {
-                    append(request.id, "The user must complete the physical step and tap Done in ClosePaw.", true)
+                prompt != null -> {
+                    append(request.id, "An existing task is waiting for its on-screen answer.", false)
                     return
                 }
-                prompt != null -> session.submit(Op.UserResponse(prompt.callId, request.text))
                 session.state.value == SessionState.Running -> session.submit(Op.Supplement(request.text))
                 session.state.value == SessionState.Paused || session.state.value == SessionState.TakeoverPending -> {
-                    append(request.id.takeIf { origin == generation && connectionReady }, "The user has taken control. Ask them to tap Resume in ClosePaw before continuing.", true)
+                    append(request.id, "The task is paused by the user. Report the paused state.", true)
                     return
                 }
-                else -> session.submit(Op.UserInput(request.text))
+                else -> session.submit(Op.UserInput(request.text, fromLiveVoice = true))
             }
             append(request.id.takeIf { origin == generation && connectionReady }, "The phone agent received the request. Wait for its result before claiming completion.", false)
         } catch (e: TimeoutCancellationException) {
@@ -551,7 +555,7 @@ class GptLiveService : Service() {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            append(request.id.takeIf { origin == generation && connectionReady }, (e as? LiveVoiceException)?.message ?: "The phone task could not start. Check ClosePaw settings.", true)
+            append(request.id.takeIf { origin == generation && connectionReady }, (e as? LiveVoiceException)?.message ?: "The phone task could not start.", true)
         }
     }
 
@@ -563,13 +567,23 @@ class GptLiveService : Service() {
         if (session == null) return
         val replay = session.events.replayCache.size
         agentObserver = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            launch(start = CoroutineStart.UNDISPATCHED) {
+                val channel = session.getServices().userResponseChannel
+                channel.voiceDeadlines.collect { deadline ->
+                    if (observedSession !== session || !session.getServices().questionRouting.fromLiveVoice) return@collect
+                    if (deadline.expired) stopCall()
+                    else if (channel.pendingPrompt === deadline.prompt) append(delegationId,
+                        "Remind the user once in their language that their spoken answer is needed: " + deadline.prompt.message, true)
+                }
+            }
             session.events.drop(replay).collect { event ->
+                if (!session.getServices().questionRouting.fromLiveVoice) return@collect
                 val id = delegationId
                 when (event) {
                     is ThoughtUpdate -> append(id, event.compact, false)
                     is AskUser -> if (event.type == AskUserType.VOICE_QUESTION) voiceQuestions.announce()
-                        else append(id, event.message, true)
-                    is ApprovalRequired -> append(id, "Approval needed in ClosePaw: ${event.description}. Ask the user to use the approval buttons.", true)
+                        else if (!session.getServices().questionRouting.handsFree) append(id, "An on-screen request is ready: ${event.message}", false)
+                    is ApprovalRequired -> if (!session.getServices().questionRouting.handsFree) append(id, "On-screen approval requested: ${event.description}.", false)
                     is TaskCompleted -> append(id, "Task outcome: ${event.outcome}. ${event.result.orEmpty()}", true)
                     is SessionError -> append(id, "The phone agent encountered an error: ${event.message}", true)
                     is SessionCompleted -> append(id, "Phone agent session ended: ${event.reason}.", false)

@@ -159,6 +159,7 @@ private fun agentBehaviorSubtitle(
         ApprovalMode.ALWAYS_ASK -> strings.getString(R.string.ui_always_ask)
     }
     val perceptionChip = when (perceptionMode) {
+        "tree_first" -> strings.getString(R.string.ui_tree_first)
         "hybrid" -> strings.getString(R.string.ui_transcript_image)
         "screenshot_only" -> strings.getString(R.string.ui_image)
         else -> strings.getString(R.string.ui_transcript)

@@ -10,6 +10,8 @@ import ai.closepaw.model.ScreenSnapshot
 import ai.closepaw.protocol.AppTier
 import ai.closepaw.protocol.ScreenStatePhase
 import ai.closepaw.session.SessionServices
+import ai.closepaw.tool.ToolCallResult
+import ai.closepaw.tool.ToolName
 import ai.closepaw.trace.AgentTrace
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
@@ -71,11 +73,11 @@ internal class AgentTurnRunner(
                 state: TurnRunnerState
         ): TurnExecutionResult {
                 trace.turnStarted(turnId, turnNumber)
-                var nextState = state
+                var nextState = state.copy(screenshotRequested = false)
 
                 val outcome =
                         try {
-                                val preTurnContext = capturePreTurnSnapshot(turnId, turnNumber)
+                                val preTurnContext = capturePreTurnSnapshot(turnId, turnNumber, state.screenshotRequested)
                                 val snapshot = preTurnContext.snapshot
                                 if (isTurnCancelled()) {
                                         TurnOutcome.Cancelled
@@ -105,6 +107,10 @@ internal class AgentTurnRunner(
                                                                         .selectedToolCalls
                                                 )
 
+                                        nextState = nextState.copy(screenshotRequested =
+                                            executionResult.lastTerminalResult is ToolCallResult.Success &&
+                                            planningResult.arbitration.selectedToolCalls.singleOrNull()?.name == ToolName.RequestScreenshot.raw
+                                        )
                                         decideTurnOutcome(
                                                 turnNumber = turnNumber,
                                                 result = planningResult.turnResult,
@@ -131,10 +137,12 @@ internal class AgentTurnRunner(
 
         private suspend fun capturePreTurnSnapshot(
                 turnId: String,
-                turnNumber: Int
+                turnNumber: Int,
+                screenshotRequested: Boolean
         ): PreTurnContext {
                 eventDispatcher.status("👀 Scanning screen...")
-                val rawSnapshot = services.platform.captureScreen()
+                val rawSnapshot = if (screenshotRequested) services.platform.captureScreenWithScreenshot()
+                                  else services.platform.captureScreen()
                 val currentPackage = services.platform.getCurrentPackageName()
 
                 // Layer 2: Perception Gate — mask BLOCKED app screens
@@ -146,6 +154,8 @@ internal class AgentTurnRunner(
                                 "⛔ Screen hidden: $currentPackage is a blocked app (financial/auth). " +
                                 "Content masked by security policy. Use back or home to navigate away."
                         )
+                } else if (screenshotRequested && snapshot.image == null) {
+                        listOf("The requested screenshot is unavailable. Use the current text tree or another observation.")
                 } else {
                         emptyList()
                 }

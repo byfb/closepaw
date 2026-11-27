@@ -102,6 +102,7 @@ internal fun SessionConfig.toConfigSnapshot() = ConversationConfigSnapshot(
 )
 
 private fun PerceptionConfig.toModeString(): String = when (this) {
+    PerceptionConfig.TreeFirst -> "tree_first"
     is PerceptionConfig.AccessibilityOnly -> "accessibility_only"
     is PerceptionConfig.ScreenshotOnly -> "screenshot_only"
     is PerceptionConfig.Hybrid -> "hybrid"
@@ -111,11 +112,7 @@ internal fun ConversationConfigSnapshot.toSessionConfig(): SessionConfig = Sessi
     mainModel = ModelCatalog.migrateRetiredModel(mainModel),
     customInstructions = customInstructions.take(ai.closepaw.protocol.CustomInstructions.MAX_LENGTH),
     reasoningEffort = reasoningEffort.takeIf { ModelCatalog.migrateRetiredModel(mainModel) == mainModel },
-    perceptionConfig = when (perceptionMode) {
-        "screenshot_only" -> PerceptionConfig.ScreenshotOnly()
-        "hybrid" -> PerceptionConfig.Hybrid()
-        else -> PerceptionConfig.AccessibilityOnly
-    },
+    perceptionConfig = PerceptionConfig.fromMode(perceptionMode),
     platformMode = try { PlatformMode.valueOf(platformMode) } catch (_: Exception) {
         Log.w(SNAPSHOT_TAG, "Unknown PlatformMode in snapshot: $platformMode"); PlatformMode.ACCESSIBILITY
     },

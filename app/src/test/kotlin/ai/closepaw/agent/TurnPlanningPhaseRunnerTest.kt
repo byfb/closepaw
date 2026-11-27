@@ -160,7 +160,10 @@ private class PlanningHarness(
             val events = CopyOnWriteArrayList<AgentEvent>()
             val llmClient = CapturingLLMClient(toolCalls = toolCalls, textContent = textContent)
             val catalog = ModelCatalog.fromJson(catalogJson)
-            val toolRegistry = ToolRegistry()
+            val toolRegistry = ToolRegistry().apply {
+                register(ai.closepaw.tool.impl.MobileActionTool())
+                register(ai.closepaw.tool.impl.CompleteTaskTool())
+            }
             val policyEngine = PolicyEngine(appClassifier = AppClassifier(emptyMap()))
             val services = SessionServices(
                 toolRegistry = toolRegistry,

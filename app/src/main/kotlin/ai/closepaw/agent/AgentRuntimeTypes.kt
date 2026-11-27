@@ -5,6 +5,7 @@ import ai.closepaw.agent.cognition.policy.ToolArbitrationResult
 import ai.closepaw.agent.cognition.policy.TurnToolPolicy
 import ai.closepaw.tool.ToolCallResult
 import ai.closepaw.tool.ToolName
+import ai.closepaw.session.UnansweredVoiceQuestion
 
 /** Reason why the agent stopped. */
 sealed class AgentStopReason {
@@ -28,7 +29,8 @@ sealed class TurnOutcome {
  * `navigationState` powers loop detection (stable-screen warning).
  */
 internal data class TurnRunnerState(
-    val navigationState: NavigationState = NavigationState()
+    val navigationState: NavigationState = NavigationState(),
+    val screenshotRequested: Boolean = false,
 )
 
 /**
@@ -64,9 +66,8 @@ internal data class ExecutionPhaseResult(
 /**
  * Maps the planning + execution results to the control-loop outcome.
  *
- * Only emits [TurnOutcome.Complete] when `complete_task` was planned AND actually executed.
- * If the execution loop aborted early (failure or cancellation) before reaching
- * `complete_task`, emits [TurnOutcome.Error] or [TurnOutcome.Cancelled] instead.
+ * A failed tool ends its batch and returns control to the planner with the diagnostic.
+ * Explicit stops, unanswered voice requests and approvals belonging to the parent end the run.
  */
 internal fun decideTurnOutcome(
     policy: TurnToolPolicy,
@@ -76,11 +77,11 @@ internal fun decideTurnOutcome(
 ): TurnOutcome {
     if (execution.terminatedEarly) {
         return when (val last = execution.lastTerminalResult) {
-            is ToolCallResult.Cancelled -> TurnOutcome.Cancelled
-            is ToolCallResult.Error -> TurnOutcome.Error(
-                message = last.error,
-                recoverable = true
-            )
+            is ToolCallResult.Cancelled -> if (last.replan) TurnOutcome.Continue else TurnOutcome.Cancelled
+            // The failed call and its diagnostic are already in model history. Replan from them.
+            is ToolCallResult.Error -> if (last.exception is UnansweredVoiceQuestion || last.exception is ParentApprovalRequired) {
+                TurnOutcome.Complete(last.exception.message ?: last.error, success = false)
+            } else TurnOutcome.Continue
             else -> TurnOutcome.Error(
                 message = "Tool execution aborted before completion",
                 recoverable = true
@@ -101,3 +102,6 @@ internal fun decideTurnOutcome(
         success = decision.success
     )
 }
+
+internal class ParentApprovalRequired(description: String, packageName: String) :
+    Exception("Run this action in the parent task to request user approval: $description ($packageName).")

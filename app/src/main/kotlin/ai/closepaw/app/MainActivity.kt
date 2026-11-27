@@ -765,13 +765,7 @@ class MainActivity : ComponentActivity() {
                                         backendType = settingsState.llmBackend,
                                         localConfig = localConfig
                                 ),
-                        perceptionConfig =
-                                when (settingsState.perceptionMode) {
-                                    "screenshot_only" ->
-                                            PerceptionConfig.ScreenshotOnly()
-                                    "hybrid" -> PerceptionConfig.Hybrid()
-                                    else -> PerceptionConfig.AccessibilityOnly
-                                },
+                        perceptionConfig = PerceptionConfig.fromMode(settingsState.perceptionMode),
                         platformMode = settingsState.platformMode,
                         excludedTools = pendingExcludedTools,
                         evalTurnBudget = pendingEvalTurnBudget

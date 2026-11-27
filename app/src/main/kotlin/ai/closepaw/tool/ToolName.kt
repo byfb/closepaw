@@ -13,7 +13,7 @@ sealed class ToolName(
             when (this) {
                 MobileAction, OpenApp, SystemButton, DelegateTask, BrowserScript -> true
                 Wait, CompleteTask, WriteTodos, Scratchpad, RememberExperience, AskUser, AskByVoice,
-                Shell, TermuxShell, ActivateSkill -> false
+                Shell, TermuxShell, ActivateSkill, RequestScreenshot, SearchApps, GetCurrentTime -> false
                 is Unknown -> true
             }
 
@@ -68,6 +68,9 @@ sealed class ToolName(
         displayName = "Ask user"
     )
     data object AskByVoice : ToolName("ask_by_voice", "ask_by_voice", "Ask by voice")
+    data object RequestScreenshot : ToolName("request_screenshot", "request_screenshot", "Request screenshot")
+    data object SearchApps : ToolName("search_apps", "search_apps", "Search apps")
+    data object GetCurrentTime : ToolName("get_current_time", "get_current_time", "Get current time")
     data object Shell : ToolName(
         raw = "shell",
         canonical = "shell",
@@ -108,6 +111,9 @@ sealed class ToolName(
                 RememberExperience.canonical -> RememberExperience
                 AskUser.canonical -> AskUser
                 AskByVoice.canonical -> AskByVoice
+                RequestScreenshot.canonical -> RequestScreenshot
+                SearchApps.canonical -> SearchApps
+                GetCurrentTime.canonical -> GetCurrentTime
                 Shell.canonical -> Shell
                 TermuxShell.canonical -> TermuxShell
                 ActivateSkill.canonical -> ActivateSkill

@@ -339,7 +339,8 @@ echo 'PERCEPTION_MODE=hybrid' >> .env
 
 | Mode | Behavior |
 |------|----------|
-| `accessibility_only` (default) | Accessibility tree only |
+| `tree_first` (default) | Accessibility tree, with one screenshot on request |
+| `accessibility_only` | Accessibility tree only |
 | `hybrid` | Accessibility tree + screenshot |
 | `screenshot_only` | Screenshot only |
 

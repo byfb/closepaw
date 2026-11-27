@@ -272,10 +272,15 @@ internal fun PerceptionModeSelector(
 
     val options = listOf(
         PerceptionOption(
+            value = "tree_first",
+            label = strings.getString(R.string.ui_tree_first),
+            subtitle = strings.getString(R.string.ui_tree_first_description),
+            recommended = true,
+        ),
+        PerceptionOption(
             value = "accessibility_only",
             label = strings.getString(R.string.ui_screen_transcript),
             subtitle = strings.getString(R.string.ui_reads_text_and_layout_fast_cheap_works_for_most_apps),
-            recommended = true,
         ),
         PerceptionOption(
             value = "screenshot_only",

@@ -25,6 +25,13 @@ import ai.closepaw.protocol.SessionId
 import ai.closepaw.protocol.SessionLlmConfig
 import ai.closepaw.session.AgentSessionState
 import ai.closepaw.session.SessionServices
+import ai.closepaw.session.TaskQuestionRouting
+import ai.closepaw.protocol.AskUser
+import ai.closepaw.protocol.AskUserType
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import ai.closepaw.tool.AppClassifier
 import ai.closepaw.tool.PolicyEngine
 import ai.closepaw.tool.ToolCallResult
@@ -49,6 +56,52 @@ import org.junit.Test
  * Turn-outcome logic is covered separately in [TurnOutcomeDecisionTest].
  */
 class TurnExecutionPhaseRunnerTest {
+
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun `pending approval switches to speech and only grants the current call`() = runTest {
+        val setting = MutableStateFlow(true)
+        val routing = TaskQuestionRouting({ setting.value }, setting).apply { fromLiveVoice = true }
+        val tool = StubTool("gated_tool", ToolExecutionResult.Success("done"))
+        val harness = TestHarness.build(FakePlatform(), listOf(tool), ApprovalMode.SMART, routing)
+        val first = ToolCallRequest("first", tool.name, JSONObject())
+        val second = ToolCallRequest("second", tool.name, JSONObject())
+        val snapshot = ScreenSnapshot(timestamp = 0L, elements = emptyList())
+        val batch = async { harness.runner.executeActions("turn", 1, snapshot, listOf(first, second)) }
+        advanceTimeBy(300)
+        assertThat(harness.events.filterIsInstance<ApprovalRequired>()).hasSize(1)
+        setting.value = false
+        runCurrent()
+        val channel = harness.services.userResponseChannel
+        assertThat(channel.pendingPrompt?.approval).isTrue()
+        assertThat(channel.pendingPrompt?.message).contains("com.example.fake")
+        assertThat(tool.executionCount).isEqualTo(0)
+        channel.deliver("first", "同意")
+        advanceTimeBy(2_000)
+        assertThat(tool.executionCount).isEqualTo(1)
+        assertThat(channel.pendingPrompt?.callId).isEqualTo("second")
+        assertThat(channel.deliver("first", "yes")).isFalse()
+        channel.deliver("second", "唔好")
+        assertThat(batch.await().terminatedEarly).isTrue()
+        assertThat(tool.executionCount).isEqualTo(1)
+        assertThat(harness.events.filterIsInstance<AskUser>().map { it.type })
+            .containsExactly(AskUserType.VOICE_QUESTION, AskUserType.VOICE_QUESTION)
+    }
+
+    @Test fun `unanswered hands-free approval reaches task result without executing`() = runTest {
+        val tool = StubTool("gated_tool", ToolExecutionResult.Success("done"))
+        val routing = TaskQuestionRouting({ false }).apply { fromLiveVoice = true }
+        val harness = TestHarness.build(FakePlatform(), listOf(tool), ApprovalMode.SMART, routing)
+        val call = ToolCallRequest("one", tool.name, JSONObject())
+        val execution = harness.runner.executeActions("turn", 1, ScreenSnapshot(0L, emptyList()), listOf(call))
+        val policy = ai.closepaw.agent.cognition.policy.TurnToolPolicy()
+        val outcome = decideTurnOutcome(policy, TurnResult(null, listOf(call), false),
+            policy.arbitrateToolCalls(listOf(call)), execution) as TurnOutcome.Complete
+        assertThat(outcome.success).isFalse()
+        assertThat(outcome.message).contains("Approve this action for com.example.fake")
+        assertThat(tool.executionCount).isEqualTo(0)
+        assertThat(harness.events.filterIsInstance<ApprovalRequired>()).isEmpty()
+    }
 
     @Test
     fun `successful tool execution appends function call and output to history`() = runTest {
@@ -174,7 +227,8 @@ private class TestHarness(
         fun build(
             platform: AndroidPlatform,
             tools: List<ToolSpec>,
-            approvalMode: ApprovalMode = ApprovalMode.AUTO_APPROVE
+            approvalMode: ApprovalMode = ApprovalMode.AUTO_APPROVE,
+            routing: TaskQuestionRouting = TaskQuestionRouting(),
         ): TestHarness {
             val registry = ToolRegistry().apply { tools.forEach { register(it) } }
             val policyEngine = PolicyEngine(appClassifier = AppClassifier(emptyMap())).apply {
@@ -190,6 +244,7 @@ private class TestHarness(
             )
             val services = SessionServices(
                 toolRegistry = registry,
+                questionRouting = routing,
                 toolRouter = toolRouter,
                 historyManager = HistoryManager(),
                 sessionState = AgentSessionState(),

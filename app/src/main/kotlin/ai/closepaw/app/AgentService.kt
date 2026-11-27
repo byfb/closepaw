@@ -133,7 +133,7 @@ class AgentService : AccessibilityService() {
                 val config = candidate.getServices().config
                 if (config.llm.backendType != ai.closepaw.protocol.LLMBackendType.OPENAI ||
                     catalog.resolveOrNull(config.mainModel)?.provider != ai.closepaw.llm.LLMProvider.OPENAI_CODEX) {
-                    throw ai.closepaw.voice.LiveVoiceException("Start a new chat with a ChatGPT model before delegating voice tasks.")
+                    throw ai.closepaw.voice.LiveVoiceException("The current chat uses a different provider and cannot accept this voice task.")
                 }
                 return candidate
             }
@@ -152,11 +152,7 @@ class AgentService : AccessibilityService() {
                 debugMode = settings.debugMode,
                 traceEnabled = settings.traceEnabled,
                 platformMode = settings.platformMode,
-                perceptionConfig = when (settings.perceptionMode) {
-                    "screenshot_only" -> ai.closepaw.perception.PerceptionConfig.ScreenshotOnly()
-                    "hybrid" -> ai.closepaw.perception.PerceptionConfig.Hybrid()
-                    else -> ai.closepaw.perception.PerceptionConfig.AccessibilityOnly
-                },
+                perceptionConfig = ai.closepaw.perception.PerceptionConfig.fromMode(settings.perceptionMode),
             )
             var created: AgentSession? = null
             try {

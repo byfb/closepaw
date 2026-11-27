@@ -1,20 +1,27 @@
 package ai.closepaw.qa
 
+import ai.closepaw.R
+import ai.closepaw.ui.theme.appResources
+import androidx.activity.ComponentActivity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
@@ -30,7 +37,7 @@ private const val CLEAR_TRACES_DIALOG_BODY =
 @RunWith(AndroidJUnit4::class)
 class SettingsPermissionsTest {
 
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
     // S10: trace toggle ON shows the sensitive-data warning banner; OFF hides it.
     @Test fun session_traces_toggle_shows_warning_banner() {
@@ -42,18 +49,18 @@ class SettingsPermissionsTest {
             )
         }
 
-        val bannerFragment = "Traces may contain sensitive data"
+        val strings = appResources(compose.activity)
+        val warning = compose.onNodeWithText(
+            strings.getString(R.string.ui_traces_may_include_screenshots_and_inputs_turn_off_when_done)
+        )
+        val toggle = compose.onNodeWithTag("qa-session-traces-switch")
 
-        // Initial: OFF → no banner.
-        compose.onAllNodesWithText(bannerFragment, substring = true).assertCountEquals(0)
-
-        // Toggle ON — tagged Switch is the only stable selector (two switches on page).
-        compose.onNodeWithTag("qa-session-traces-switch").performClick()
-        compose.onNodeWithText(bannerFragment, substring = true).assertExists()
-
-        // Toggle OFF → banner gone.
-        compose.onNodeWithTag("qa-session-traces-switch").performClick()
-        compose.onAllNodesWithText(bannerFragment, substring = true).assertCountEquals(0)
+        toggle.assertIsOff()
+        warning.assertDoesNotExist()
+        toggle.performScrollTo().performClick().assertIsOn()
+        warning.performScrollTo().assertIsDisplayed()
+        toggle.performScrollTo().performClick().assertIsOff()
+        warning.assertDoesNotExist()
     }
 
     // S11: clicking Clear Traces opens the confirmation dialog with the

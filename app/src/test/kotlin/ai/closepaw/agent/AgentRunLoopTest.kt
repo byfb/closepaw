@@ -9,10 +9,14 @@ import ai.closepaw.llm.LLMToolCall
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.llm.ResponsesResult
 import ai.closepaw.protocol.LLMBackendType
+import ai.closepaw.protocol.AppTier
 import ai.closepaw.protocol.SessionConfig
 import ai.closepaw.protocol.SessionId
 import ai.closepaw.protocol.SessionLlmConfig
 import ai.closepaw.model.ScreenSnapshot
+import ai.closepaw.model.ScreenImage
+import ai.closepaw.model.ScreenImageSource
+import ai.closepaw.perception.PerceptionConfig
 import ai.closepaw.platform.ActionResult
 import ai.closepaw.platform.AndroidPlatform
 import ai.closepaw.platform.AppInfo
@@ -25,7 +29,11 @@ import ai.closepaw.tool.AppClassifier
 import ai.closepaw.tool.PolicyEngine
 import ai.closepaw.tool.ToolRegistry
 import ai.closepaw.tool.ToolRouter
+import ai.closepaw.tool.ToolSpec
 import ai.closepaw.tool.impl.CompleteTaskTool
+import ai.closepaw.tool.impl.OpenAppTool
+import ai.closepaw.tool.impl.SearchAppsTool
+import ai.closepaw.tool.impl.RequestScreenshotTool
 import ai.closepaw.trace.NoopTraceRecorder
 import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
@@ -59,6 +67,58 @@ import org.junit.Test
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class AgentRunLoopTest {
+
+    @Test fun `failed launch stops its batch and the next plan searches then opens the installed app`() = runTest {
+        val llm = ProgrammableLLMClient(listOf(
+            LLMBehavior.Calls(listOf(LLMToolCall("missing", "open_app", """{"app_name":"Missing app"}"""),
+                LLMToolCall("skip", "open_app", """{"app_name":"com.example.real"}"""))),
+            LLMBehavior.Calls(listOf(LLMToolCall("find", "search_apps", """{"query":"Real"}"""))),
+            LLMBehavior.Calls(listOf(LLMToolCall("launch", "open_app", """{"app_name":"com.example.real"}"""))),
+            LLMBehavior.CompleteTaskCall(true, "Opened Real"),
+        ))
+        val destination = AppInfo("com.example.real", "Real")
+        val history = HistoryManager()
+        val agent = newAgent(llm, registerCompleteTask = true, historyManager = history,
+            platform = FakeAndroidPlatform(installedApps = listOf(destination)),
+            classifier = AppClassifier(mapOf("com.example.fake" to AppTier.NORMAL, destination.packageName to AppTier.NORMAL)),
+            extraTools = listOf(OpenAppTool(), SearchAppsTool))
+        assertThat(agent.run()).isEqualTo(AgentStopReason.GoalAchieved("Opened Real"))
+        val outputs = history.getAll().filterIsInstance<ai.closepaw.history.ResponseItem.FunctionCallOutput>()
+        assertThat(outputs.map { it.callId }).containsExactly("missing", "find", "launch", "ct-3").inOrder()
+        assertThat(llm.inputs[1].filter { it.isFunctionCallOutput() }.single().asFunctionCallOutput().output().toString())
+            .contains("App not found")
+        assertThat(outputs[1].content).contains(destination.packageName)
+        assertThat(outputs[2].content).contains("Launched Real")
+    }
+
+    @Test fun `tree first provides one requested image and then resumes text-only observations`() = runTest {
+        val fake = FakeAndroidPlatform()
+        var screenshots = 0
+        val platform = object : AndroidPlatform by fake {
+            override suspend fun captureScreenWithScreenshot(): ScreenSnapshot {
+                screenshots++
+                return fake.captureScreen().copy(image = ScreenImage(1, 1, "image/jpeg", byteArrayOf(1),
+                    ScreenImageSource.ACCESSIBILITY_SCREENSHOT))
+            }
+        }
+        for (config in listOf(PerceptionConfig.TreeFirst, PerceptionConfig.AccessibilityOnly)) {
+            screenshots = 0
+            val llm = ProgrammableLLMClient(listOf(
+                LLMBehavior.Calls(listOf(LLMToolCall("look", "request_screenshot", "{}"))),
+                LLMBehavior.Continue, LLMBehavior.TextOnly("Finished")))
+            val agent = newAgent(llm, platform = platform, extraTools = listOf(RequestScreenshotTool), perception = config)
+            assertThat(agent.run()).isInstanceOf(AgentStopReason.GoalAchieved::class.java)
+            val images = llm.inputs.map { items ->
+                items.filter { it.isEasyInputMessage() }.map { it.asEasyInputMessage().content() }
+                    .filter { it.isResponseInputMessageContentList() }
+                    .sumOf { content -> content.asResponseInputMessageContentList().count { it.isInputImage() } }
+            }
+            val expected = if (config == PerceptionConfig.TreeFirst) 1 else 0
+            assertThat(screenshots).isEqualTo(expected)
+            assertThat(images).containsExactly(0, expected, 0).inOrder()
+            assertThat(llm.toolNames.first().contains("request_screenshot")).isEqualTo(expected == 1)
+        }
+    }
 
     // ---------------- Outcome: Continue + evalTurnBudget safety net ----------------
 
@@ -396,13 +456,18 @@ class AgentRunLoopTest {
         evalTurnBudget: Int? = null,
         compactor: ai.closepaw.history.Compactor? = null,
         historyManager: HistoryManager = HistoryManager(),
+        extraTools: List<ToolSpec> = emptyList(),
+        perception: PerceptionConfig = PerceptionConfig.DEFAULT,
+        classifier: AppClassifier = AppClassifier(emptyMap()),
     ): Agent {
         val toolRegistry = ToolRegistry().apply {
             if (registerCompleteTask) register(CompleteTaskTool())
+            extraTools.forEach(::register)
         }
-        val policyEngine = PolicyEngine(appClassifier = AppClassifier(emptyMap()))
+        val policyEngine = PolicyEngine(appClassifier = classifier)
         val sessionConfig = SessionConfig(
             actionDelayMs = 0,
+            perceptionConfig = perception,
             llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI)
         )
         val testCatalog = ModelCatalog.fromJson(
@@ -414,7 +479,7 @@ class AgentRunLoopTest {
             historyManager = historyManager,
             sessionState = AgentSessionState(),
             policyEngine = policyEngine,
-            appClassifier = AppClassifier(emptyMap()),
+            appClassifier = classifier,
             platform = platform,
             config = sessionConfig,
             llmClient = llm,
@@ -446,6 +511,7 @@ private sealed class LLMBehavior {
 
     /** Text-only stream — yields TurnResult(isComplete=true) -> Complete(success=true). */
     data class TextOnly(val text: String) : LLMBehavior()
+    data class Calls(val calls: List<LLMToolCall>) : LLMBehavior()
 
     /** Streams a complete_task tool call so it can be executed by the registry. */
     data class CompleteTaskCall(val success: Boolean, val answer: String) : LLMBehavior()
@@ -463,6 +529,8 @@ private class ProgrammableLLMClient(
 ) : LLMClient() {
     var callCount: Int = 0
         private set
+    val inputs = mutableListOf<List<ResponseInputItem>>()
+    val toolNames = mutableListOf<List<String>>()
 
     override suspend fun chatWithTools(
         systemPrompt: String,
@@ -483,11 +551,17 @@ private class ProgrammableLLMClient(
         model: String
     ): Flow<LLMStreamEvent> = flow {
         val index = callCount
+        inputs += inputItems
+        toolNames += tools.map { it.name() }
         callCount += 1
         val behavior = script.getOrNull(index)
             ?: error("ProgrammableLLMClient ran out of scripted behaviors at call $index")
         emit(LLMStreamEvent.Created("resp-$index"))
         when (behavior) {
+            is LLMBehavior.Calls -> {
+                behavior.calls.forEach { emit(LLMStreamEvent.ToolCallDone(it)) }
+                emit(LLMStreamEvent.Completed)
+            }
             LLMBehavior.Continue -> {
                 emit(LLMStreamEvent.Completed)
             }
@@ -548,6 +622,10 @@ private class GatedLLMClient : LLMClient() {
         val behavior = turnRelease.receive()
         emit(LLMStreamEvent.Created("gated"))
         when (behavior) {
+            is LLMBehavior.Calls -> {
+                behavior.calls.forEach { emit(LLMStreamEvent.ToolCallDone(it)) }
+                emit(LLMStreamEvent.Completed)
+            }
             LLMBehavior.Continue -> emit(LLMStreamEvent.Completed)
             is LLMBehavior.TextOnly -> {
                 emit(LLMStreamEvent.TextDelta(behavior.text))

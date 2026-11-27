@@ -357,7 +357,12 @@ class ServiceOverlayController(
         refreshGlowState()
     }
 
-    fun onActionExecuted(toolName: String, success: Boolean) {
+    fun onActionExecuted(callId: String) {
+        when (stateHolder.mode.value) {
+            is CapsuleMode.WaitingForAction, is CapsuleMode.WaitingForInput -> stateHolder.onUserResponseSent(callId)
+            is CapsuleMode.WaitingForApproval -> stateHolder.onApprovalResolved(callId)
+            else -> Unit
+        }
         refreshGlowState()
         // applyVisibility not needed: active task state hasn't changed
     }

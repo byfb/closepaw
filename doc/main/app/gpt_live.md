@@ -41,18 +41,18 @@ used after permission or sign-in changes, the service rechecks prerequisites and
 refreshes the widget; the next tap opens setup. The service does not launch an
 Activity from the background.
 
-The entire widget is one button. Tap anywhere to start voice, end the current
-call, or open setup when needed. Its background and large label identify the
-current state, including green for **Listening**, purple for **Replying**, and
-amber for **Your turn**. TalkBack announces the state and tap action together.
-Ending a call leaves delegated work running. The widget continues to show its
-outcome, and the chat history holds the result.
+The widget shows green **Enabled** while the call can receive speech, including
+while the agent works or replies. It shows **Disabled** while idle, connecting,
+muted, interrupted, previewing or disconnected. TalkBack announces the state and
+the available tap action. Tapping a muted call unmutes it. Chat history holds the
+task outcome even when the call ends.
 
-Turn off **On-screen questions** in **Settings → GPT-Live** to answer by voice
-starting with the next task. GPT Live asks the question aloud and waits for the
-spoken answer. If the call is closed, tap **Answer by voice** in the capsule
-or tap the widget to hear the pending question. A physical step uses **Done**
-and an app approval uses its approval buttons.
+For a task started by voice, turning off **On-screen questions** in
+**Settings → GPT-Live** moves pending questions and approvals to speech.
+The agent operates the phone and asks aloud for missing details or permission
+for a specific action. If a step requires physical input, such as a fingerprint,
+the task result identifies the blocker. Tasks started in text chat use their
+usual on-screen questions and approvals, including during a live call.
 
 Voice preferences are shared by the app and widget:
 
@@ -196,7 +196,9 @@ Idle calls give one spoken reminder after 40 seconds and disconnect around 60
 seconds, with at least 20 seconds between scheduling the reminder and hanging up.
 Fresh user speech cancels that countdown. Normal assistant replies and running
 phone tasks postpone idle timing; the reminder's own speech does not. An outstanding
-voice question also postpones the idle countdown. On-screen requests follow
+voice question uses its own deadline. After 40 seconds the worker requests one
+spoken reminder. At 60 seconds it records the unanswered question in the task
+result and ends the call. On-screen requests follow
 the usual idle timer. Audio interruptions pause timing, and reconnections
 start a fresh timer. Voice preview is excluded. The timer starts when the call is
 ready, so an ordinary silent startup follows the same 40/60-second rule.
@@ -226,9 +228,9 @@ or creates one with the selected ChatGPT model (the preferred ChatGPT model when
 another provider is selected). It refuses to replace a running session belonging
 to another provider. Model selection in Settings is unchanged. The resolved model's
 saved reasoning effort, approval settings, and perception settings are preserved.
-Running-task follow-ups become supplements;
-answers to a pending question use the existing user-response channel. Device
-takeover and approval buttons remain authoritative.
+Running-task follow-ups become supplements. Each answer is matched to its
+pending question and input channel. A spoken approval grants the described
+action once.
 
 ## Verification
 

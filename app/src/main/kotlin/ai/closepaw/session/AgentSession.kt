@@ -284,7 +284,7 @@ private constructor(
             is Op.Shutdown -> lifecycleMutex.withLock { handleShutdown(ShutdownCause.UserRequested) }
             is Op.UserInput -> lifecycleMutex.withLock { handleUserInput(op) }
             is Op.Supplement -> handleSupplement(op.text)
-            is Op.UserResponse -> handleUserResponse(op.callId, op.response)
+            is Op.UserResponse -> handleUserResponse(op)
             is Op.Approve -> handleApproval(op)
         }
     }
@@ -313,6 +313,7 @@ private constructor(
                 return
             }
             SessionState.Created -> {
+                services.questionRouting.fromLiveVoice = op.fromLiveVoice
                 if (!initializeForFirstTask()) {
                     emitBootstrapFailure(op.text, "Platform initialization failed")
                     return
@@ -320,6 +321,7 @@ private constructor(
                 emit(SessionStarted(sessionId = sessionId, timestamp = now(), goal = op.text))
             }
             SessionState.Idle -> {
+                services.questionRouting.fromLiveVoice = op.fromLiveVoice
                 if (!reacquirePlatform()) {
                     emitBootstrapFailure(op.text, "Platform start failed")
                     if (consecutiveReacquireFailures >= MAX_REACQUIRE_FAILURES) {
@@ -568,8 +570,12 @@ private constructor(
         Log.i(TAG, "Supplement received: ${text.take(50)}")
     }
 
-    private suspend fun handleUserResponse(callId: String, response: String) {
-        val delivered = services.userResponseChannel.deliver(callId, response)
+    private suspend fun handleUserResponse(op: Op.UserResponse) {
+        val callId = op.callId
+        val pending = services.userResponseChannel.pendingPrompt ?: return
+        if (op.spoken != (pending.type == AskUserType.VOICE_QUESTION) ||
+            (!op.spoken && services.questionRouting.handsFree)) return
+        val delivered = services.userResponseChannel.deliver(callId, op.response)
         if (delivered) {
             emit(UserResponded(sessionId, now(), callId))
             Log.i(TAG, "UserResponse delivered: callId=$callId")
@@ -660,6 +666,13 @@ private constructor(
     }
 
     private suspend fun handleApproval(op: Op.Approve) {
+        val prompt = services.userResponseChannel.pendingPrompt
+        if (op.decision == ApprovalDecision.ABORT && prompt?.approval == true && prompt.callId == op.actionId) {
+            lifecycleMutex.withLock { handleInterrupt() }
+            return
+        }
+        if ((services.questionRouting.handsFree || prompt?.approval == true) &&
+            op.decision != ApprovalDecision.ABORT) return
         if (op.decision == ApprovalDecision.APPROVED && !isValidApprovalPackageName(op.packageName)) {
             val resolved = services.toolRouter.resolveApproval(op.actionId, ApprovalDecision.DENIED)
             if (!resolved) {
