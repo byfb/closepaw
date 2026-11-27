@@ -152,7 +152,7 @@ Classifies Android packages into security tiers.
 
 `delegate_task` is registered lazily only when the selected agent definition requires delegation.
 
-At the start of each task, `SessionAgentRunner` reads **Settings → GPT-Live → On-screen questions** and registers the selected question tool. On-screen requests time out after five minutes. With the switch off, GPT Live speaks the pending question and the worker waits for a completed spoken reply or cancellation. If the call is closed, the user can start it from the widget or **Answer by voice**. Physical steps still have a **Done** button. [Session details](session.md)
+Text-chat tasks use `ask_user` for on-screen requests. For tasks started by voice, turning off **Settings → GPT-Live → On-screen questions** selects `ask_by_voice`. GPT Live asks for missing details and approval for individual actions aloud. If a physical step such as a fingerprint is required, the agent reports what blocked the task. [GPT Live](../app/gpt_live.md)
 
 `shell` executes shell commands on the device via `ProcessBuilder("sh", "-c", command)` with a 10s timeout. Two layers of validation: (1) **metacharacter rejection** — `;`, `|`, `&`, `` ` ``, `>`, `<`, `$`, newline, and CR are rejected at validation time to prevent chaining/bypass; (2) **blocklist** — first token checked against `am`, `pm`, `reboot`, `su`, `env`, `xargs`, `find`. Output is capped at `MAX_OUTPUT_CHARS` (4096) with a truncation indicator when exceeded. Password field text is suppressed at the perception layer (Perceptor checks `AccessibilityNodeInfo.isPassword()`).
 
