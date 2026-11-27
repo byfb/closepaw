@@ -9,7 +9,9 @@ import ai.closepaw.agent.cognition.prompt.TurnObservation
 import ai.closepaw.history.Compactor
 import ai.closepaw.history.MessageKind
 import ai.closepaw.history.ResponseItem
+import ai.closepaw.agent.definition.forHandsFree
 import ai.closepaw.model.ScreenSnapshot
+import ai.closepaw.perception.PerceptionConfig
 import ai.closepaw.protocol.TurnPhase
 import ai.closepaw.protocol.compactThought
 import ai.closepaw.session.SessionServices
@@ -53,12 +55,16 @@ internal class TurnPlanningPhaseRunner(
                 eventDispatcher.status("🧠 Thinking...")
 
                 val model = modelResolver.resolve(config.modelName)
+                val canRequestImage = model.supportsVision && services.config.perceptionConfig == PerceptionConfig.TreeFirst
+                val handsFree = services.questionRouting.handsFree
+                val hiddenQuestion = if (handsFree) ToolName.AskUser else ToolName.AskByVoice
+                val tools = (config.allowedToolNames ?: services.toolRegistry.getNames()) - hiddenQuestion.raw
 
                 val turn =
                         Turn(
                                 toolRegistry = services.toolRegistry,
                                 llmClient = model.llmClient,
-                                allowedToolNames = config.allowedToolNames,
+                                allowedToolNames = if (canRequestImage) tools else tools - ToolName.RequestScreenshot.raw,
                                 compactor = compactor,
                                 historyManager =
                                         if (compactor != null) services.historyManager else null,
@@ -67,7 +73,7 @@ internal class TurnPlanningPhaseRunner(
                 val systemPrompt =
                         requireNotNull(config.systemPrompt) {
                                 "System prompt must be provided by AgentRoleDef."
-                        }
+                        }.let { if (handsFree) it.forHandsFree() else it }
 
                 // Activate any /skill-name mentions in the goal before prompt build.
                 val activationResults = services.agentSkillManager.activateExplicitMentions(config.goal)

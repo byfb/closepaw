@@ -86,9 +86,6 @@ class DisplayModeSettingsTest {
         ).assertExists()
     }
 
-    // (c) Home Agent Behavior subtitle pulls a "VD" chip from effectivePlatformMode.
-    //     The old combined "Setup required · Debug off · VD" string is gone — that subtitle
-    //     was split: permissions row keeps the "· Debug" half, agent-behavior row owns "· VD".
     @Test fun home_subtitle_reflects_effective_platform_mode() {
         var current: PlatformMode? by mutableStateOf<PlatformMode?>(null)
         compose.setContent {
@@ -98,13 +95,15 @@ class DisplayModeSettingsTest {
             )
         }
 
-        // null effective → perception-only subtitle "Transcript", no VD chip on screen.
-        compose.onNodeWithText("Transcript").assertExists()
-        compose.onAllNodesWithText("VD", substring = true).assertCountEquals(0)
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val resources = ai.closepaw.ui.theme.appResources(context)
+        val tree = resources.getString(ai.closepaw.R.string.ui_tree_first)
+        val display = resources.getString(ai.closepaw.R.string.ui_virtual_display_this_session)
+        compose.onNodeWithText(tree, substring = true).assertExists()
+        compose.onAllNodesWithText(display, substring = true).assertCountEquals(0)
 
-        // effective=VIRTUAL_DISPLAY, persisted=ACCESSIBILITY → chip "VD (this session)".
         current = PlatformMode.VIRTUAL_DISPLAY
-        compose.onNodeWithText("Transcript · VD (this session)", substring = true).assertExists()
+        compose.onNodeWithText(tree + display, substring = true).assertExists()
     }
 }
 
@@ -120,7 +119,7 @@ private fun HomeUnderTest(
             modelOptions = listOf("gpt-5.2" to "GPT-5.2"),
             selectedLocalModel = "LFM2.5-1.2B-Instruct",
             modelCatalog = testModelCatalog(),
-            perceptionMode = "accessibility_only",
+            perceptionMode = "tree_first",
             isAccessibilityEnabled = false,
             isOverlayEnabled = false,
             debugMode = false,

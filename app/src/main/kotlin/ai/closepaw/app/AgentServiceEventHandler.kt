@@ -61,7 +61,7 @@ internal class AgentServiceEventHandler(
                     ActionOutcome.SKIPPED -> "skipped"
                 }
                 recordingService?.updateActionState(event.actionId, state, event.result)
-                overlay?.onActionExecuted(event.toolName, event.outcome == ActionOutcome.SUCCESS)
+                overlay?.onActionExecuted(event.actionId)
             }
             is SubAgentStarted -> {
                 updateStatus("🤖 Delegating to ${event.agentName}...")

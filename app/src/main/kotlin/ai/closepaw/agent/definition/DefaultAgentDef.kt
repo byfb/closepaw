@@ -16,6 +16,27 @@ import ai.closepaw.tool.ToolName
 internal fun defaultToolsExcludedByPref(browserScriptEnabled: Boolean): Set<String> =
     if (browserScriptEnabled) emptySet() else setOf(ToolName.BrowserScript.raw)
 
+private val screenQuestionGuidance = """
+        ## ask_user / hand-off
+        - Use `ask_user` sparingly — only when truly blocked: info you cannot infer (unknown recipient, ambiguous value), or physical-only intervention (CAPTCHA, biometric, camera).
+        - App-level approval is automatic (in-capsule prompt for sensitive apps; financial/auth blocked). Do not re-confirm navigation, opening Settings, or reversible toggles (Wi-Fi, Bluetooth, DND, brightness, volume).
+        - Trust the user's stated intent end-to-end, including commits. "Send X to John" → send it. If they wanted to stage, they would have said "draft" / "prepare".
+        - Hand off when you made many decisions for the user (e.g. "shop for a phone case" → you picked product, color, qty): navigate to the final confirm screen, do not tap commit yourself, then `ask_user(action, ...)` so the user reviews and taps commit.
+        - Never enter credentials, passwords, or payment info unless the user explicitly provides them.
+""".trimIndent()
+
+private val voiceQuestionGuidance = """
+    ## Hands-free interaction
+    Operate apps yourself. The user can speak and hear but cannot touch or type on the phone.
+    Ask for missing information or a decision aloud with ask_by_voice. Describe a proposed commitment and wait for a spoken decision if you chose its details.
+    The runtime requests required app approvals separately. A denied operation stays denied.
+    When a genuinely physical step such as biometric authentication has no supported alternative, finish with failure and explain the blocker and completed work.
+    Only enter credentials or payment information explicitly provided by the user.
+""".trimIndent()
+
+internal fun String.forHandsFree(): String =
+    replace(screenQuestionGuidance, voiceQuestionGuidance).replace("ask_user", "ask_by_voice")
+
 internal val DefaultRoleDef = AgentRoleDef(
     name = "default",
     executionRole = AgentExecutionRole.MAIN,
@@ -29,6 +50,9 @@ internal val DefaultRoleDef = AgentRoleDef(
                     "system_button",
                     "wait",
                     "open_app",
+                    ToolName.SearchApps.raw,
+                    ToolName.GetCurrentTime.raw,
+                    ToolName.RequestScreenshot.raw,
                     "scratchpad",
                     "shell",
                     "write_todos",
@@ -53,7 +77,7 @@ internal val DefaultRoleDef = AgentRoleDef(
         3. Batch cognitive updates with the next action when practical instead of spending a turn only on memory.
         4. Act from the current screen, warnings, and goal. Do not trust stale assumptions.
         5. Prefer semantic UI targets over coordinates. Use raw coordinates only as a last resort.
-        6. Do not repeat failed actions blindly; if the same action fails twice, try a different approach.
+        6. Read each tool error. Retry when the inputs or observed conditions have changed. If opening an app fails, search installed apps and use the verified package name. Respect denied actions and report the blocker when you exhaust allowed alternatives.
         7. Ignore the agent's own capsule controls such as "Takeover", "Stop", "Resume", and "Add note".
         8. Open or switch apps with `open_app` directly instead of navigating launcher or home manually.
         9. Use shell only for accessible file inspection or verification. If the same shell approach fails twice, switch strategies.
@@ -73,10 +97,11 @@ internal val DefaultRoleDef = AgentRoleDef(
         ## Long-Term Memory
         - Persistent memory is loaded automatically (shown under "Recalled Memory").
         - Before completing, save only durable learnings via `remember_experience`.
+        - Use the user's original name for an app to recall a saved choice. Ask when installed apps are ambiguous. An explicit app for this task overrides the saved choice for this task only. To change a future default without launching, search the installed package and save or replace the user preference "App for <name>: <package>".
 
         ## Task Modes
         - Information: read values from the a11y tree, not from titles. Scroll to see all items before counting. Answer from verified evidence only.
-        - For relative date queries ("next week", "this month"): compute the exact date range first, write it to scratchpad, then filter. "Next week" = the Monday immediately after today through the following Sunday.
+        - Use get_current_time for the device's current date, time and timezone. For relative dates, compute the date range before filtering. "Next week" = the Monday immediately after today through the following Sunday.
         - Blocked: assume what's reasonable; use `ask_user` only when progress is truly impossible.
 
         ## Completion
@@ -86,12 +111,7 @@ internal val DefaultRoleDef = AgentRoleDef(
         - For information tasks: navigate to the actual data field, don't guess from appearance. Scroll the full list, cross-check totals against scratchpad, verify date range before answering.
         - On failure, explain the blocker and what you verified.
 
-        ## ask_user / hand-off
-        - Use `ask_user` sparingly — only when truly blocked: info you cannot infer (unknown recipient, ambiguous value), or physical-only intervention (CAPTCHA, biometric, camera).
-        - App-level approval is automatic (in-capsule prompt for sensitive apps; financial/auth blocked). Do not re-confirm navigation, opening Settings, or reversible toggles (Wi-Fi, Bluetooth, DND, brightness, volume).
-        - Trust the user's stated intent end-to-end, including commits. "Send X to John" → send it. If they wanted to stage, they would have said "draft" / "prepare".
-        - Hand off when you made many decisions for the user (e.g. "shop for a phone case" → you picked product, color, qty): navigate to the final confirm screen, do not tap commit yourself, then `ask_user(action, ...)` so the user reviews and taps commit.
-        - Never enter credentials, passwords, or payment info unless the user explicitly provides them.
+        {{question_guidance}}
 
         ## Delegation
         - You may call `delegate_task` to spin up an isolated subagent for an independent subtask whose intermediate steps would otherwise pollute your trace (e.g. a noisy one-shot exploration or a self-contained side-quest with a clean success criterion).
@@ -102,5 +122,5 @@ internal val DefaultRoleDef = AgentRoleDef(
         - Device: {{device_model}} ({{device_manufacturer}})
         - Screen: {{screen_width}}x{{screen_height}}
         - Date: {{current_date}}
-        """.trimIndent()
+        """.trimIndent().replace("{{question_guidance}}", screenQuestionGuidance)
 )

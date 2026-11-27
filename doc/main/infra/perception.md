@@ -161,7 +161,8 @@ Session-level modality choice:
 
 | Variant | Description |
 |---------|-------------|
-| `AccessibilityOnly` | A11y tree only. Current default. |
+| `TreeFirst` (default) | A11y tree each turn. A vision-capable agent can call `request_screenshot` for one image in its next observation. |
+| `AccessibilityOnly` | A11y tree only, including during tracing. |
 | `ScreenshotOnly(maxDimension, jpegQuality)` | Screenshot only. No a11y tree is shown to the LLM. |
 | `Hybrid(maxDimension, jpegQuality)` | A11y tree + screenshot. Highest fidelity and highest token cost. |
 
@@ -169,6 +170,7 @@ Helpers:
 
 - `capturesAccessibility`
 - `capturesScreenshot`
+- `includesScreenshot(requested)`
 - `screenshotMaxDimension`
 - `screenshotJpegQuality`
 

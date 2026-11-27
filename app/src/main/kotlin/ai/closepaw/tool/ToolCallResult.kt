@@ -34,7 +34,8 @@ sealed class ToolCallResult {
      */
     data class Cancelled(
         override val callId: String,
-        val reason: String
+        val reason: String,
+        val replan: Boolean = false,
     ) : ToolCallResult()
     
     /**

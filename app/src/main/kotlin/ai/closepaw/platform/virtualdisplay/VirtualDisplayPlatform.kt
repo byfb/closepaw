@@ -320,7 +320,11 @@ class VirtualDisplayPlatform(
 
     // ── Screen Capture ──────────────────────────────────────────
 
-    override suspend fun captureScreen(): ScreenSnapshot {
+    override suspend fun captureScreen() = captureScreen(requested = false)
+
+    override suspend fun captureScreenWithScreenshot() = captureScreen(requested = true)
+
+    private suspend fun captureScreen(requested: Boolean): ScreenSnapshot {
         val currentPkg = getCurrentPackageName()
 
         // Null package = unknown foreground app — skip capture to avoid leaking artifacts
@@ -355,13 +359,11 @@ class VirtualDisplayPlatform(
                                     emptyList(), null, null
                             )
 
-            // 2. Screenshot capture (when config requires it OR trace is enabled)
-            val shouldCaptureScreenshot = pc.capturesScreenshot || traceRecorder.enabled
+            val shouldCaptureScreenshot = pc.includesScreenshot(requested)
             val imageCapture =
                     if (shouldCaptureScreenshot) captureCoordinator.captureScreenshot() else null
 
-            // 3. Only include screenshot in the snapshot if the perception config wants it
-            val image = if (pc.capturesScreenshot) imageCapture?.image else null
+            val image = imageCapture?.image
 
             Log.d(
                     TAG,

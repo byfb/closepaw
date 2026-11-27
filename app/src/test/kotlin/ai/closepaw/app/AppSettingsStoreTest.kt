@@ -28,6 +28,18 @@ class AppSettingsStoreTest {
         }
     }
 
+    @Test
+    fun `tree first is the default and explicit legacy screenshot choices survive migration`() {
+        fun mode() = AppSettingsStore(context).load().perceptionMode
+        assertThat(mode()).isEqualTo("tree_first")
+        backing["screenshot_input"] = false
+        assertThat(mode()).isEqualTo("accessibility_only")
+        backing["screenshot_input"] = true
+        assertThat(mode()).isEqualTo("hybrid")
+        backing["perception_mode"] = "screenshot_only"
+        assertThat(mode()).isEqualTo("screenshot_only")
+    }
+
     @After
     fun tearDown() {
         unmockkAll()
@@ -350,6 +362,7 @@ class AppSettingsStoreTest {
 
         val prefs = mockk<SharedPreferences>(relaxed = true)
         every { prefs.all } answers { backing.toMap() }
+        every { prefs.contains(any()) } answers { backing.containsKey(firstArg<String>()) }
         every { prefs.edit() } returns editor
         every { prefs.getString(any(), any()) } answers {
             backing[firstArg()] as? String ?: secondArg()

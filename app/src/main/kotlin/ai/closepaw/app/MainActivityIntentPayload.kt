@@ -161,6 +161,7 @@ data class MainActivityIntentPayload(
                 "a11y_only",
                 "a11y-only",
                 "a11y" -> "accessibility_only"
+                "tree_first", "tree-first" -> "tree_first"
                 "hybrid" -> "hybrid"
                 "screenshot_only", "screenshot-only", "screenshot" -> "screenshot_only"
                 else -> null

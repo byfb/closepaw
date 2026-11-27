@@ -133,7 +133,10 @@ Classifies Android packages into security tiers.
 | Tool | Description | Key Parameters |
 |------|-------------|----------------|
 | `mobile_action` | Screen-targeted touch interactions | `action`, targeting (`element_index`, `text`, coordinates) |
-| `open_app` | Launch app by name (denied for BLOCKED apps) | `app_name` |
+| `open_app` | Launch an installed app by label, saved alias or package | `app_name`, optional `remember_as` |
+| `search_apps` | Find installed launcher apps by label or package, or browse in pages | Optional `query`, `offset` |
+| `get_current_time` | Read the device date, time, UTC offset and zone ID | None |
+| `request_screenshot` | Read one image with the next observation in tree-first mode | None |
 | `system_button` | Press Android system key | `button` (`back`, `home`, `enter`, `recents`) |
 | `wait` | Pause for UI settle | `duration_ms` |
 | `complete_task` | Signal completion | `status`, `answer` |
@@ -141,7 +144,7 @@ Classifies Android packages into security tiers.
 | `scratchpad` | JSON-backed memory | `action`, `content` (JSON string for write) |
 | `delegate_task` | Subagent delegation (routes to the default role with subagent runtime exclusions) | `query`, `important_notes` |
 | `ask_user` | Request user help mid-task | `type` (`question`/`action`), `message` |
-| `ask_by_voice` | Ask through GPT Live when on-screen questions are disabled | `type` (`question`/`action`), `message` |
+| `ask_by_voice` | Ask aloud in a voice-origin task with on-screen questions disabled | `type` (`question`), `message` |
 | `shell` | Execute file-related shell commands | `command`, optional `timeout_ms` |
 | `termux_shell` | Execute full Linux bash through the Termux bridge | `command`, optional `cwd`, `timeout_seconds`, `env` |
 | `remember_experience` | Save reusable learning to long-term memory | `category`, `content`, optional `package_name` |

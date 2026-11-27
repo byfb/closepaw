@@ -11,14 +11,15 @@ internal class LiveCallControl(
     private val executeEndCall: suspend (JSONObject) -> Unit,
     private val unavailable: () -> Unit,
     private val executeMemory: suspend (List<JSONObject>) -> Boolean = { true },
-    private val captureVoiceAnswer: () -> (suspend (String) -> Unit)? = { null },
+    private val captureVoiceAnswer: () -> LiveVoiceQuestions.Answer? = { null },
+    private val processingVoiceReply: (ai.closepaw.session.UserResponseChannel.Prompt, Job) -> Unit = { _, _ -> },
 ) {
     private var decision = CompletableDeferred<Boolean>()
     private var submitted = false
     private var selection: Job? = null
     private var memoryHandledDecision: Deferred<Boolean>? = null
     private var speechStarted = false
-    private var voiceAnswer: (suspend (String) -> Unit)? = null
+    private var voiceAnswer: LiveVoiceQuestions.Answer? = null
 
     /** Capture this before enqueueing the handoff: the next user may speak while it is queued. */
     val handoffAllowed: Deferred<Boolean> get() = decision
@@ -44,8 +45,14 @@ internal class LiveCallControl(
             decision.complete(answer == null)
             return
         }
+        if (answer != null && ai.closepaw.session.spokenApproval(text) != null) {
+            decision.complete(false)
+            scope.launch(start = CoroutineStart.UNDISPATCHED) { answer(text) }
+            return
+        }
         val current = decision
         selection = scope.launch {
+            if (answer != null) processingVoiceReply(answer.prompt, coroutineContext.job)
             val arguments = try {
                 withTimeout(SELECTION_TIMEOUT_MS) { selectTools(text.take(6000)) }
             } catch (_: TimeoutCancellationException) {

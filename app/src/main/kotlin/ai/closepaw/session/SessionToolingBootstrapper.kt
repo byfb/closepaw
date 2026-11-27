@@ -1,5 +1,6 @@
 package ai.closepaw.session
 
+import ai.closepaw.memory.MemoryStore
 import android.content.Context
 import android.util.Log
 import ai.closepaw.agent.cognition.skills.AgentSkillManager
@@ -18,6 +19,9 @@ import ai.closepaw.tool.impl.ActivateSkillTool
 import ai.closepaw.tool.impl.CompleteTaskTool
 import ai.closepaw.tool.impl.MobileActionTool
 import ai.closepaw.tool.impl.OpenAppTool
+import ai.closepaw.tool.impl.GetCurrentTimeTool
+import ai.closepaw.tool.impl.RequestScreenshotTool
+import ai.closepaw.tool.impl.SearchAppsTool
 import ai.closepaw.tool.impl.ScratchpadTool
 import ai.closepaw.tool.impl.ShellTool
 import ai.closepaw.tool.impl.SystemButtonTool
@@ -45,7 +49,8 @@ internal object SessionToolingBootstrapper {
         delegatableRoleDefs: List<AgentRoleDef> = emptyList(),
         termuxSnapshot: TermuxCapabilitySnapshot = TermuxCapabilitySnapshot.Unavailable,
         excludedTools: Set<String> = emptySet(),
-        context: Context? = null
+        context: Context? = null,
+        memoryStore: MemoryStore? = null,
     ): SessionToolingBootstrap {
         val policyEngine = PolicyEngine(
             initialApprovalMode = approvalMode,
@@ -62,7 +67,8 @@ internal object SessionToolingBootstrapper {
             registerBuiltInTools(
                 sessionState = sessionState,
                 allowedToolNames = allowedToolNames,
-                context = context
+                context = context,
+                memoryStore = memoryStore,
             )
         }
 
@@ -106,13 +112,17 @@ internal object SessionToolingBootstrapper {
     private fun ToolRegistry.registerBuiltInTools(
         sessionState: AgentSessionState,
         allowedToolNames: Set<String>,
-        context: Context?
+        context: Context?,
+        memoryStore: MemoryStore?,
     ) {
         if (ToolName.CompleteTask.raw in allowedToolNames) register(CompleteTaskTool())
         if (ToolName.MobileAction.raw in allowedToolNames) register(MobileActionTool())
         if (ToolName.SystemButton.raw in allowedToolNames) register(SystemButtonTool())
         if (ToolName.Wait.raw in allowedToolNames) register(WaitTool())
-        if (ToolName.OpenApp.raw in allowedToolNames) register(OpenAppTool())
+        if (ToolName.OpenApp.raw in allowedToolNames) register(OpenAppTool(memoryStore))
+        if (ToolName.SearchApps.raw in allowedToolNames) register(SearchAppsTool)
+        if (ToolName.GetCurrentTime.raw in allowedToolNames) register(GetCurrentTimeTool)
+        if (ToolName.RequestScreenshot.raw in allowedToolNames) register(RequestScreenshotTool)
         if (ToolName.Shell.raw in allowedToolNames) register(ShellTool())
         if (ToolName.TermuxShell.raw in allowedToolNames) registerTermuxShellTool(context)
         if (ToolName.WriteTodos.raw in allowedToolNames) register(WriteTodosTool(sessionState.todos))

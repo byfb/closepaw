@@ -10,6 +10,7 @@ import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.settings.AVAILABLE_LOCAL_MODELS
 import ai.closepaw.ui.settings.LocalModelOption
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -63,7 +64,7 @@ class AppSettingsStore(private val context: Context) {
 
         const val DEFAULT_MODEL = ModelCatalog.DEFAULT_MODEL
         const val DEFAULT_DEBUG_MODE = false
-        const val DEFAULT_PERCEPTION_MODE = "accessibility_only"
+        const val DEFAULT_PERCEPTION_MODE = "tree_first"
         val DEFAULT_LLM_BACKEND = LLMBackendType.OPENAI
         val DEFAULT_LOCAL_MODEL: LocalModelOption = AVAILABLE_LOCAL_MODELS.first()
         val DEFAULT_PLATFORM_MODE = PlatformMode.ACCESSIBILITY
@@ -101,8 +102,11 @@ class AppSettingsStore(private val context: Context) {
         val debugMode = prefs.getBoolean(KEY_DEBUG_MODE, DEFAULT_DEBUG_MODE)
         val perceptionMode =
                 prefs.getString(KEY_PERCEPTION_MODE, null)
-                        ?: if (prefs.getBoolean(KEY_SCREENSHOT_INPUT, false)) "hybrid"
-                        else DEFAULT_PERCEPTION_MODE
+                        ?: when {
+                            !prefs.contains(KEY_SCREENSHOT_INPUT) -> DEFAULT_PERCEPTION_MODE
+                            prefs.getBoolean(KEY_SCREENSHOT_INPUT, false) -> "hybrid"
+                            else -> "accessibility_only"
+                        }
 
         val backendName =
                 prefs.getString(KEY_LLM_BACKEND, DEFAULT_LLM_BACKEND.name)
@@ -190,6 +194,16 @@ class AppSettingsStore(private val context: Context) {
     }
 
     fun loadOnScreenQuestions(): Boolean = prefs().getBoolean(KEY_ON_SCREEN_QUESTIONS, true)
+
+    fun onScreenQuestionChanges() = kotlinx.coroutines.flow.callbackFlow {
+        val settings = prefs()
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_ON_SCREEN_QUESTIONS || key == null) trySend(loadOnScreenQuestions())
+        }
+        settings.registerOnSharedPreferenceChangeListener(listener)
+        trySend(loadOnScreenQuestions())
+        awaitClose { settings.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
 
     fun loadCoreInstructions(): String =
         prefs().getString("core_instructions", "").orEmpty().take(ai.closepaw.protocol.CustomInstructions.MAX_LENGTH)

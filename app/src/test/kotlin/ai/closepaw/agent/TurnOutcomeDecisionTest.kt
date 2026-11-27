@@ -29,7 +29,7 @@ class TurnOutcomeDecisionTest {
     }
 
     @Test
-    fun `failure before complete_task yields Error not Complete`() {
+    fun `failure before complete_task discards completion and replans`() {
         val screen = toolCall("mobile_action")
         val complete = toolCall("complete_task", JSONObject("""{"answer":"done"}"""))
         val calls = listOf(screen, complete)
@@ -43,8 +43,7 @@ class TurnOutcomeDecisionTest {
 
         val outcome = decideTurnOutcome(policy, turnResult, arbitration, execution)
 
-        assertThat(outcome).isInstanceOf(TurnOutcome.Error::class.java)
-        assertThat((outcome as TurnOutcome.Error).message).isEqualTo("tap missed target")
+        assertThat(outcome).isEqualTo(TurnOutcome.Continue)
     }
 
     @Test

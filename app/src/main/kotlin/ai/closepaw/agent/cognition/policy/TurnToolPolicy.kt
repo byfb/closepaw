@@ -61,6 +61,10 @@ internal class TurnToolPolicy {
 
         val completionCall = toolCalls.find { it.name == COMPLETE_TASK_TOOL }
         val hasCompletionTool = completionCall != null
+        // Observe the requested image before executing dependent actions or accepting completion.
+        toolCalls.firstOrNull { it.name == ToolName.RequestScreenshot.raw }?.let { screenshot ->
+            return ToolArbitrationResult(listOf(screenshot), hasCompletionTool, false, toolCalls.filter { it.id != screenshot.id })
+        }
         val nonCompletionCalls = toolCalls.filter { it.name != COMPLETE_TASK_TOOL }
         val screenCalls =
                 nonCompletionCalls.filter { call ->
@@ -103,7 +107,8 @@ internal class TurnToolPolicy {
             turnResult: TurnResult,
             arbitration: ToolArbitrationResult
     ): CompletionDecision {
-        val shouldComplete = turnResult.isComplete && !arbitration.hasScreenAction
+        val shouldComplete = turnResult.isComplete && !arbitration.hasScreenAction &&
+            arbitration.selectedToolCalls.none { it.name == ToolName.RequestScreenshot.raw }
         if (!shouldComplete) {
             return CompletionDecision(shouldComplete = false, summary = null, success = false)
         }

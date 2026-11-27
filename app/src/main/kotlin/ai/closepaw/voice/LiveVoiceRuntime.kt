@@ -21,6 +21,7 @@ data class LiveVoiceState(
     val connectionStage: String? = null,
 ) {
     val running: Boolean get() = phase == LiveVoicePhase.Connecting || phase == LiveVoicePhase.Active
+    val canReceiveSpeech: Boolean get() = phase == LiveVoicePhase.Active && !preview && !muted && !audioInterrupted
     internal val showInOverlay: Boolean get() = !preview && (running || phase == LiveVoicePhase.Error)
 }
 

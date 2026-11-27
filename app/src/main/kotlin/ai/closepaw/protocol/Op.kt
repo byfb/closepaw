@@ -63,7 +63,8 @@ sealed interface Op {
      * This is the primary way to interact with the agent.
      */
     data class UserInput(
-        val text: String
+        val text: String,
+        val fromLiveVoice: Boolean = false,
     ) : Op
 
     /**
@@ -83,7 +84,8 @@ sealed interface Op {
      */
     data class UserResponse(
         val callId: String,
-        val response: String
+        val response: String,
+        val spoken: Boolean = false,
     ) : Op
 
     /**

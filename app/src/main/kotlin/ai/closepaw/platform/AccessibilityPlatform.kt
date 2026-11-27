@@ -61,7 +61,11 @@ class AccessibilityPlatform(
     private val screenshotCapturer = AccessibilityScreenshotCapturer(service, config, traceRecorder)
     private val outOfBoundsActionTargetCount = AtomicInteger(0)
 
-    override suspend fun captureScreen(): ScreenSnapshot {
+    override suspend fun captureScreen() = captureScreen(requested = false)
+
+    override suspend fun captureScreenWithScreenshot() = captureScreen(requested = true)
+
+    private suspend fun captureScreen(requested: Boolean): ScreenSnapshot {
         val currentPkg = getCurrentPackageName()
 
         // Privacy gate: BLOCKED apps get masked snapshot — no artifacts created
@@ -89,14 +93,12 @@ class AccessibilityPlatform(
         // 1. Always capture accessibility tree (for change detection, node finding, trace)
         val a11yResult = captureAccessibilityTree()
 
-        // 2. Screenshot capture (when config requires it OR trace is enabled for debugging)
-        val shouldCaptureScreenshot = pc.capturesScreenshot || traceRecorder.enabled
+        val shouldCaptureScreenshot = pc.includesScreenshot(requested)
         val windowId = a11yResult.windowId
         val screenshotCapture =
                 screenshotCapturer.captureIfEnabled(windowId, enabled = shouldCaptureScreenshot)
 
-        // 3. Only include screenshot in the snapshot if the perception config wants it
-        val image = if (pc.capturesScreenshot) screenshotCapture?.image else null
+        val image = screenshotCapture?.image
 
         // 4. Build debug info
         val debug =

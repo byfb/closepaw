@@ -226,6 +226,27 @@ class MemoryStore(
     fun appendUserPreference(content: String): Boolean =
         append(MemoryScope.USER, MemorySection.PREFERENCES, content)
 
+    /** Keep named app choices in the same editable preferences the user and agent see. */
+    private fun appPreference(alias: String): String? {
+        val key = "App for ${alias.trim()}"
+        val document = read(MemoryScope.USER) ?: return null
+        return entryLines(document, MemorySection.PREFERENCES)
+            .map { entryText(it.second) }
+            .lastOrNull { it.substringBeforeLast(": ", "").equals(key, ignoreCase = true) }
+    }
+
+    fun preferredAppPackage(alias: String): String? = appPreference(alias)?.substringAfterLast(": ")
+
+    fun rememberApp(alias: String, packageName: String): Boolean = synchronized(shared) {
+        val previous = appPreference(alias)
+        val entry = "App for ${alias.trim()}: $packageName"
+        when {
+            previous == entry -> true
+            previous == null -> appendUserPreference(entry)
+            else -> update(MemoryScope.USER, MemorySection.PREFERENCES, MemoryOperation.REPLACE, entry, previous) == SaveResult.Success
+        }
+    }
+
     fun appendDeviceFact(content: String): Boolean =
         append(MemoryScope.DEVICE, MemorySection.FACTS, content)
 

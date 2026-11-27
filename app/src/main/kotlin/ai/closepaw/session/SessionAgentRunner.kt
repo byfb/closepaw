@@ -68,7 +68,6 @@ internal class SessionAgentRunner(
         val resolvedAgentDef: ResolvedAgentRole = agentDef.resolve(
             snapshot = services.termuxSnapshot,
             excludedTools = services.config.excludedTools.toToolNames(),
-            voiceQuestions = !services.onScreenQuestionsEnabled(),
         )
 
         if (ToolName.DelegateTask.raw in resolvedAgentDef.allowedToolNames) {
@@ -90,7 +89,8 @@ internal class SessionAgentRunner(
             systemPrompt = ai.closepaw.protocol.CustomInstructions.appendTo(
                 resolvePromptTemplates(resolvedAgentDef.systemPrompt), config.customInstructions,
             ),
-            allowedToolNames = resolvedAgentDef.allowedToolNames,
+            allowedToolNames = resolvedAgentDef.allowedToolNames +
+                listOfNotNull(ToolName.AskByVoice.raw.takeIf { services.toolRegistry.contains(it) }),
             agentId = sessionId.value,
             agentRole = resolvedAgentDef.executionRole,
             modelName = modelName,
@@ -184,10 +184,13 @@ internal class SessionAgentRunner(
 
     private fun registerQuestionTool(role: ResolvedAgentRole) {
         for (tool in listOf(ToolName.AskUser, ToolName.AskByVoice)) {
-            if (tool !in role.allowedTools) services.toolRegistry.unregister(tool.raw)
+            val allowVoice = tool == ToolName.AskByVoice && services.questionRouting.fromLiveVoice &&
+                ToolName.AskUser in role.allowedTools && tool.raw !in services.config.excludedTools
+            if (tool !in role.allowedTools && !allowVoice) services.toolRegistry.unregister(tool.raw)
             else if (!services.toolRegistry.contains(tool.raw)) {
                 services.toolRegistry.register(ai.closepaw.tool.impl.AskUserTool(
                     services.userResponseChannel, eventDispatcher, byVoice = tool == ToolName.AskByVoice,
+                    routing = services.questionRouting,
                 ))
             }
         }

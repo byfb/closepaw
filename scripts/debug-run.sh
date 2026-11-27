@@ -13,7 +13,7 @@
 #
 # Environment Variables:
 #   LLM_BACKEND: "openai" (default) or "local" - selects LLM backend
-#   PERCEPTION_MODE: "accessibility_only" (default), "screenshot_only", or "hybrid"
+#   PERCEPTION_MODE: "tree_first" (default), "accessibility_only", "screenshot_only", or "hybrid"
 #   MAIN_MODEL: Override main model name (key from llm_models.json)
 #   PLATFORM_MODE: "accessibility" (default) or "virtual_display"
 #   APPROVAL_MODE: "SMART" (default), "AUTO_APPROVE", or "ALWAYS_ASK" for debug builds
@@ -55,7 +55,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --perception|-p)
             if [[ $# -lt 2 ]]; then
-                echo "Missing value for --perception. Use accessibility_only|screenshot_only|hybrid"
+                echo "Missing value for --perception. Use tree_first|accessibility_only|screenshot_only|hybrid"
                 exit 1
             fi
             FORCED_PERCEPTION_MODE="$2"
@@ -146,7 +146,10 @@ normalize_perception_mode() {
     local raw="${1:-}"
     raw=$(echo "$raw" | tr '[:upper:]' '[:lower:]')
     case "$raw" in
-        accessibility_only|accessibility-only|accessibility|a11y_only|a11y-only|a11y|"")
+        tree_first|tree-first|"")
+            echo "tree_first"
+            ;;
+        accessibility_only|accessibility-only|accessibility|a11y_only|a11y-only|a11y)
             echo "accessibility_only"
             ;;
         screenshot_only|screenshot-only|screenshot)
@@ -194,7 +197,7 @@ fi
 if [[ -n "$FORCED_PERCEPTION_MODE" ]]; then
     PERCEPTION_MODE="$FORCED_PERCEPTION_MODE"
 fi
-PERCEPTION_MODE="${PERCEPTION_MODE:-accessibility_only}"
+PERCEPTION_MODE="${PERCEPTION_MODE:-tree_first}"
 PERCEPTION_MODE=$(normalize_perception_mode "$PERCEPTION_MODE")
 
 # Determine platform mode

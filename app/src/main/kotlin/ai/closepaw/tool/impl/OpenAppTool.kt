@@ -1,6 +1,9 @@
 package ai.closepaw.tool.impl
 
 import android.util.Log
+import ai.closepaw.memory.MemoryStore
+import ai.closepaw.platform.AndroidPlatform
+import ai.closepaw.platform.AppInfo
 import ai.closepaw.platform.ActionResult
 import ai.closepaw.protocol.AppTier
 import ai.closepaw.tool.action.buildObservation
@@ -11,6 +14,8 @@ import ai.closepaw.tool.ToolObservation
 import ai.closepaw.tool.ToolSpec
 import ai.closepaw.tool.ValidationResult
 import ai.closepaw.tool.appendReason
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
@@ -54,32 +59,16 @@ internal object AppAliases {
     )
 }
 
-/**
- * OpenAppTool — Launch an app by name.
- *
- * Simplified from the former AppControlTool (which also had list_apps, package_name, filter).
- * Aligned with every reference repo: single `app_name` parameter, no agent-facing package names.
- *
- * Resolution strategy (ordered):
- * 1. Foreground check — skip if already open
- * 2. Exact label match (case-insensitive)
- * 3. Label contains search term
- * 4. Well-known alias → package
- * 5. Package-name-shaped input → direct launch
- * 6. Fuzzy suggestions on failure
- */
-class OpenAppTool : ToolSpec {
-
-    companion object {
-        private const val TAG = "OpenAppTool"
-    }
+/** Resolve a single installed target and pin it through policy approval and launch. */
+class OpenAppTool(private val memory: MemoryStore? = null) : ToolSpec {
 
     override val name: String = "open_app"
 
     override val description: String = """
 Launch an app by name. Always use this to open apps — do NOT navigate the app drawer or home screen manually.
 If the target app is already in the foreground, this returns success without relaunching it.
-If the app is not found, suggestions will be provided.
+Use the user's name for the app or its exact installed package. If multiple apps match, ask which to use.
+After the user chooses, open the exact package and set remember_as to their original name for the app. Use remember_as for an explicit future default too. Omit it for one-time overrides.
 """.trimIndent()
 
     override val parameterSchema: JSONObject by lazy {
@@ -90,6 +79,8 @@ If the app is not found, suggestions will be provided.
                     put("type", "string")
                     put("description", "Brief reason for this action")
                 })
+                put("remember_as", JSONObject().put("type", "string")
+                    .put("description", "Original app name or purpose to remember for future tasks, after the user selects a default."))
                 put("app_name", JSONObject().apply {
                     put("type", "string")
                     put("description", "Name of the app to open (e.g., 'Gmail', 'Settings', 'Chrome'). Case-insensitive.")
@@ -105,6 +96,11 @@ If the app is not found, suggestions will be provided.
         if (appName.isEmpty()) {
             return ValidationResult.Invalid("open_app requires app_name")
         }
+        if (params.has("remember_as")) {
+            val alias = params.opt("remember_as") as? String
+            if (alias.isNullOrBlank() || alias.length > 120 || alias.any(Char::isISOControl))
+                return ValidationResult.Invalid("remember_as must be a single short app name")
+        }
         return ValidationResult.Valid
     }
 
@@ -114,7 +110,7 @@ If the app is not found, suggestions will be provided.
 
         val desc = appendReason("Open app: $appName", agentThought)
 
-        return OpenAppInvocation(params, desc, appName)
+        return OpenAppInvocation(params, desc, appName, memory)
     }
 }
 
@@ -123,10 +119,11 @@ If the app is not found, suggestions will be provided.
  *
  * Handles name resolution, foreground check, launch, and post-launch screen capture.
  */
-private class OpenAppInvocation(
+internal class OpenAppInvocation(
     override val params: JSONObject,
     private val description: String,
-    private val appName: String
+    private val appName: String,
+    private val memory: MemoryStore?,
 ) : ToolInvocation {
 
     companion object {
@@ -139,51 +136,34 @@ private class OpenAppInvocation(
 
     override fun getDescription(): String = description
 
+    private var target: AppInfo? = null
+
+    /** Return an actionable diagnostic for ambiguity or a missing app. */
+    suspend fun resolve(platform: AndroidPlatform): String? {
+        if (target != null) return null
+        val apps = platform.getInstalledApps()
+        val matches = searchInstalledApps(appName, apps)
+        val byPackage = apps.firstOrNull { it.packageName.equals(appName, ignoreCase = true) }
+        val preferred = if (byPackage == null) withContext(Dispatchers.IO) { memory?.preferredAppPackage(appName) } else null
+        val exact = matches.filter { it.label.equals(appName, ignoreCase = true) }
+        target = byPackage ?: apps.firstOrNull { it.packageName == preferred }
+            ?: (exact.ifEmpty { matches }).singleOrNull()
+        if (target != null) return null
+        if (matches.isNotEmpty()) {
+            return "Multiple apps match '$appName': " + (exact.ifEmpty { matches }).take(10).joinToString { it.displayMatch() } +
+                ". Ask the user which app, then open its exact package with remember_as set to '$appName'."
+        }
+        val suggestions = findSimilarApps(appName.lowercase(), apps).joinToString()
+        return "App not found: '$appName'. Use search_apps to find an installed package." +
+            if (suggestions.isBlank()) "" else " Similar apps: $suggestions."
+    }
+
+    val destinationPackage: String? get() = target?.packageName
+
     override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
-        if (context.isCancelled()) {
-            return ToolExecutionResult.Cancelled("Cancelled before execution")
-        }
-
-        val apps = context.platform.getInstalledApps()
-        val searchTerm = appName.lowercase().trim()
-
-        // --- Resolve package name ---
-
-        // Strategy 1: Exact label match
-        var match = apps.find { it.label.equals(appName, ignoreCase = true) }
-
-        // Strategy 2: Label contains search term
-        if (match == null) {
-            match = apps.find { it.label.contains(appName, ignoreCase = true) }
-        }
-
-        // Strategy 3: Well-known alias → package
-        if (match == null) {
-            val aliasPackage = AppAliases.PACKAGE_MAP[searchTerm]
-            if (aliasPackage != null) {
-                match = apps.find { it.packageName == aliasPackage }
-            }
-        }
-
-        // Strategy 4: Input looks like a package name (e.g. "com.google.android.gm")
-        if (match == null && looksLikePackageName(searchTerm)) {
-            match = apps.find { it.packageName.equals(searchTerm, ignoreCase = true) }
-                ?: apps.find { it.packageName.contains(searchTerm, ignoreCase = true) }
-        }
-
-        if (match == null) {
-            val suggestions = findSimilarApps(searchTerm, apps)
-            val suggestionText = if (suggestions.isNotEmpty()) {
-                "Similar apps: ${suggestions.joinToString(", ")}. Try again with the correct name."
-            } else {
-                "No similar apps found on this device."
-            }
-            Log.w(TAG, "App not found: '$appName'. $suggestionText")
-            return ToolExecutionResult.Failure(
-                "App not found: '$appName'. $suggestionText"
-            )
-        }
-
+        if (context.isCancelled()) return ToolExecutionResult.Cancelled("Cancelled before execution")
+        resolve(context.platform)?.let { return ToolExecutionResult.Failure(it) }
+        val match = requireNotNull(target)
         val targetPackage = match.packageName
         Log.d(TAG, "Resolved '$appName' -> $targetPackage (${match.label})")
 
@@ -201,7 +181,7 @@ private class OpenAppInvocation(
         if (currentPackage != null && currentPackage == targetPackage) {
             Log.d(TAG, "'${match.label}' is already in the foreground, skipping launch")
             return ToolExecutionResult.Success(
-                output = "'${match.label}' is already in the foreground. No action needed."
+                output = "'${match.label}' is already in the foreground." + saveChoice(targetPackage)
             )
         }
 
@@ -224,7 +204,7 @@ private class OpenAppInvocation(
                 }
 
                 ToolExecutionResult.Success(
-                    output = "Launched ${match.label} ($targetPackage)",
+                    output = "Launched ${match.label} ($targetPackage)" + saveChoice(targetPackage),
                     observation = observation
                 )
             }
@@ -235,13 +215,10 @@ private class OpenAppInvocation(
         }
     }
 
-    // ---- Helpers ----
-
-    /**
-     * Check if input looks like a package name (e.g. "com.google.android.gm").
-     */
-    private fun looksLikePackageName(input: String): Boolean {
-        return input.contains('.') && input.split('.').size >= 2
+    private suspend fun saveChoice(packageName: String): String {
+        val alias = params.optString("remember_as").trim().takeIf { it.isNotEmpty() } ?: return ""
+        val saved = withContext(Dispatchers.IO) { memory?.rememberApp(alias, packageName) == true }
+        return if (saved) " Remembered '$alias' for future tasks." else " Could not save the app preference."
     }
 
     /**

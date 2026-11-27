@@ -123,8 +123,8 @@ stateDiagram-v2
 Maps `(TurnResult, ToolArbitrationResult, ExecutionPhaseResult)` to `TurnOutcome`. Key rules:
 
 1. If `execution.terminatedEarly`:
-   - last result `Cancelled` → `TurnOutcome.Cancelled`
-   - last result `Error` → `TurnOutcome.Error(recoverable=true)`
+   - A user cancellation stops the run. A policy rejection or changed foreground app returns `Continue` so the agent can choose an allowed alternative.
+   - A tool error returns `Continue` with the diagnostic in history. An unanswered voice request ends the task with the question in the result. A delegated action requiring approval returns to the parent.
    - else → `TurnOutcome.Error("Tool execution aborted before completion", recoverable=true)`
 2. Else if `complete_task` was selected but its id is **not** in `executedToolIds` → `TurnOutcome.Error("complete_task was planned but did not execute", recoverable=true)`
 3. Else `policy.decideCompletion`: if `shouldComplete`, emit `Complete(summary, success)`, otherwise `Continue`.

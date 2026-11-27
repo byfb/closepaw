@@ -73,7 +73,7 @@ internal class IsolatedSubAgentRunner(
     override suspend fun run(request: SubAgentRequest): SubAgentResult {
         val childTaskId = "sub-${roleDef.name}-${System.currentTimeMillis()}"
         val childSessionId = SessionId("${parentSessionId.value}::$childTaskId")
-        val voiceQuestions = parentServices.toolRegistry.contains(ToolName.AskByVoice.raw)
+        val voiceQuestions = parentServices.questionRouting.handsFree
         val resolvedRoleDef: ResolvedAgentRole = roleDef.resolve(
             snapshot = parentServices.termuxSnapshot,
             excludedTools = parentServices.config.excludedTools.toToolNames(),
@@ -82,11 +82,13 @@ internal class IsolatedSubAgentRunner(
         // delegate_task: prevent runaway recursion — a subagent must not spawn another subagent.
         // remember_experience: long-term memory writes stay scoped to the main agent. The subagent's
         // insights flow back via its delegation result; the parent decides what (if anything) to persist.
+        val excluded = if (parentServices.questionRouting.fromLiveVoice)
+            SUBAGENT_EXCLUDED_TOOL_NAMES + ToolName.AskUser.raw else SUBAGENT_EXCLUDED_TOOL_NAMES
         val childTools = parentServices.toolRegistry.createFilteredCopy(
             allowedNames = resolvedRoleDef.allowedToolNames,
-            excludedNames = SUBAGENT_EXCLUDED_TOOL_NAMES
+            excludedNames = excluded
         )
-        val childAllowedToolNames = resolvedRoleDef.allowedToolNames - SUBAGENT_EXCLUDED_TOOL_NAMES
+        val childAllowedToolNames = resolvedRoleDef.allowedToolNames - excluded
         // Share scratchpad by reference on purpose so planner/executor exchange state in one turn.
         // ScratchpadState uses synchronized access and is safe for concurrent coroutine access.
         val childServices = parentServices.copy(
@@ -103,9 +105,9 @@ internal class IsolatedSubAgentRunner(
 
         val childCompactor = buildChildCompactor(childServices, childModelName)
         // The parent can wait for speech beyond this child's execution deadline.
-        val prompt = if (voiceQuestions) resolvedRoleDef.systemPrompt +
-            "\nFor this delegated subtask, return any question or required physical step to the parent in your result. " +
-            "The parent owns ask_by_voice and waits for the user." else resolvedRoleDef.systemPrompt
+        val prompt = if (parentServices.questionRouting.fromLiveVoice) resolvedRoleDef.systemPrompt +
+            "\nReturn any user question or physical blocker to the parent in your result. The parent handles user input."
+            else resolvedRoleDef.systemPrompt
 
         val childAgent = Agent(
             config = AgentExecutionConfig(

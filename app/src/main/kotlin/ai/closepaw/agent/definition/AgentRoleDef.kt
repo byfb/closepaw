@@ -66,7 +66,7 @@ internal data class AgentRoleDef(
             executionRole = executionRole,
             allowedTools = resolvedTools,
             systemPrompt = if (ToolName.AskByVoice in resolvedTools)
-                prompt.replace(ToolName.AskUser.raw, ToolName.AskByVoice.raw) else prompt,
+                prompt.forHandsFree() else prompt,
             timeoutMs = resolvedTimeoutMs,
             delegatable = delegatable,
             description = description

@@ -245,6 +245,7 @@ class PolicyEngineTest {
             destinationPackage = "com.bank"
         )
         assertThat(decision).isInstanceOf(PolicyDecision.Deny::class.java)
+        assertThat((decision as PolicyDecision.Deny).reason).contains("com.bank")
     }
 
     // --- User override interactions (canonical step ordering) ---
