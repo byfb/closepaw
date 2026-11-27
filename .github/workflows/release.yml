@@ -45,7 +45,7 @@ jobs:
           apk=app/build/outputs/apk/release/app-release.apk
           asset="$apk"
           notes=(--generate-notes)
-          if [[ "$GITHUB_REF_NAME" == *+byfb.* ]]; then
+          if [[ "$GITHUB_REPOSITORY" == "byfb/closepaw" || "$GITHUB_REF_NAME" == *+byfb.* ]]; then
             version="${GITHUB_REF_NAME#v}"
             asset="$RUNNER_TEMP/closepaw-${version//[^a-zA-Z0-9._-]/-}.apk"
             cp -- "$apk" "$asset"
