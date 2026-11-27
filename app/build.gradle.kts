@@ -246,6 +246,7 @@ dependencies {
     // Pure Java JSON library for unit tests (Android's JSONObject is not available in unit tests)
     testImplementation("org.json:json:20240303")
     testImplementation("com.squareup.okhttp3:mockwebserver:5.2.1")
+    testImplementation("com.squareup.okhttp3:okhttp-tls:5.2.1")
 
     // Instrumented QA tests (Compose UI Test on emulator/device)
     androidTestImplementation(composeBom)

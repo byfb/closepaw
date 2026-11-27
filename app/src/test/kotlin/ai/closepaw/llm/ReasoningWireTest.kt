@@ -5,18 +5,30 @@ import ai.closepaw.auth.AuthStore
 import ai.closepaw.auth.FakeSharedPreferences
 import android.content.Context
 import com.google.common.truth.Truth.assertThat
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.tls.HandshakeCertificates
+import okhttp3.tls.HeldCertificate
 import org.json.JSONObject
 import org.junit.Test
 
 class ReasoningWireTest {
     @Test fun `factory sends selected effort using each provider request format`() = runBlocking {
         val server = MockWebServer()
+        val certificate = HeldCertificate.Builder().addSubjectAlternativeName("localhost").build()
+        val serverTls = HandshakeCertificates.Builder().heldCertificate(certificate).build()
+        val clientTls = HandshakeCertificates.Builder().addTrustedCertificate(certificate.certificate).build()
+        server.useHttps(serverTls.sslSocketFactory(), false)
         server.start()
+        mockkObject(InsecureSslConfig)
         try {
+            every { InsecureSslConfig.trustManager } returns clientTls.trustManager
+            every { InsecureSslConfig.sslSocketFactory } returns clientTls.sslSocketFactory()
             for (provider in listOf(LLMProvider.OPENAI_API, LLMProvider.OTHER)) {
                 val api = if (provider == LLMProvider.OPENAI_API) "response" else "chat"
                 val catalog = ModelCatalog.fromJson("""{"model":{
@@ -52,6 +64,7 @@ class ReasoningWireTest {
                 }
             }
         } finally {
+            unmockkObject(InsecureSslConfig)
             server.shutdown()
         }
     }
